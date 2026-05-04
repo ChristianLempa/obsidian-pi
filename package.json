@@ -1,0 +1,24 @@
+{
+  "name": "obsidian-pi",
+  "version": "0.0.1",
+  "description": "Chat with Pi inside Obsidian using context from your notes, links, backlinks, tags, and search results.",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write main.js styles.css scripts/*.mjs *.md *.json",
+    "format:check": "prettier --check main.js styles.css scripts/*.mjs *.md *.json",
+    "dev:install": "node scripts/install-dev.mjs",
+    "version:check": "node scripts/check-version.mjs",
+    "release:zip": "node scripts/package-release.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "pi",
+    "ai"
+  ],
+  "author": "Christian Lempa",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^3.8.3"
+  }
+}

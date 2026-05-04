@@ -1,0 +1,38 @@
+name: Release Obsidian plugin
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate version
+        run: npm run version:check
+
+      - name: Build release zip
+        run: npm run release:zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            main.js
+            manifest.json
+            styles.css
+            obsidian-pi-${{ github.ref_name }}.zip
+          fail_on_unmatched_files: true

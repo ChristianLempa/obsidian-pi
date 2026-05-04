@@ -1,0 +1,13 @@
+# Obsidian/plugin runtime data
+data.json
+pi-sessions/
+
+# Dependencies, generated release files, and local tooling
+node_modules/
+package-lock.json
+obsidian-pi-*.zip
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/

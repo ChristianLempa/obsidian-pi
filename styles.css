@@ -1,0 +1,744 @@
+.obsidian-pi-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 12px;
+  padding: 12px;
+}
+
+.obsidian-pi-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 30px;
+}
+
+.obsidian-pi-brand {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+  min-width: 0;
+}
+
+.obsidian-pi-brand-icon {
+  align-items: center;
+  color: var(--text-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 18px;
+  justify-content: center;
+  width: 18px;
+}
+
+.obsidian-pi-brand-icon svg {
+  height: 18px;
+  width: 18px;
+}
+
+.obsidian-pi-thread-title {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: text;
+  display: inline-flex;
+  font-size: var(--font-ui-small);
+  gap: 6px;
+  height: 24px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 4px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-pi-thread-title:hover,
+.obsidian-pi-thread-title:focus {
+  background: transparent;
+  color: var(--text-normal);
+  outline: none;
+}
+
+.obsidian-pi-thread-title.is-editing {
+  box-shadow: inset 0 -1px 0 var(--background-modifier-border-hover);
+  color: var(--text-normal);
+  cursor: text;
+}
+
+.obsidian-pi-thread-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-pi-thread-archived {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  color: var(--text-faint);
+  flex: 0 0 auto;
+  font-size: var(--font-ui-smaller);
+  padding: 0 5px;
+}
+
+.obsidian-pi-thread-title-input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text-normal);
+  font: inherit;
+  height: 22px;
+  min-width: 120px;
+  outline: none;
+  padding: 0;
+  width: min(220px, 34vw);
+}
+
+.obsidian-pi-header-actions {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.obsidian-pi-header-action,
+.obsidian-pi-thread-menu {
+  background: transparent;
+  color: var(--text-muted);
+  height: 30px;
+  width: 30px;
+}
+
+.obsidian-pi-header-action svg,
+.obsidian-pi-thread-menu svg {
+  height: 16px;
+  width: 16px;
+}
+
+.obsidian-pi-header-action:hover,
+.obsidian-pi-header-action:focus,
+.obsidian-pi-thread-menu:hover,
+.obsidian-pi-thread-menu:focus {
+  background: transparent;
+  color: var(--text-normal);
+}
+
+.obsidian-pi-run-settings {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.obsidian-pi-run-setting {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--text-muted);
+  gap: 4px;
+  display: inline-flex !important;
+  flex: 0 0 auto;
+  height: 28px;
+  justify-content: center;
+  padding: 0 4px;
+  width: auto;
+}
+
+.obsidian-pi-run-setting:hover,
+.obsidian-pi-run-setting:focus {
+  background: transparent;
+  color: var(--text-normal);
+}
+
+.obsidian-pi-run-setting svg {
+  height: 15px;
+  width: 15px;
+}
+
+.obsidian-pi-run-setting-speed-fast {
+  color: var(--color-yellow);
+}
+
+.obsidian-pi-run-setting-speed-default,
+.obsidian-pi-run-setting-mode-read {
+  color: var(--text-muted);
+}
+
+.obsidian-pi-run-setting-mode-write {
+  color: var(--color-yellow);
+}
+
+.obsidian-pi-run-setting-mode-full {
+  color: var(--text-error);
+}
+
+.obsidian-pi-control-label {
+  color: currentColor;
+  font-size: var(--font-ui-smaller);
+  line-height: 1;
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-pi-messages {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  flex: 1;
+  min-height: 220px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.obsidian-pi-empty {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.obsidian-pi-empty-state {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100%;
+}
+
+.obsidian-pi-empty-icon {
+  color: color-mix(in srgb, var(--text-muted) 35%, transparent);
+  display: inline-flex;
+}
+
+.obsidian-pi-empty-icon svg {
+  height: 34px;
+  width: 34px;
+}
+
+.obsidian-pi-message {
+  margin-bottom: 12px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.obsidian-pi-message-role {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.obsidian-pi-message-role-title {
+  align-items: center;
+  display: inline-flex;
+  flex: 1;
+  gap: 5px;
+  min-width: 0;
+}
+
+.obsidian-pi-message-actions {
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  height: 28px;
+  opacity: 1;
+  width: 28px;
+}
+
+.obsidian-pi-message-actions:hover,
+.obsidian-pi-message-actions:focus {
+  background: transparent;
+  color: var(--text-normal);
+}
+
+.obsidian-pi-message-diff-stat {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+  gap: 4px;
+  height: 22px;
+  margin-right: 4px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.obsidian-pi-message-diff-stat:hover,
+.obsidian-pi-message-diff-stat:focus {
+  background: var(--background-modifier-hover);
+}
+
+.obsidian-pi-diff-files {
+  color: var(--text-muted);
+}
+
+.obsidian-pi-diff-additions {
+  color: var(--text-success);
+}
+
+.obsidian-pi-diff-deletions {
+  color: var(--text-error);
+}
+
+.obsidian-pi-role-icon {
+  align-items: center;
+  color: var(--text-faint);
+  display: inline-flex;
+  height: 14px;
+  justify-content: center;
+  width: 14px;
+}
+
+.obsidian-pi-role-icon svg {
+  height: 14px;
+  width: 14px;
+}
+
+.obsidian-pi-message-content {
+  background: var(--background-secondary);
+  border-radius: 8px;
+  color: var(--text-normal);
+  cursor: text;
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-medium);
+  line-height: var(--line-height-normal);
+  margin: 0;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.obsidian-pi-message-content-markdown {
+  white-space: normal;
+}
+
+.obsidian-pi-message-content-markdown > :first-child {
+  margin-top: 0;
+}
+
+.obsidian-pi-message-content-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.obsidian-pi-message-content-markdown pre {
+  white-space: pre;
+}
+
+.obsidian-pi-message-content-markdown code {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.obsidian-pi-message-content-streaming {
+  white-space: pre-wrap;
+}
+
+.obsidian-pi-streaming-text {
+  white-space: pre-wrap;
+}
+
+.obsidian-pi-typing-cursor {
+  animation: obsidian-pi-typing-cursor-blink 0.9s steps(2, start) infinite;
+  color: var(--interactive-accent);
+  margin-left: 2px;
+}
+
+@keyframes obsidian-pi-typing-cursor-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.obsidian-pi-message-content,
+.obsidian-pi-message-content * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.obsidian-pi-message-user .obsidian-pi-message-content {
+  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary-alt));
+}
+
+.obsidian-pi-message-user .obsidian-pi-message-role {
+  color: color-mix(in srgb, var(--interactive-accent) 82%, var(--text-muted));
+}
+
+.obsidian-pi-message-user .obsidian-pi-role-icon {
+  color: color-mix(in srgb, var(--interactive-accent) 82%, var(--text-muted));
+}
+
+.obsidian-pi-vault-link {
+  color: var(--link-color);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.obsidian-pi-vault-link:hover {
+  color: var(--link-color-hover);
+  text-decoration: underline;
+}
+
+.obsidian-pi-composer {
+  display: grid;
+  gap: 8px;
+  position: relative;
+}
+
+.obsidian-pi-tool-badges {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 18px;
+}
+
+.obsidian-pi-tool-badge {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+  max-width: 160px;
+  overflow: hidden;
+  padding: 0 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-pi-tool-badge.is-enabled {
+  border-color: var(--text-muted);
+  color: var(--text-normal);
+}
+
+.obsidian-pi-composer-bar {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.obsidian-pi-composer-bar.is-compact {
+  gap: 3px;
+}
+
+.obsidian-pi-composer-bar.is-compact .obsidian-pi-run-setting {
+  gap: 0;
+  padding: 0;
+  width: 28px;
+}
+
+.obsidian-pi-composer-bar.is-compact .obsidian-pi-run-setting .obsidian-pi-control-label {
+  display: none;
+}
+
+.obsidian-pi-composer-bar.is-compact.is-expanded {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.obsidian-pi-composer-bar.is-compact.is-expanded .obsidian-pi-run-settings {
+  display: flex;
+  flex: 1 0 100%;
+  order: 10;
+}
+
+.obsidian-pi-composer-bar.is-compact.is-expanded .obsidian-pi-run-setting {
+  flex: 1 1 0;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 4px;
+  width: auto;
+}
+
+.obsidian-pi-composer-bar.is-compact.is-expanded
+  .obsidian-pi-run-setting
+  .obsidian-pi-control-label {
+  display: inline;
+}
+
+.obsidian-pi-composer-bar.is-narrow:not(.is-expanded) .obsidian-pi-run-settings {
+  display: flex;
+}
+
+.obsidian-pi-composer-bar.is-narrow .obsidian-pi-send-button {
+  margin-left: auto;
+}
+
+.obsidian-pi-composer textarea {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  line-height: var(--line-height-normal);
+  max-height: 160px;
+  min-height: 38px;
+  overflow-y: auto;
+  resize: none;
+  width: 100%;
+  -webkit-text-fill-color: var(--text-normal);
+}
+
+.obsidian-pi-composer textarea::placeholder {
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+}
+
+.obsidian-pi-composer textarea:disabled {
+  opacity: 0.75;
+}
+
+.obsidian-pi-send-button {
+  align-items: center;
+  background: var(--interactive-accent);
+  border: 0;
+  box-shadow: none;
+  color: var(--text-on-accent);
+  display: inline-flex !important;
+  flex: 0 0 auto;
+  gap: 4px;
+  height: 30px;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 6px;
+  width: auto;
+}
+
+.obsidian-pi-send-button:hover,
+.obsidian-pi-send-button:focus {
+  background: var(--interactive-accent-hover);
+  color: var(--text-on-accent);
+}
+
+.obsidian-pi-send-button:disabled {
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.obsidian-pi-suggest {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  bottom: calc(100% + 8px);
+  box-shadow: var(--shadow-s);
+  display: grid;
+  left: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 4px;
+  position: absolute;
+  right: 0;
+  z-index: 20;
+}
+
+.obsidian-pi-suggest-item {
+  align-items: center;
+  border-radius: 6px;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(150px, 0.36fr) minmax(0, 1fr);
+  padding: 7px 8px;
+}
+
+.obsidian-pi-suggest-item.is-selected,
+.obsidian-pi-suggest-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.obsidian-pi-suggest-label {
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-pi-suggest-detail {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-pi-inline-activity {
+  align-items: center;
+  color: var(--text-muted);
+  display: inline-flex;
+  font: inherit;
+  margin-left: 7px;
+  min-width: 0;
+}
+
+.obsidian-pi-inline-activity::before {
+  color: var(--text-faint);
+  content: "·";
+  margin-right: 6px;
+}
+
+.obsidian-pi-inline-activity-text {
+  font: inherit;
+  font-size: var(--font-ui-smaller);
+  font-weight: 500;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.obsidian-pi-activity-log {
+  border-left: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  display: grid;
+  font-size: var(--font-ui-smaller);
+  gap: 3px;
+  margin: 2px 0 0 30px;
+  padding-left: 10px;
+}
+
+.obsidian-pi-activity-log-item {
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-pi-approval {
+  display: grid;
+  gap: 12px;
+}
+
+.obsidian-pi-diff {
+  display: grid;
+  gap: 8px;
+}
+
+.obsidian-pi-diff h3 {
+  font-size: 13px;
+  margin: 0;
+}
+
+.obsidian-pi-diff pre {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+.modal.obsidian-pi-change-review-modal {
+  height: min(860px, 86vh);
+  max-height: 86vh;
+  max-width: 92vw;
+  min-height: 460px;
+  min-width: min(760px, 92vw);
+  resize: both;
+  width: min(1040px, 92vw);
+}
+
+.modal.obsidian-pi-change-review-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.obsidian-pi-change-review {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.obsidian-pi-change-review h2,
+.obsidian-pi-change-review p,
+.obsidian-pi-change-files {
+  margin: 0;
+}
+
+.obsidian-pi-change-files {
+  padding-inline-start: 1.4em;
+}
+
+.obsidian-pi-change-summary {
+  font-variant-numeric: tabular-nums;
+}
+
+.obsidian-pi-change-diff {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  flex: 1 1 auto;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+  min-height: 240px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.obsidian-pi-diff-line {
+  display: grid;
+  grid-template-columns: 4ch minmax(0, 1fr);
+  gap: 10px;
+  border-radius: 3px;
+  min-height: 1.35em;
+  padding: 0 4px;
+  white-space: normal;
+}
+
+.obsidian-pi-diff-line-number {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+.obsidian-pi-diff-line-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.obsidian-pi-diff-line-add {
+  background: color-mix(in srgb, var(--text-success) 14%, transparent);
+  color: var(--text-success);
+}
+
+.obsidian-pi-diff-line-delete {
+  background: color-mix(in srgb, var(--text-error) 14%, transparent);
+  color: var(--text-error);
+}
+
+.obsidian-pi-diff-line-hunk,
+.obsidian-pi-diff-line-meta {
+  color: var(--text-muted);
+}
+
+.obsidian-pi-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
