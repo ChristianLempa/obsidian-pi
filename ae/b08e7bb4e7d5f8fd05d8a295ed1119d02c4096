@@ -1,0 +1,114 @@
+.github/workflows/release.yml
+  c1522a53ff3cb063 1-38
+manifest.json
+  fef6cd9142282de7 2-9
+versions.json
+  c1522a53ff3cb063 1-3
+scripts/package-release.mjs
+  fef6cd9142282de7 1-5,9,16-17,21
+  c1522a53ff3cb063 6-8,10-15,18-20,22-25
+main.js
+  fef6cd9142282de7 1-31,99-3982,3985-4004,4008-4475
+  b3fb900714e403bb 37-52,3983-3984,4005-4006
+CHANGELOG.md
+  fef6cd9142282de7 9
+  c1522a53ff3cb063 1-8,10-13
+README.md
+  fef6cd9142282de7 31-32,41-49
+  c1522a53ff3cb063 1-29,33,36,50-81,83-117
+  b3fb900714e403bb 30,34-35,37-40
+  ee400e48b42e02dd 82
+.gitignore
+  c1522a53ff3cb063 1-13
+LICENSE
+  c1522a53ff3cb063 1-21
+package.json
+  c1522a53ff3cb063 1-6,9-19,24
+  fef6cd9142282de7 7-8,20-23
+scripts/check-version.mjs
+  fef6cd9142282de7 1,3-5,13
+  c1522a53ff3cb063 2,6-12,14-26
+.prettierrc
+  fef6cd9142282de7 1-6
+RELEASE.md
+  ee400e48b42e02dd 9,12,15,18-19
+  c1522a53ff3cb063 1-8,10-11,13-14,16-17,20-69
+styles.css
+  b3fb900714e403bb 170,172-174,176-178
+  fef6cd9142282de7 2-166,171,175,179-743
+scripts/install-dev.mjs
+  c1522a53ff3cb063 3-4,12-19
+  fef6cd9142282de7 1-2,5-9,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "aeb08e7bb4e7d5f8fd05d8a295ed1119d02c4096",
+  "prompts": {
+    "38716a6e69bfede7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019df26a-db75-72c9-bbdb-0fdd60b64d5f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 2,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    },
+    "b3fb900714e403bb": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019df20c-675b-719c-81c2-2acf9a57e28a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad",
+      "messages": [],
+      "total_additions": 78,
+      "total_deletions": 60,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    },
+    "c1522a53ff3cb063": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019df1b8-2cd1-705e-a075-8da71e1692e5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad",
+      "messages": [],
+      "total_additions": 355,
+      "total_deletions": 8,
+      "accepted_lines": 314,
+      "overriden_lines": 0
+    },
+    "ee400e48b42e02dd": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019df204-b8c8-7449-baaf-dcba9486f556",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 11,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    },
+    "fef6cd9142282de7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019df24d-f5fe-76e9-a92c-11038bda3548",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad",
+      "messages": [],
+      "total_additions": 5646,
+      "total_deletions": 1250,
+      "accepted_lines": 4863,
+      "overriden_lines": 0
+    }
+  }
+}
