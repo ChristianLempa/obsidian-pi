@@ -1,36 +1,6039 @@
-var import_meta = { url: require("url").pathToFileURL(__filename).href };
-("use strict");
-var le = Object.defineProperty;
-var st = Object.getOwnPropertyDescriptor;
-var rt = Object.getOwnPropertyNames;
-var at = Object.prototype.hasOwnProperty;
-var ot = (r, i) => {
-    for (var e in i) le(r, e, { get: i[e], enumerable: !0 });
-  },
-  lt = (r, i, e, t) => {
-    if ((i && typeof i == "object") || typeof i == "function")
-      for (let n of rt(i))
-        !at.call(r, n) &&
-          n !== e &&
-          le(r, n, {
-            get: () => i[n],
-            enumerable: !(t = st(i, n)) || t.enumerable
-          });
-    return r;
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) =>
+  function __init() {
+    return (fn && (res = (0, fn[__getOwnPropNames(fn)[0]])((fn = 0))), res);
   };
-var dt = (r) => lt(le({}, "__esModule", { value: !0 }), r);
-var Kt = {};
-ot(Kt, { default: () => oe });
-module.exports = dt(Kt);
-var P = require("obsidian");
-var T = "obsidian-pi-view",
-  Ce = "Obsidian Pi",
-  I = "obsidian-pi-agent",
-  O =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M165.29 165.29H517.36V400H400V517.36H282.65V634.72H165.29ZM282.65 282.65V400H400V282.65Z"/><path fill="currentColor" d="M517.36 400H634.72V634.72H517.36Z"/></svg>';
-var be = `# Obsidian Pi Coding Agent
+var __export = (target, all) => {
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if ((from && typeof from === "object") || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+        });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (
+  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
+  __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule
+      ? __defProp(target, "default", { value: mod, enumerable: true })
+      : target,
+    mod
+  )
+);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-You are Pi, an agentic AI coding assistant from https://pi.dev, running inside Obsidian Pi.
+// src/changes/diff.mjs
+function splitLines(text) {
+  return text.length === 0 ? [] : text.split(/\r?\n/);
+}
+function diffLines(beforeLines, afterLines) {
+  if (beforeLines.length * afterLines.length > 25e4) {
+    return [
+      ...beforeLines.map((text) => ({ kind: "delete", text })),
+      ...afterLines.map((text) => ({ kind: "add", text }))
+    ];
+  }
+  const table = createLcsTable(beforeLines, afterLines);
+  const changes = [];
+  let beforeIndex = beforeLines.length;
+  let afterIndex = afterLines.length;
+  while (beforeIndex > 0 || afterIndex > 0) {
+    if (
+      beforeIndex > 0 &&
+      afterIndex > 0 &&
+      beforeLines[beforeIndex - 1] === afterLines[afterIndex - 1]
+    ) {
+      changes.push({ kind: "same", text: beforeLines[beforeIndex - 1] });
+      beforeIndex--;
+      afterIndex--;
+    } else if (
+      afterIndex > 0 &&
+      (beforeIndex === 0 ||
+        table[beforeIndex][afterIndex - 1] >= table[beforeIndex - 1][afterIndex])
+    ) {
+      changes.push({ kind: "add", text: afterLines[afterIndex - 1] });
+      afterIndex--;
+    } else if (beforeIndex > 0) {
+      changes.push({ kind: "delete", text: beforeLines[beforeIndex - 1] });
+      beforeIndex--;
+    }
+  }
+  return changes.reverse();
+}
+function formatUnifiedDiff(path5, changes) {
+  return [
+    `--- a/${path5}`,
+    `+++ b/${path5}`,
+    "@@",
+    ...changes.map((change) =>
+      change.kind === "add"
+        ? `+${change.text}`
+        : change.kind === "delete"
+          ? `-${change.text}`
+          : ` ${change.text}`
+    )
+  ].join("\n");
+}
+function summarizeChangedFiles(files) {
+  return {
+    filesChanged: files.length,
+    additions: files.reduce((sum, file) => sum + file.additions, 0),
+    deletions: files.reduce((sum, file) => sum + file.deletions, 0)
+  };
+}
+function createLcsTable(beforeLines, afterLines) {
+  const table = Array.from({ length: beforeLines.length + 1 }, () =>
+    Array.from({ length: afterLines.length + 1 }, () => 0)
+  );
+  for (let beforeIndex = 1; beforeIndex <= beforeLines.length; beforeIndex++) {
+    for (let afterIndex = 1; afterIndex <= afterLines.length; afterIndex++) {
+      table[beforeIndex][afterIndex] =
+        beforeLines[beforeIndex - 1] === afterLines[afterIndex - 1]
+          ? table[beforeIndex - 1][afterIndex - 1] + 1
+          : Math.max(table[beforeIndex - 1][afterIndex], table[beforeIndex][afterIndex - 1]);
+    }
+  }
+  return table;
+}
+var init_diff = __esm({
+  "src/changes/diff.mjs"() {
+    "use strict";
+  }
+});
+
+// src/changes/change-tracker.mjs
+var TEXT_FILE_EXTENSIONS, ChangeTracker;
+var init_change_tracker = __esm({
+  "src/changes/change-tracker.mjs"() {
+    "use strict";
+    init_diff();
+    TEXT_FILE_EXTENSIONS = /* @__PURE__ */ new Set([
+      "md",
+      "txt",
+      "canvas",
+      "css",
+      "js",
+      "mjs",
+      "cjs",
+      "ts",
+      "tsx",
+      "jsx",
+      "json",
+      "jsonc",
+      "yaml",
+      "yml",
+      "toml",
+      "xml",
+      "html",
+      "svg",
+      "csv",
+      "tsv",
+      "sh",
+      "bash",
+      "zsh",
+      "fish",
+      "py",
+      "rb",
+      "go",
+      "rs",
+      "java",
+      "c",
+      "h",
+      "cpp",
+      "hpp",
+      "cs",
+      "php",
+      "sql",
+      "ini",
+      "conf",
+      "env",
+      "gitignore"
+    ]);
+    ChangeTracker = class {
+      constructor(app, settings) {
+        this.app = app;
+        this.settings = settings;
+      }
+      async snapshot() {
+        const files = this.getTrackedFiles();
+        const maxFiles = this.settings.maxChangeSnapshotFiles || 500;
+        if (files.length > maxFiles) {
+          throw new Error(
+            `Pi Agent change tracking found ${files.length} text files, which exceeds the configured limit of ${maxFiles}. Increase Max tracked files or add ignored folders before using Edit or Full agent mode.`
+          );
+        }
+        const fileContents = /* @__PURE__ */ new Map();
+        for (const file of files)
+          fileContents.set(file.path, await this.app.vault.cachedRead(file));
+        return { files: fileContents };
+      }
+      async diff(beforeSnapshot) {
+        const afterSnapshot = await this.snapshot();
+        const paths = /* @__PURE__ */ new Set([
+          ...beforeSnapshot.files.keys(),
+          ...afterSnapshot.files.keys()
+        ]);
+        const files = [];
+        const fileSnapshots = [];
+        const unifiedDiffs = [];
+        for (const filePath of [...paths].sort((left, right) => left.localeCompare(right))) {
+          const before = beforeSnapshot.files.get(filePath);
+          const after = afterSnapshot.files.get(filePath);
+          if (before === after) continue;
+          const changes = diffLines(splitLines(before ?? ""), splitLines(after ?? ""));
+          const additions = changes.filter((change) => change.kind === "add").length;
+          const deletions = changes.filter((change) => change.kind === "delete").length;
+          const status = before === void 0 ? "added" : after === void 0 ? "deleted" : "modified";
+          files.push({ path: filePath, status, additions, deletions });
+          fileSnapshots.push({ path: filePath, status, before, after });
+          unifiedDiffs.push(formatUnifiedDiff(filePath, changes));
+        }
+        if (files.length === 0) return void 0;
+        return {
+          files,
+          stats: summarizeChangedFiles(files),
+          sourceEventType: "vault-snapshot",
+          fileSnapshots,
+          unifiedDiff: unifiedDiffs.join("\n")
+        };
+      }
+      getTrackedFiles() {
+        const files =
+          typeof this.app.vault.getFiles === "function"
+            ? this.app.vault.getFiles()
+            : this.app.vault.getMarkdownFiles();
+        return files.filter((file) => this.isPathAllowed(file.path) && this.isTextFile(file.path));
+      }
+      isTextFile(filePath) {
+        const extension = filePath.split(".").pop();
+        return !!extension && TEXT_FILE_EXTENSIONS.has(extension.toLowerCase());
+      }
+      isPathAllowed(filePath) {
+        const normalizedPath = filePath.replace(/\\/g, "/");
+        return !this.settings.ignoredFolders.some((ignoredFolder) => {
+          const normalizedIgnoredFolder = ignoredFolder.replace(/\/+$/, "");
+          return (
+            normalizedPath === normalizedIgnoredFolder ||
+            normalizedPath.startsWith(`${normalizedIgnoredFolder}/`)
+          );
+        });
+      }
+    };
+  }
+});
+
+// src/plugin/settings.mjs
+function normalizeSettings(rawSettings = {}) {
+  const settings = { ...DEFAULT_SETTINGS, ...rawSettings };
+  settings.model = normalizeString(settings.model);
+  settings.customModel = normalizeString(settings.customModel);
+  settings.reasoningEffort = normalizeString(settings.reasoningEffort);
+  settings.sandboxMode = normalizeToolMode(settings.sandboxMode);
+  settings.acknowledgedToolRisk = settings.acknowledgedToolRisk === true;
+  settings.availableModels = Array.isArray(settings.availableModels)
+    ? settings.availableModels
+    : [];
+  settings.dryRun = false;
+  settings.maxSearchResults = clampInteger(
+    settings.maxSearchResults,
+    3,
+    25,
+    DEFAULT_SETTINGS.maxSearchResults
+  );
+  settings.maxSearchFiles = clampInteger(
+    settings.maxSearchFiles,
+    1,
+    1e4,
+    DEFAULT_SETTINGS.maxSearchFiles
+  );
+  settings.maxFileChars = clampInteger(
+    settings.maxFileChars,
+    501,
+    25e4,
+    DEFAULT_SETTINGS.maxFileChars
+  );
+  settings.maxChangeSnapshotFiles = clampInteger(
+    settings.maxChangeSnapshotFiles,
+    1,
+    5e4,
+    DEFAULT_SETTINGS.maxChangeSnapshotFiles
+  );
+  settings.ignoredFolders = normalizeStringList(
+    settings.ignoredFolders,
+    DEFAULT_SETTINGS.ignoredFolders
+  );
+  settings.customInstructions = normalizeString(settings.customInstructions);
+  settings.includeDefaultSkills = settings.includeDefaultSkills !== false;
+  settings.additionalSkillFolders = normalizeStringList(settings.additionalSkillFolders, []);
+  settings.effectiveModel = normalizeString(settings.effectiveModel);
+  settings.effectiveReasoning = normalizeString(settings.effectiveReasoning);
+  settings.dismissedPiSetup = settings.dismissedPiSetup === true;
+  return settings;
+}
+function getModelOptions(settings) {
+  const models = settings.availableModels;
+  const options = { "": "Use Pi default" };
+  if (models.length === 0)
+    return { ...EMPTY_MODEL_OPTIONS, ...options, [CUSTOM_MODEL_VALUE]: "Custom model ID" };
+  for (const model of models) options[model.slug] = formatModelOptionLabel(model);
+  options[CUSTOM_MODEL_VALUE] = "Custom model ID";
+  return options;
+}
+function getReasoningOptions(settings) {
+  const model = getSelectedModelInfo(settings) ?? getEffectiveModelInfo(settings);
+  const supportedReasoningLevels = model?.supportedReasoningLevels ?? [];
+  if (supportedReasoningLevels.length === 0) return { "": "Use Pi/model default" };
+  const options = { "": "Use Pi/model default" };
+  for (const reasoningLevel of supportedReasoningLevels) {
+    options[reasoningLevel] = REASONING_LABELS[reasoningLevel] ?? reasoningLevel;
+  }
+  return options;
+}
+function getResolvedReasoning(settings) {
+  if (settings.reasoningEffort) return settings.reasoningEffort;
+  const model = getSelectedModelInfo(settings) ?? getEffectiveModelInfo(settings);
+  return model?.defaultReasoningLevel ?? settings.effectiveReasoning ?? "pi-default";
+}
+function getEffectiveModelInfo(settings) {
+  return settings.effectiveModel
+    ? settings.availableModels.find((model) => model.slug === settings.effectiveModel)
+    : void 0;
+}
+function getSelectedModelInfo(settings) {
+  const modelId = settings.model === CUSTOM_MODEL_VALUE ? settings.customModel : settings.model;
+  return settings.availableModels.find((model) => model.slug === modelId);
+}
+function getToolModeOptions() {
+  return {
+    chat: "Chat \u2014 no Pi CLI tools",
+    "read-only": "Review \u2014 read/search/list only",
+    edit: "Edit \u2014 edit/write, no shell",
+    "full-agent": "Full agent \u2014 edit/write and shell"
+  };
+}
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+function normalizeStringList(value, fallback) {
+  const source = Array.isArray(value) ? value : fallback;
+  return source.map((item) => normalizeString(item)).filter(Boolean);
+}
+function normalizeToolMode(value) {
+  return value === "chat" || value === "read-only" || value === "edit" || value === "full-agent"
+    ? value
+    : value === "workspace-write" || value === "danger-full-access"
+      ? "edit"
+      : DEFAULT_SETTINGS.sandboxMode;
+}
+function clampInteger(value, min, max, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+}
+function formatModelOptionLabel(model) {
+  const details = [
+    model.supportedReasoningLevels.length > 0
+      ? `thinking ${model.supportedReasoningLevels.join("/")}`
+      : ""
+  ].filter(Boolean);
+  return details.length > 0 ? `${model.displayName} - ${details.join(", ")}` : model.displayName;
+}
+var CUSTOM_MODEL_VALUE, EMPTY_MODEL_OPTIONS, REASONING_LABELS, DEFAULT_SETTINGS;
+var init_settings = __esm({
+  "src/plugin/settings.mjs"() {
+    "use strict";
+    CUSTOM_MODEL_VALUE = "__custom";
+    EMPTY_MODEL_OPTIONS = {
+      "": "Use Pi default",
+      [CUSTOM_MODEL_VALUE]: "Custom model ID"
+    };
+    REASONING_LABELS = {
+      "": "Pi default",
+      off: "Off",
+      minimal: "Minimal - may be unavailable with tools",
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+      xhigh: "XHigh - deepest"
+    };
+    DEFAULT_SETTINGS = {
+      model: "",
+      customModel: "",
+      reasoningEffort: "",
+      sandboxMode: "read-only",
+      acknowledgedToolRisk: false,
+      availableModels: [],
+      dryRun: false,
+      maxSearchResults: 8,
+      maxSearchFiles: 200,
+      maxFileChars: 12e3,
+      maxChangeSnapshotFiles: 500,
+      ignoredFolders: [".obsidian", ".git", "node_modules", "Templates"],
+      customInstructions: "",
+      includeDefaultSkills: true,
+      additionalSkillFolders: [],
+      effectiveModel: "",
+      effectiveReasoning: "",
+      dismissedPiSetup: false
+    };
+  }
+});
+
+// src/context/prompt-references.mjs
+function parsePromptReferences(prompt) {
+  const references = [];
+  const addAttachment = (rawValue) => {
+    const value = rawValue
+      .trim()
+      .replace(/^\[\[|\]\]$/g, "")
+      .replace(/\|.*$/, "");
+    if (!value) return;
+    references.push(
+      value.endsWith("/")
+        ? { type: "folder", value: value.replace(/\/+$/, "") }
+        : { type: "note", value }
+    );
+  };
+  for (const match of prompt.matchAll(/(?:^|\s)@\[\[([^\]]+)\]\]/g)) addAttachment(match[1]);
+  for (const match of prompt.matchAll(/(?:^|\s)@"([^"]+)"/g)) addAttachment(match[1]);
+  for (const match of prompt.matchAll(/(?:^|\s)@'([^']+)'/g)) addAttachment(match[1]);
+  for (const match of prompt.matchAll(/(?:^|\s)@([^\s"'[]+)/g)) addAttachment(match[1]);
+  for (const match of prompt.matchAll(/(?:^|\s)#([A-Za-z0-9/_-]+)/g)) {
+    references.push({ type: "tag", value: `#${match[1]}` });
+  }
+  for (const line of prompt.split(/\r?\n/)) {
+    const skillCommand = line.match(/^\/skill:([a-z0-9-]+)(?:\s+(.+))?$/i);
+    if (skillCommand) {
+      references.push({
+        type: "skill",
+        value: skillCommand[1].toLowerCase(),
+        argument: skillCommand[2]?.trim() ?? ""
+      });
+    }
+    const contextCommand = line.match(/^\/([A-Za-z0-9_-]+)(?:\s+(.+))?$/);
+    if (contextCommand) {
+      references.push({
+        type: "command",
+        value: contextCommand[1],
+        argument: contextCommand[2]?.trim() ?? ""
+      });
+    }
+  }
+  return { cleanPrompt: prompt, references: dedupeReferences(references) };
+}
+function dedupeReferences(references) {
+  const seen = /* @__PURE__ */ new Set();
+  return references.filter((reference) => {
+    const key = JSON.stringify(reference);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+var init_prompt_references = __esm({
+  "src/context/prompt-references.mjs"() {
+    "use strict";
+  }
+});
+
+// src/shared/paths.mjs
+function normalizeVaultFolder(value, fallback = "Pi") {
+  const cleaned = String(value || "")
+    .split(/[\\/]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("/");
+  return cleaned || fallback;
+}
+function normalizeList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+var init_paths = __esm({
+  "src/shared/paths.mjs"() {
+    "use strict";
+  }
+});
+
+// src/context/skills.mjs
+function normalizeSkillFolderList(value) {
+  return normalizeList(value);
+}
+function getConfiguredSkillPaths(settings, basePath) {
+  return normalizeSkillFolderList(settings?.additionalSkillFolders)
+    .map((skillPath) => resolveSkillPath(skillPath, basePath))
+    .filter(Boolean);
+}
+function getSkillSlashCommands(settings, basePath) {
+  const cacheKey = JSON.stringify({
+    defaults: !settings || settings.includeDefaultSkills !== false,
+    additional: normalizeSkillFolderList(settings?.additionalSkillFolders),
+    base: basePath || ""
+  });
+  const now = Date.now();
+  if (skillCommandCache.key === cacheKey && now - skillCommandCache.at < 5e3) {
+    return skillCommandCache.commands;
+  }
+  skillCommandCache = {
+    key: cacheKey,
+    at: now,
+    commands: discoverSkillCommands(settings, basePath)
+  };
+  return skillCommandCache.commands;
+}
+function discoverSkillCommands(settings, basePath) {
+  return discoverSkills(settings, basePath)
+    .sort(
+      (left, right) => left.sourceRank - right.sourceRank || left.name.localeCompare(right.name)
+    )
+    .map((skill) => ({
+      command: `/skill:${skill.name}`,
+      label: skill.name,
+      detail: skill.description || "Pi skill",
+      insertText: `/skill:${skill.name} `,
+      implemented: true
+    }));
+}
+function discoverSkills(settings, basePath) {
+  const roots = [];
+  const addRoot = (skillPath, rank) => {
+    if (skillPath && !roots.some((root) => root.path === skillPath))
+      roots.push({ path: skillPath, rank });
+  };
+  for (const skillPath of normalizeSkillFolderList(settings?.additionalSkillFolders)) {
+    addRoot(resolveSkillPath(skillPath, basePath), 0);
+  }
+  if (!settings || settings.includeDefaultSkills !== false) {
+    const home = process.env.HOME || process.env.USERPROFILE || "";
+    const piAgentDir = process.env.PI_CODING_AGENT_DIR;
+    addRoot(
+      piAgentDir
+        ? joinHomePath(piAgentDir, "skills")
+        : home
+          ? import_node_path.default.join(home, ".pi", "agent", "skills")
+          : "",
+      1
+    );
+    addRoot(home ? import_node_path.default.join(home, ".agents", "skills") : "", 1);
+    if (basePath) {
+      addRoot(import_node_path.default.join(basePath, ".pi", "skills"), 1);
+      addRoot(import_node_path.default.join(basePath, ".agents", "skills"), 1);
+    }
+    for (const skillPath of getSettingsSkillPaths(basePath)) addRoot(skillPath, 1);
+  }
+  const skills = /* @__PURE__ */ new Map();
+  for (const root of roots) {
+    for (const skillFile of findSkillFiles(root.path)) {
+      try {
+        const skill = parseSkillFile(skillFile, root.rank);
+        if (skill?.name && !skills.has(skill.name)) skills.set(skill.name, skill);
+      } catch {}
+    }
+  }
+  return [...skills.values()];
+}
+function findSkillByName(settings, basePath, name) {
+  return discoverSkills(settings, basePath).find((skill) => skill.name === name);
+}
+function readSkillContent(skillPath) {
+  return import_node_fs.default.readFileSync(skillPath, "utf8");
+}
+function resolveSkillPath(skillPath, basePath) {
+  let resolved = String(skillPath || "").trim();
+  if (!resolved) return "";
+  if (resolved.startsWith("~")) {
+    resolved = (process.env.HOME || process.env.USERPROFILE || "") + resolved.slice(1);
+  }
+  return import_node_path.default.isAbsolute(resolved)
+    ? resolved
+    : import_node_path.default.join(basePath || "", resolved);
+}
+function findSkillFiles(
+  skillPath,
+  depth = DEFAULT_SKILL_SEARCH_DEPTH,
+  includeSiblingMarkdown = true,
+  results = []
+) {
+  if (!skillPath || results.length >= DEFAULT_SKILL_SEARCH_LIMIT) return results;
+  let stats;
+  try {
+    stats = import_node_fs.default.statSync(skillPath);
+  } catch {
+    return results;
+  }
+  if (stats.isFile()) {
+    if (/(^|\/)SKILL\.md$/i.test(skillPath) || /\.md$/i.test(skillPath)) results.push(skillPath);
+    return results;
+  }
+  if (!stats.isDirectory() || depth < 0) return results;
+  const directSkillFile = import_node_path.default.join(skillPath, "SKILL.md");
+  try {
+    if (import_node_fs.default.existsSync(directSkillFile)) results.push(directSkillFile);
+  } catch {}
+  let entries;
+  try {
+    entries = import_node_fs.default.readdirSync(skillPath, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    if (results.length >= DEFAULT_SKILL_SEARCH_LIMIT) break;
+    const childPath = import_node_path.default.join(skillPath, entry.name);
+    if (entry.isDirectory()) {
+      findSkillFiles(childPath, depth - 1, false, results);
+    } else if (
+      includeSiblingMarkdown &&
+      /\.md$/i.test(entry.name) &&
+      entry.name.toUpperCase() !== "SKILL.MD"
+    ) {
+      results.push(childPath);
+    }
+  }
+  return results;
+}
+function parseSkillFile(skillPath, sourceRank = 1) {
+  const content = import_node_fs.default.readFileSync(skillPath, "utf8").slice(0, 8192);
+  const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
+  const frontmatter = frontmatterMatch ? parseSkillFrontmatter(frontmatterMatch[1]) : {};
+  const name = normalizeSkillName(frontmatter.name || inferSkillNameFromPath(skillPath));
+  const description = frontmatter.description || inferSkillDescription(content, frontmatterMatch);
+  return name
+    ? {
+        name,
+        description: description || "Pi skill",
+        path: skillPath,
+        sourceRank
+      }
+    : void 0;
+}
+function parseSkillFrontmatter(raw) {
+  const values = {};
+  let currentKey = "";
+  let currentBlockStyle = "";
+  let currentLines = [];
+  const flushBlock = () => {
+    if (!currentKey) return;
+    values[currentKey] = cleanSkillYamlValue(
+      (currentBlockStyle === "|"
+        ? currentLines.join("\n")
+        : currentLines.join(" ").replace(/\s+/g, " ")
+      ).trim()
+    );
+    currentKey = "";
+    currentBlockStyle = "";
+    currentLines = [];
+  };
+  for (const line of raw.split(/\r?\n/)) {
+    const entry = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (entry) {
+      flushBlock();
+      const key = entry[1];
+      const value = entry[2].trim();
+      if (/^[>|][+-]?$/.test(value)) {
+        currentKey = key;
+        currentBlockStyle = value.charAt(0);
+        currentLines = [];
+        continue;
+      }
+      values[key] = cleanSkillYamlValue(value);
+    } else if (currentKey && /^\s+/.test(line)) {
+      currentLines.push(line.trim());
+    }
+  }
+  flushBlock();
+  return values;
+}
+function normalizeSkillName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-")
+    .slice(0, 64);
+}
+function getSettingsSkillPaths(basePath) {
+  const skillPaths = [];
+  const collect = (settings, settingsBasePath) => {
+    for (const skillPath of normalizeSkillFolderList(settings.skills)) {
+      skillPaths.push(resolveSkillPath(skillPath, settingsBasePath));
+    }
+  };
+  const globalSettingsPath = getGlobalSettingsPath();
+  if (globalSettingsPath)
+    collect(readJsonFile(globalSettingsPath), import_node_path.default.dirname(globalSettingsPath));
+  if (basePath)
+    collect(
+      readJsonFile(import_node_path.default.join(basePath, ".pi", "settings.json")),
+      basePath
+    );
+  return skillPaths.filter(Boolean);
+}
+function getGlobalSettingsPath() {
+  const piAgentDir = process.env.PI_CODING_AGENT_DIR;
+  if (piAgentDir) return joinHomePath(piAgentDir, "settings.json");
+  const home = process.env.HOME || process.env.USERPROFILE || "";
+  return home ? import_node_path.default.join(home, ".pi", "agent", "settings.json") : "";
+}
+function readJsonFile(filePath) {
+  try {
+    return filePath && import_node_fs.default.existsSync(filePath)
+      ? JSON.parse(import_node_fs.default.readFileSync(filePath, "utf8"))
+      : {};
+  } catch {
+    return {};
+  }
+}
+function joinHomePath(root, ...parts) {
+  let resolved = root;
+  if (resolved.startsWith("~")) resolved = (process.env.HOME || "") + resolved.slice(1);
+  return import_node_path.default.join(resolved, ...parts);
+}
+function cleanSkillYamlValue(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^[']|[']$/g, "")
+    .replace(/^["]|["]$/g, "");
+}
+function inferSkillNameFromPath(skillPath) {
+  return import_node_path.default.basename(skillPath).toLowerCase() === "skill.md"
+    ? import_node_path.default.basename(import_node_path.default.dirname(skillPath))
+    : import_node_path.default.basename(skillPath, import_node_path.default.extname(skillPath));
+}
+function inferSkillDescription(content, frontmatterMatch) {
+  const body = frontmatterMatch ? content.slice(frontmatterMatch[0].length) : content;
+  const heading = body.match(/^#\s+(.+)$/m);
+  const firstParagraph = body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith("#") && !line.startsWith("---"));
+  return firstParagraph || (heading ? heading[1].trim() : "Pi skill");
+}
+var import_node_fs,
+  import_node_path,
+  DEFAULT_SKILL_SEARCH_LIMIT,
+  DEFAULT_SKILL_SEARCH_DEPTH,
+  skillCommandCache;
+var init_skills = __esm({
+  "src/context/skills.mjs"() {
+    "use strict";
+    import_node_fs = __toESM(require("node:fs"), 1);
+    import_node_path = __toESM(require("node:path"), 1);
+    init_paths();
+    DEFAULT_SKILL_SEARCH_LIMIT = 100;
+    DEFAULT_SKILL_SEARCH_DEPTH = 5;
+    skillCommandCache = { key: "", at: 0, commands: [] };
+  }
+});
+
+// src/context/slash-commands.mjs
+function getSlashCommands(settings, basePath) {
+  return [
+    ...BUILTIN_SLASH_COMMANDS.map((command) => ({ ...command })),
+    ...getSkillSlashCommands(settings, basePath)
+  ];
+}
+var BUILTIN_SLASH_COMMANDS;
+var init_slash_commands = __esm({
+  "src/context/slash-commands.mjs"() {
+    "use strict";
+    init_skills();
+    BUILTIN_SLASH_COMMANDS = [
+      {
+        command: "/current",
+        label: "Current note",
+        detail: "Attach the active note, selection, links, tags, headings, and frontmatter.",
+        insertText: "/current ",
+        implemented: true
+      },
+      {
+        command: "/backlinks",
+        label: "Backlinks",
+        detail: "Attach notes that link to the active note.",
+        insertText: "/backlinks ",
+        implemented: true
+      },
+      {
+        command: "/links",
+        label: "Outgoing links",
+        detail: "Attach notes linked from the active note.",
+        insertText: "/links ",
+        implemented: true
+      },
+      {
+        command: "/search",
+        label: "Vault search",
+        detail: "Attach ranked vault note matches for a query.",
+        insertText: "/search ",
+        argumentHint: "query",
+        implemented: true
+      },
+      {
+        command: "/compact",
+        label: "Compact Pi context",
+        detail:
+          "Ask Pi to compact the current session context, optionally with custom instructions.",
+        insertText: "/compact ",
+        argumentHint: "instructions",
+        implemented: true
+      }
+    ];
+  }
+});
+
+// src/context/context-builder.mjs
+function truncateThreadHistoryContent(content, maxLength) {
+  const text = String(content ?? "");
+  return text.length <= maxLength
+    ? text
+    : `${text.slice(0, Math.max(0, maxLength - 34))}
+[...truncated for context budget...]`;
+}
+var ContextBuilder;
+var init_context_builder = __esm({
+  "src/context/context-builder.mjs"() {
+    "use strict";
+    init_settings();
+    init_prompt_references();
+    init_slash_commands();
+    init_skills();
+    ContextBuilder = class {
+      constructor(graph, settings, bundledInstructions, vaultBasePath) {
+        this.graph = graph;
+        this.settings = settings;
+        this.bundledInstructions = bundledInstructions;
+        this.vaultBasePath = vaultBasePath;
+      }
+      async build(prompt, selection = "") {
+        const parsedPrompt = parsePromptReferences(prompt);
+        const activeNote = await this.graph.getActiveNoteContext(selection);
+        const linkedNeighborhood = activeNote
+          ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
+          : [];
+        const searchResults = await this.graph.searchNotes(parsedPrompt.cleanPrompt, {
+          limit: this.settings.maxSearchResults
+        });
+        const attachments = await this.resolveAttachments(parsedPrompt.references, activeNote);
+        const toolCatalog = this.getToolCatalog();
+        const slashCommands = getSlashCommands(this.settings, this.vaultBasePath);
+        const inspection = this.createInspection({
+          activeNote,
+          linkedNeighborhood,
+          searchResults,
+          attachments
+        });
+        return {
+          activeNote,
+          linkedNeighborhood,
+          searchResults,
+          attachments,
+          instructions: [this.bundledInstructions, this.settings.customInstructions]
+            .map((value) => value.trim())
+            .filter(Boolean)
+            .join("\n\n"),
+          toolCatalog,
+          inspection,
+          slashCommands
+        };
+      }
+      async inspectContext(prompt, selection = "") {
+        return (await this.build(prompt, selection)).inspection;
+      }
+      formatPrompt(prompt, context, threadHistory = []) {
+        return [
+          "Use the following Obsidian vault context to answer the user.",
+          "Prefer cited wikilinks or vault paths when referring to notes.",
+          "Respect the selected tool mode. Chat has no Pi CLI tools. Review can read/search/list only. Edit can edit/write but not run shell commands. Full agent can edit/write and run shell commands. Tool modes are not an OS-level sandbox.",
+          "",
+          "## User prompt",
+          prompt,
+          "",
+          "## Instructions",
+          context.instructions,
+          "",
+          "## Obsidian context helpers",
+          context.toolCatalog.map((tool) => `- ${tool}`).join("\n"),
+          "",
+          "## Context inspection",
+          JSON.stringify(context.inspection, null, 2),
+          "",
+          "## Slash commands",
+          context.slashCommands
+            .map((command) => {
+              const argumentHint = command.argumentHint ? ` <${command.argumentHint}>` : "";
+              return `- ${command.command}${argumentHint}: ${command.label} - ${command.detail}`;
+            })
+            .join("\n"),
+          "",
+          "## Local chat thread history",
+          this.formatThreadHistory(threadHistory),
+          "",
+          "## Active note",
+          JSON.stringify(context.activeNote ?? null, null, 2),
+          "",
+          "## Linked neighborhood",
+          JSON.stringify(context.linkedNeighborhood, null, 2),
+          "",
+          "## Search results",
+          JSON.stringify(context.searchResults, null, 2),
+          "",
+          "## Explicit prompt attachments",
+          JSON.stringify(context.attachments, null, 2)
+        ].join("\n");
+      }
+      formatThreadHistory(threadHistory) {
+        let remainingBudget = 6e3;
+        const messages = [];
+        for (const message of threadHistory.slice(-8).reverse()) {
+          if (remainingBudget <= 0) break;
+          const content = truncateThreadHistoryContent(
+            message.content,
+            Math.min(1200, remainingBudget)
+          );
+          remainingBudget -= content.length;
+          messages.unshift({ role: message.role, content });
+        }
+        return messages.length === 0 ? "[]" : JSON.stringify(messages, null, 2);
+      }
+      async resolveAttachments(references, activeNote) {
+        const attachments = [];
+        for (const reference of references) {
+          try {
+            if (reference.type === "note") {
+              const noteFile = this.graph.resolveNoteFile(reference.value);
+              attachments.push({
+                type: "note",
+                label: reference.value,
+                content: noteFile
+                  ? {
+                      context: await this.graph.getNoteContext(noteFile),
+                      content: await this.graph.readVaultFile(noteFile.path)
+                    }
+                  : { error: `Note not found: ${reference.value}` }
+              });
+            } else if (reference.type === "folder") {
+              attachments.push({
+                type: "folder",
+                label: reference.value,
+                content: await this.graph.getFolderSummary(reference.value)
+              });
+            } else if (reference.type === "tag") {
+              attachments.push({
+                type: "tag",
+                label: reference.value,
+                content: await this.graph.getNotesByTag(reference.value)
+              });
+            } else if (reference.type === "skill") {
+              attachments.push({
+                type: "skill",
+                label: `/skill:${reference.value}`,
+                content: this.resolveSkill(reference.value, reference.argument)
+              });
+            } else if (reference.type === "command") {
+              attachments.push({
+                type: "command",
+                label: `/${reference.value}`,
+                content: await this.resolveCommand(reference.value, reference.argument, activeNote)
+              });
+            }
+          } catch (error) {
+            attachments.push({
+              type: reference.type,
+              label: "value" in reference ? reference.value : "command",
+              content: { error: error instanceof Error ? error.message : String(error) }
+            });
+          }
+        }
+        return attachments;
+      }
+      resolveSkill(name, argument = "") {
+        const skill = findSkillByName(this.settings, this.vaultBasePath, name);
+        return skill
+          ? {
+              name: skill.name,
+              description: skill.description,
+              path: skill.path,
+              argument,
+              instructions: readSkillContent(skill.path)
+            }
+          : { error: `Skill not found: ${name}` };
+      }
+      async resolveCommand(command, argument, activeNote) {
+        return command === "current"
+          ? activeNote != null
+            ? activeNote
+            : null
+          : command === "backlinks"
+            ? activeNote
+              ? await this.graph.getBacklinks(activeNote.path)
+              : []
+            : command === "links"
+              ? activeNote
+                ? this.graph.getOutgoingLinks(activeNote.path)
+                : []
+              : command === "search"
+                ? argument
+                  ? await this.graph.searchNotes(argument, {
+                      limit: this.settings.maxSearchResults
+                    })
+                  : []
+                : command === "compact"
+                  ? { action: "Pi CLI session compaction", instructions: argument || void 0 }
+                  : { error: `Unknown command: /${command}` };
+      }
+      getToolCatalog() {
+        const mode =
+          this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
+        if (mode === "chat")
+          return ["No Pi CLI tools enabled. Use pre-attached Obsidian context only."];
+        const tools = ["read(path)", "grep(pattern, path)", "find(glob)", "ls(path)"];
+        if (mode === "edit" || mode === "full-agent")
+          tools.push("edit(path, oldText, newText)", "write(path, content)");
+        if (mode === "full-agent") tools.push("bash(command)");
+        tools.push(
+          "Tool modes are not an OS-level sandbox; avoid destructive actions unless explicitly requested."
+        );
+        return tools;
+      }
+      createInspection(context) {
+        return {
+          activeNote: context.activeNote
+            ? {
+                path: context.activeNote.path,
+                title: context.activeNote.title,
+                hasSelection: context.activeNote.selection.trim().length > 0,
+                selectionLength: context.activeNote.selection.length,
+                backlinkCount: context.activeNote.backlinks.length,
+                outgoingLinkCount: context.activeNote.outgoingLinks.length,
+                unresolvedLinkCount: context.activeNote.unresolvedLinks.length,
+                tagCount: context.activeNote.tags.length,
+                headingCount: context.activeNote.headings.length
+              }
+            : void 0,
+          attachments: this.summarizeAttachments(context.attachments),
+          searchResults: {
+            count: context.searchResults.length,
+            paths: context.searchResults.map((result) => result.path)
+          },
+          linkedNeighborhood: {
+            count: context.linkedNeighborhood.length,
+            paths: context.linkedNeighborhood.map((note) => note.path)
+          },
+          tools: { badges: this.getToolBadges() },
+          run: {
+            model: this.getEffectiveModelSummary(),
+            reasoning: getResolvedReasoning(this.settings),
+            mode: this.settings.sandboxMode,
+            dryRun: this.settings.dryRun
+          }
+        };
+      }
+      summarizeAttachments(attachments) {
+        const byType = {};
+        for (const attachment of attachments)
+          byType[attachment.type] = (byType[attachment.type] ?? 0) + 1;
+        return {
+          total: attachments.length,
+          byType,
+          items: attachments.map((attachment) => ({
+            type: attachment.type,
+            label: attachment.label
+          }))
+        };
+      }
+      getToolBadges() {
+        const mode =
+          this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
+        const canRead = mode !== "chat";
+        const canWrite = mode === "edit" || mode === "full-agent";
+        const canUseShell = mode === "full-agent";
+        return [
+          {
+            id: "read",
+            label: "Read files",
+            detail: canRead
+              ? "Pi can read files via CLI tools."
+              : "Pi CLI file reads are disabled; only attached Obsidian context is available.",
+            enabled: canRead,
+            kind: "read"
+          },
+          {
+            id: "search",
+            label: "Search files",
+            detail: canRead
+              ? "Pi can search/list files via CLI tools."
+              : "Pi CLI search/list tools are disabled.",
+            enabled: canRead,
+            kind: "search"
+          },
+          {
+            id: "write",
+            label: "Edit files",
+            detail: canWrite
+              ? "Pi can edit and write files. Not OS-sandboxed."
+              : "File editing is disabled in this mode.",
+            enabled: canWrite,
+            kind: "write"
+          },
+          {
+            id: "shell",
+            label: "Shell",
+            detail: canUseShell
+              ? "Pi can run shell commands. Not OS-sandboxed."
+              : "Shell commands are disabled in this mode.",
+            enabled: canUseShell,
+            kind: "shell"
+          }
+        ];
+      }
+      getEffectiveModelSummary() {
+        return this.settings.model === CUSTOM_MODEL_VALUE
+          ? this.settings.customModel.trim() || "custom"
+          : this.settings.model.trim() || "default";
+      }
+    };
+  }
+});
+
+// src/shared/text.mjs
+function tokenizeQuery(query) {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length > 1);
+}
+function scoreSearchResult(path5, content, terms) {
+  const normalizedPath = path5.toLowerCase();
+  const normalizedContent = content.toLowerCase();
+  const basename = path5.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path5;
+  let score = 0;
+  for (const term of terms) {
+    if (basename.includes(term)) score += 12;
+    if (normalizedPath.includes(term)) score += 4;
+    const matches = normalizedContent.match(new RegExp(escapeRegExp(term), "g"));
+    if (matches) score += Math.min(matches.length, 10);
+  }
+  return score;
+}
+function createExcerpt(content, terms, maxLength = 240) {
+  const text = content.replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text;
+  const normalizedText = text.toLowerCase();
+  const firstMatchIndex = terms
+    .map((term) => normalizedText.indexOf(term))
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right)[0];
+  const start = Math.max(0, (firstMatchIndex ?? 0) - Math.floor(maxLength / 3));
+  const end = Math.min(text.length, start + maxLength);
+  const prefix = start > 0 ? "..." : "";
+  const suffix = end < text.length ? "..." : "";
+  return `${prefix}${text.slice(start, end)}${suffix}`;
+}
+function rankSearchResults(results, limit) {
+  return results
+    .filter((result) => result.score > 0)
+    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+    .slice(0, limit);
+}
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+var init_text = __esm({
+  "src/shared/text.mjs"() {
+    "use strict";
+  }
+});
+
+// src/context/vault-graph.mjs
+var import_obsidian, VaultGraph;
+var init_vault_graph = __esm({
+  "src/context/vault-graph.mjs"() {
+    "use strict";
+    import_obsidian = require("obsidian");
+    init_text();
+    VaultGraph = class {
+      constructor(app, settings, getCurrentContextFile) {
+        this.app = app;
+        this.settings = settings;
+        this.getCurrentContextFile = getCurrentContextFile;
+      }
+      getMarkdownFiles() {
+        return this.app.vault.getMarkdownFiles().filter((file) => this.isPathAllowed(file.path));
+      }
+      async searchNotes(query, options = {}) {
+        const terms = tokenizeQuery(query);
+        if (terms.length === 0) return [];
+        const limit = options.limit ?? this.settings.maxSearchResults;
+        const files = this.getMarkdownFiles()
+          .filter((file) => !options.folder || file.path.startsWith(options.folder))
+          .slice(0, this.settings.maxSearchFiles);
+        const results = [];
+        for (const file of files) {
+          const content = await this.readFile(file, this.settings.maxFileChars);
+          const score = scoreSearchResult(file.path, content, terms);
+          const cache = this.app.metadataCache.getFileCache(file);
+          results.push({
+            path: file.path,
+            title: file.basename,
+            score,
+            excerpt: createExcerpt(content, terms),
+            tags: this.getTags(cache)
+          });
+        }
+        return rankSearchResults(results, limit);
+      }
+      async getActiveNoteContext(selection = "") {
+        const file = this.getActiveFile();
+        if (!file) return void 0;
+        const content = await this.readFile(file, this.settings.maxFileChars);
+        return { ...(await this.getNoteContext(file)), content, selection };
+      }
+      async getNoteContext(fileOrPath) {
+        const file =
+          typeof fileOrPath === "string"
+            ? this.app.vault.getAbstractFileByPath(fileOrPath)
+            : fileOrPath;
+        if (!(file instanceof import_obsidian.TFile))
+          throw new Error(`Note not found: ${String(fileOrPath)}`);
+        const cache = this.app.metadataCache.getFileCache(file);
+        const content = await this.readFile(file, this.settings.maxFileChars);
+        return {
+          path: file.path,
+          title: file.basename,
+          frontmatter: cache?.frontmatter ?? {},
+          tags: this.getTags(cache),
+          aliases: this.getAliases(cache),
+          headings: this.getHeadings(cache),
+          backlinks: await this.getBacklinks(file.path),
+          outgoingLinks: this.getOutgoingLinks(file.path),
+          unresolvedLinks: this.getUnresolvedLinks(file.path),
+          excerpt: createExcerpt(content, tokenizeQuery(file.basename), 320)
+        };
+      }
+      async findReferences(query) {
+        const titleMatches = this.getMarkdownFiles()
+          .filter((file) => file.basename.toLowerCase().includes(query.toLowerCase()))
+          .map((file) => ({
+            path: file.path,
+            title: file.basename,
+            score: 20,
+            excerpt: "Title match",
+            tags: this.getTags(this.app.metadataCache.getFileCache(file))
+          }));
+        const searchMatches = await this.searchNotes(query, {
+          limit: this.settings.maxSearchResults
+        });
+        return rankSearchResults(
+          [...titleMatches, ...searchMatches],
+          this.settings.maxSearchResults
+        );
+      }
+      async getFolderSummary(folderPath) {
+        const normalizedFolderPath = folderPath.replace(/^\/+|\/+$/g, "");
+        const files = this.getMarkdownFiles()
+          .filter((file) => file.path.startsWith(`${normalizedFolderPath}/`))
+          .slice(0, this.settings.maxSearchResults);
+        const results = [];
+        for (const file of files) {
+          const content = await this.readFile(file, this.settings.maxFileChars);
+          results.push({
+            path: file.path,
+            title: file.basename,
+            score: 1,
+            excerpt: createExcerpt(content, tokenizeQuery(file.basename), 260),
+            tags: this.getTags(this.app.metadataCache.getFileCache(file))
+          });
+        }
+        return results;
+      }
+      async getNotesByTag(tag) {
+        const normalizedTag = tag.startsWith("#") ? tag : `#${tag}`;
+        const results = [];
+        for (const file of this.getMarkdownFiles()) {
+          const cache = this.app.metadataCache.getFileCache(file);
+          const tags = this.getTags(cache);
+          if (!tags.includes(normalizedTag) && !tags.includes(normalizedTag.slice(1))) continue;
+          const content = await this.readFile(file, this.settings.maxFileChars);
+          results.push({
+            path: file.path,
+            title: file.basename,
+            score: 1,
+            excerpt: createExcerpt(content, tokenizeQuery(normalizedTag), 260),
+            tags
+          });
+          if (results.length >= this.settings.maxSearchResults) break;
+        }
+        return results;
+      }
+      resolveNoteFile(notePath) {
+        const normalizedPath = notePath.replace(/^\/+/, "").replace(/#.*$/, "");
+        const candidates = [
+          normalizedPath,
+          normalizedPath.endsWith(".md") ? normalizedPath : `${normalizedPath}.md`,
+          normalizedPath.replace(/\.md$/i, "")
+        ];
+        for (const candidate of candidates) {
+          const directFile = this.app.vault.getAbstractFileByPath(candidate);
+          if (directFile instanceof import_obsidian.TFile && this.isPathAllowed(directFile.path))
+            return directFile;
+          const linkedFile = this.app.metadataCache.getFirstLinkpathDest(
+            candidate.replace(/\.md$/i, ""),
+            ""
+          );
+          if (linkedFile && this.isPathAllowed(linkedFile.path)) return linkedFile;
+        }
+        return void 0;
+      }
+      async getBacklinks(filePath) {
+        const backlinkEntries = Object.entries(this.app.metadataCache.resolvedLinks)
+          .map(([path5, links]) => ({ path: path5, count: links[filePath] || 0 }))
+          .filter(
+            (backlink) =>
+              backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
+          )
+          .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path))
+          .slice(0, this.settings.maxSearchResults);
+        const backlinks = [];
+        for (const backlink of backlinkEntries) {
+          const file = this.app.vault.getAbstractFileByPath(backlink.path);
+          let excerpt = "";
+          if (file instanceof import_obsidian.TFile) {
+            const content = await this.readFile(file, this.settings.maxFileChars);
+            excerpt = createExcerpt(content, tokenizeQuery(filePath.replace(/\.md$/i, "")), 220);
+          }
+          backlinks.push({
+            path: backlink.path,
+            display: backlink.path.replace(/\.md$/i, ""),
+            count: backlink.count,
+            excerpt
+          });
+        }
+        return backlinks;
+      }
+      getOutgoingLinks(filePath) {
+        const links = this.app.metadataCache.resolvedLinks[filePath] ?? {};
+        return Object.entries(links)
+          .filter(([path5]) => this.isPathAllowed(path5))
+          .map(([path5, count]) => ({
+            path: path5,
+            display: path5.replace(/\.md$/i, ""),
+            count
+          }))
+          .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
+      }
+      getUnresolvedLinks(filePath) {
+        const links = this.app.metadataCache.unresolvedLinks[filePath] ?? {};
+        return Object.entries(links)
+          .map(([path5, count]) => ({ path: path5, display: path5, count }))
+          .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
+      }
+      async getLinkedNeighborhood(filePath, depth = 1) {
+        const seen = /* @__PURE__ */ new Set([filePath]);
+        let frontier = [filePath];
+        const notes = [];
+        for (let index = 0; index < depth; index++) {
+          const nextFrontier = /* @__PURE__ */ new Set();
+          for (const path5 of frontier) {
+            const outgoingLinks = this.getOutgoingLinks(path5);
+            const backlinks = await this.getBacklinks(path5);
+            for (const link of [...outgoingLinks, ...backlinks]) {
+              if (!seen.has(link.path) && link.path.endsWith(".md")) {
+                seen.add(link.path);
+                nextFrontier.add(link.path);
+              }
+            }
+          }
+          for (const path5 of nextFrontier) {
+            try {
+              notes.push(await this.getNoteContext(path5));
+            } catch {}
+          }
+          frontier = [...nextFrontier].slice(0, this.settings.maxSearchResults);
+        }
+        return notes.slice(0, this.settings.maxSearchResults);
+      }
+      getActiveFile() {
+        const file = this.getCurrentContextFile?.() ?? this.app.workspace.getActiveFile();
+        return file && file.extension === "md" && this.isPathAllowed(file.path) ? file : void 0;
+      }
+      async readVaultFile(filePath) {
+        const file = this.app.vault.getAbstractFileByPath(filePath);
+        if (!(file instanceof import_obsidian.TFile))
+          throw new Error(`File not found: ${filePath}`);
+        if (!this.isPathAllowed(file.path)) throw new Error(`Path is not allowed: ${filePath}`);
+        return this.readFile(file, this.settings.maxFileChars);
+      }
+      async readFile(file, maxChars) {
+        const content = await this.app.vault.cachedRead(file);
+        return content.length > maxChars
+          ? `${content.slice(0, maxChars)}
+...[truncated]`
+          : content;
+      }
+      isPathAllowed(filePath) {
+        const normalizedPath = filePath.replace(/\\/g, "/");
+        return !this.settings.ignoredFolders.some((ignoredFolder) => {
+          const normalizedIgnoredFolder = ignoredFolder.replace(/\/+$/, "");
+          return (
+            normalizedPath === normalizedIgnoredFolder ||
+            normalizedPath.startsWith(`${normalizedIgnoredFolder}/`)
+          );
+        });
+      }
+      getTags(cache) {
+        const tags = /* @__PURE__ */ new Set();
+        for (const tag of cache?.tags ?? []) tags.add(tag.tag);
+        const frontmatterTags = cache?.frontmatter?.tags;
+        if (Array.isArray(frontmatterTags)) {
+          for (const tag of frontmatterTags) tags.add(String(tag));
+        } else if (typeof frontmatterTags === "string") {
+          tags.add(frontmatterTags);
+        }
+        return [...tags].sort();
+      }
+      getAliases(cache) {
+        const aliases = cache?.frontmatter?.aliases;
+        return Array.isArray(aliases)
+          ? aliases.map(String)
+          : typeof aliases === "string"
+            ? [aliases]
+            : [];
+      }
+      getHeadings(cache) {
+        return (cache?.headings ?? [])
+          .map((heading) => heading.heading)
+          .filter(Boolean)
+          .slice(0, 20);
+      }
+    };
+  }
+});
+
+// src/pi/environment.mjs
+function createPiEnvironment() {
+  const pathKey = getPathEnvironmentKey();
+  const delimiter = import_node_path2.default.delimiter;
+  const pathEntries = (process.env[pathKey] ?? "").split(delimiter).filter(Boolean);
+  if (process.platform !== "win32") {
+    for (const fallbackPath of POSIX_PATH_FALLBACKS) {
+      if (!pathEntries.includes(fallbackPath)) pathEntries.push(fallbackPath);
+    }
+  }
+  return { ...process.env, [pathKey]: pathEntries.join(delimiter) };
+}
+function getPathEnvironmentKey() {
+  return Object.keys(process.env).find((key) => key.toLowerCase() === "path") ?? "PATH";
+}
+var import_node_path2, POSIX_PATH_FALLBACKS;
+var init_environment = __esm({
+  "src/pi/environment.mjs"() {
+    "use strict";
+    import_node_path2 = __toESM(require("node:path"), 1);
+    POSIX_PATH_FALLBACKS = [
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+      "/usr/bin",
+      "/bin",
+      "/usr/sbin",
+      "/sbin"
+    ];
+  }
+});
+
+// src/pi/health.mjs
+function checkPiInstallation() {
+  const result = (0, import_node_child_process.spawnSync)("pi", ["--version"], {
+    encoding: "utf8",
+    env: createPiEnvironment(),
+    timeout: 5e3
+  });
+  if (result.error) {
+    return {
+      ok: false,
+      message:
+        result.error.code === "ENOENT"
+          ? "Pi CLI was not found on PATH."
+          : `Could not run Pi CLI: ${result.error.message}`
+    };
+  }
+  if (result.status !== 0) {
+    return {
+      ok: false,
+      message: (result.stderr || result.stdout || `Pi exited with code ${result.status}.`).trim()
+    };
+  }
+  return {
+    ok: true,
+    version: (result.stdout || result.stderr || "Pi CLI found.").trim(),
+    message: (result.stdout || result.stderr || "Pi CLI found.").trim()
+  };
+}
+var import_node_child_process;
+var init_health = __esm({
+  "src/pi/health.mjs"() {
+    "use strict";
+    import_node_child_process = require("node:child_process");
+    init_environment();
+  }
+});
+
+// src/pi/model-catalog.mjs
+function parseModelCatalog(output) {
+  return output
+    .replace(ANSI_ESCAPE_PATTERN, "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith("provider"))
+    .map((line) => line.split(/\s{2,}/))
+    .filter((parts) => parts.length >= 5)
+    .map((parts) => {
+      const provider = parts[0];
+      const model = parts[1];
+      const supportedReasoningLevels = normalizeReasoningLevels(parts[4]);
+      return {
+        slug: `${provider}/${model}`,
+        displayName: `${provider}: ${model}`,
+        contextWindow: parseTokenAmount(parts[2]),
+        maxOutputTokens: parseTokenAmount(parts[3]),
+        defaultReasoningLevel: supportedReasoningLevels.includes("medium")
+          ? "medium"
+          : supportedReasoningLevels[0] || "off",
+        supportedReasoningLevels
+      };
+    });
+}
+function parseTokenAmount(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase();
+  const match = normalized.match(/^(\d+(?:\.\d+)?)([KMB])?$/);
+  if (!match) return 0;
+  const amount = Number.parseFloat(match[1]);
+  const multiplier = match[2] === "B" ? 1e9 : match[2] === "M" ? 1e6 : match[2] === "K" ? 1e3 : 1;
+  return Math.round(amount * multiplier);
+}
+function normalizeReasoningLevels(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return !normalized || normalized === "no" || normalized === "false"
+    ? ["off"]
+    : normalized === "yes" || normalized === "true"
+      ? [...REASONING_LEVELS]
+      : normalized
+          .split(/[/,|]+/)
+          .map((level) => level.trim())
+          .filter(Boolean)
+          .filter((level) => REASONING_LEVELS.includes(level));
+}
+function getEffectiveConfig(vaultBasePath) {
+  const globalSettingsPath = getGlobalSettingsPath2();
+  const vaultSettingsPath = vaultBasePath
+    ? import_node_path3.default.join(vaultBasePath, ".pi", "settings.json")
+    : "";
+  const settings = mergeConfigObjects(
+    readJsonFile2(globalSettingsPath),
+    readJsonFile2(vaultSettingsPath)
+  );
+  const defaultModel = settings.defaultModel ? String(settings.defaultModel) : "";
+  const defaultProvider = settings.defaultProvider ? String(settings.defaultProvider) : "";
+  const effectiveModel = defaultModel
+    ? defaultModel.includes("/")
+      ? defaultModel
+      : defaultProvider
+        ? `${defaultProvider}/${defaultModel}`
+        : defaultModel
+    : "";
+  const effectiveReasoning = settings.defaultThinkingLevel
+    ? String(settings.defaultThinkingLevel)
+    : "";
+  return { effectiveModel, effectiveReasoning };
+}
+function getGlobalSettingsPath2() {
+  const piAgentDir = process.env.PI_CODING_AGENT_DIR;
+  if (piAgentDir) return joinHomePath2(piAgentDir, "settings.json");
+  const home = process.env.HOME || process.env.USERPROFILE || "";
+  return home ? import_node_path3.default.join(home, ".pi", "agent", "settings.json") : "";
+}
+function readJsonFile2(filePath) {
+  try {
+    return filePath && import_node_fs2.default.existsSync(filePath)
+      ? JSON.parse(import_node_fs2.default.readFileSync(filePath, "utf8"))
+      : {};
+  } catch {
+    return {};
+  }
+}
+function mergeConfigObjects(left, right) {
+  const result = { ...left };
+  for (const [key, value] of Object.entries(right || {})) {
+    result[key] =
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      typeof result[key] === "object" &&
+      !Array.isArray(result[key])
+        ? mergeConfigObjects(result[key], value)
+        : value;
+  }
+  return result;
+}
+function joinHomePath2(root, ...parts) {
+  let resolved = root;
+  if (resolved.startsWith("~")) resolved = (process.env.HOME || "") + resolved.slice(1);
+  return import_node_path3.default.join(resolved, ...parts);
+}
+var import_node_child_process2,
+  import_node_fs2,
+  import_node_path3,
+  REASONING_LEVELS,
+  ESCAPE_CHARACTER,
+  ANSI_ESCAPE_PATTERN,
+  PiModelCatalog;
+var init_model_catalog = __esm({
+  "src/pi/model-catalog.mjs"() {
+    "use strict";
+    import_node_child_process2 = require("node:child_process");
+    import_node_fs2 = __toESM(require("node:fs"), 1);
+    import_node_path3 = __toESM(require("node:path"), 1);
+    init_environment();
+    REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
+    ESCAPE_CHARACTER = String.fromCharCode(27);
+    ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
+    PiModelCatalog = class {
+      constructor(pluginDirectory) {
+        this.pluginDirectory = pluginDirectory;
+      }
+      async getAvailableModels() {
+        const output = await this.execPi("pi", ["--list-models"]);
+        return parseModelCatalog(output);
+      }
+      getEffectiveConfig(vaultBasePath) {
+        return getEffectiveConfig(vaultBasePath);
+      }
+      execPi(command, args) {
+        return new Promise((resolve, reject) => {
+          (0, import_node_child_process2.execFile)(
+            command,
+            args,
+            { env: createPiEnvironment(), timeout: 2e4 },
+            (error, stdout, stderr) => {
+              if (error) {
+                reject(
+                  new Error(
+                    `Could not query Pi model registry: ${error.message}${
+                      stderr
+                        ? `
+${stderr}`
+                        : ""
+                    }`
+                  )
+                );
+                return;
+              }
+              resolve(stdout || stderr);
+            }
+          );
+        });
+      }
+    };
+  }
+});
+
+// src/pi/token-usage.mjs
+function calculateContextTokens(usage) {
+  return usage
+    ? Number(usage.input || 0) + Number(usage.cacheRead || 0) + Number(usage.cacheWrite || 0)
+    : 0;
+}
+function normalizeTokenUsage(usage) {
+  if (!usage) return void 0;
+  return {
+    input: Number(usage.input || 0),
+    output: Number(usage.output || 0),
+    cacheRead: Number(usage.cacheRead || 0),
+    cacheWrite: Number(usage.cacheWrite || 0),
+    totalTokens: Number(usage.totalTokens || 0)
+  };
+}
+function formatContextUsageBadge(contextUsage, tokenUsage) {
+  if (!contextUsage) return void 0;
+  const base = `ctx ${formatPercent(contextUsage.percent)} \xB7 ${formatTokenCount(
+    contextUsage.tokens
+  )}/${formatTokenCount(contextUsage.contextWindow)}`;
+  return {
+    label: tokenUsage
+      ? `${base} \xB7 \u2191${formatTokenCount(calculateContextTokens(tokenUsage))} \u2193${formatTokenCount(
+          tokenUsage.output || 0
+        )}`
+      : base,
+    title: formatContextUsageTitle(contextUsage, tokenUsage)
+  };
+}
+function formatContextUsageTitle(contextUsage, tokenUsage) {
+  const lines = [
+    `Context used: ${formatPercent(contextUsage.percent)} (${formatTokenCount(
+      contextUsage.tokens
+    )} of ${formatTokenCount(contextUsage.contextWindow)} tokens)`
+  ];
+  if (tokenUsage) {
+    lines.push(
+      `\u2191 Input context: ${formatTokenCount(calculateContextTokens(tokenUsage))} tokens`,
+      `\u2193 Output: ${formatTokenCount(tokenUsage.output || 0)} tokens`
+    );
+  }
+  return lines.join("\n");
+}
+function formatPercent(value) {
+  return Number.isFinite(value) ? `${Math.max(0, Math.round(value))}%` : "?%";
+}
+function formatTokenCount(value) {
+  const count = Number(value || 0);
+  return count >= 1e6
+    ? `${formatCompactNumber(count / 1e6)}M`
+    : count >= 1e3
+      ? `${formatCompactNumber(count / 1e3)}K`
+      : String(Math.round(count));
+}
+function formatCompactNumber(value) {
+  return value >= 100
+    ? String(Math.round(value))
+    : value >= 10
+      ? value.toFixed(1).replace(/\.0$/, "")
+      : value.toFixed(1).replace(/\.0$/, "");
+}
+var init_token_usage = __esm({
+  "src/pi/token-usage.mjs"() {
+    "use strict";
+  }
+});
+
+// src/pi/events.mjs
+function handlePiJsonEventLine(line, callbacks, events, appendText, updateRunState) {
+  if (!line.trim()) return;
+  let event;
+  try {
+    event = JSON.parse(line);
+  } catch {
+    return;
+  }
+  const type = String(event.type ?? "event");
+  const emit = (normalizedEvent) => {
+    events.push(normalizedEvent);
+    callbacks?.onEvent?.(normalizedEvent);
+  };
+  const captureRunState = (messageOrMessages) => {
+    const runState = getAssistantRunState(messageOrMessages);
+    if (runState) updateRunState(runState);
+  };
+  if (event.message) captureRunState(event.message);
+  if (Array.isArray(event.messages)) captureRunState(event.messages);
+  if (type === "tool_execution_start" || type === "tool_execution_update") {
+    emit({
+      type: type === "tool_execution_start" ? "tool_start" : "tool_update",
+      raw: event,
+      message: String(event.toolName ?? "tool"),
+      toolName: String(event.toolName ?? "tool"),
+      toolCallId: String(event.toolCallId ?? ""),
+      toolArgs: event.args ?? {}
+    });
+    return;
+  }
+  if (type === "tool_execution_end") {
+    emit({
+      type: "tool_end",
+      raw: event,
+      message: String(event.toolName ?? "tool"),
+      toolName: String(event.toolName ?? "tool"),
+      toolCallId: String(event.toolCallId ?? ""),
+      toolArgs: event.args ?? {},
+      isError: event.isError === true
+    });
+    return;
+  }
+  const assistantEvent = event.assistantMessageEvent;
+  if (type === "message_update" && assistantEvent) {
+    if (assistantEvent.type === "text_delta") {
+      const delta = assistantEvent.delta ?? "";
+      appendText(delta);
+      const textEvent = { type: "text_delta", raw: event, textDelta: delta, assistantEvent };
+      emit(textEvent);
+      callbacks?.onTextDelta?.(delta, textEvent);
+      return;
+    }
+    const toolCall = extractToolCallFromAssistantEvent(assistantEvent);
+    emit({
+      type: assistantEvent.type,
+      raw: event,
+      assistantEvent,
+      toolName: toolCall?.name ?? void 0,
+      toolArgs: toolCall?.arguments ?? void 0,
+      toolCallId: toolCall?.id ?? void 0
+    });
+    return;
+  }
+  if (type === "message_end") {
+    emit({ type: "message_end", raw: event, fallbackText: extractAssistantText(event.message) });
+    return;
+  }
+  if (type === "turn_end") {
+    emit({ type: "turn_end", raw: event, fallbackText: extractAssistantText(event.message) });
+    return;
+  }
+  if (type === "agent_end") {
+    const agentEndEvent = {
+      type: "agent_end",
+      raw: event,
+      fallbackText: extractLatestAssistantText(event.messages)
+    };
+    emit(agentEndEvent);
+    updateRunState({ fallbackText: agentEndEvent.fallbackText?.trim() ?? "" });
+    return;
+  }
+  emit({ type, raw: event });
+}
+function extractAssistantText(message) {
+  if (!message || message.role !== "assistant") return "";
+  const content = message.content ?? [];
+  return typeof content === "string"
+    ? content
+    : Array.isArray(content)
+      ? content
+          .filter((part) => part && part.type === "text")
+          .map((part) => String(part.text || ""))
+          .join("")
+      : "";
+}
+function extractLatestAssistantText(messages) {
+  if (!Array.isArray(messages)) return "";
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const text = extractAssistantText(messages[index]);
+    if (text.trim()) return text;
+  }
+  return "";
+}
+function getAssistantRunState(messageOrMessages) {
+  const message = Array.isArray(messageOrMessages)
+    ? findLatestAssistantMessage(messageOrMessages)
+    : messageOrMessages;
+  if (!message || message.role !== "assistant") return void 0;
+  return {
+    fallbackText: extractAssistantText(message).trim(),
+    errorMessage:
+      message.stopReason === "error" || message.stopReason === "aborted"
+        ? message.errorMessage || `Request ${message.stopReason}`
+        : void 0,
+    tokenUsage: normalizeTokenUsage(message.usage)
+  };
+}
+function extractEventTokenUsage(event) {
+  if (!event) return void 0;
+  const runState = getAssistantRunState(
+    event.message ?? (Array.isArray(event.messages) ? event.messages : void 0)
+  );
+  return runState?.tokenUsage;
+}
+function extractToolCallFromAssistantEvent(event) {
+  const toolCall = event?.toolCall;
+  if (toolCall) return toolCall;
+  const content = event?.partial?.content?.[event.contentIndex];
+  return content && content.type === "toolCall"
+    ? {
+        id: content.id ?? content.toolCallId,
+        name: content.name,
+        arguments: content.arguments ?? content.args
+      }
+    : void 0;
+}
+function findLatestAssistantMessage(messages) {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    if (messages[index]?.role === "assistant") return messages[index];
+  }
+  return void 0;
+}
+var init_events = __esm({
+  "src/pi/events.mjs"() {
+    "use strict";
+    init_token_usage();
+  }
+});
+
+// src/pi/runner.mjs
+function isPiCliCommandPrompt(prompt) {
+  return /^\/(compact)(?:\s|$)/i.test(prompt.trim());
+}
+function getCompactInstructions(prompt) {
+  const match = prompt.trim().match(/^\/compact(?:\s+([\s\S]+))?$/i);
+  return match ? (match[1] ?? "").trim() : void 0;
+}
+function emptyChangeStats() {
+  return { filesChanged: 0, additions: 0, deletions: 0 };
+}
+function createSessionId() {
+  const randomUUID = globalThis.crypto?.randomUUID;
+  return randomUUID
+    ? randomUUID.call(globalThis.crypto)
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+var import_node_child_process3, import_node_fs3, import_node_path4, PiRunner;
+var init_runner = __esm({
+  "src/pi/runner.mjs"() {
+    "use strict";
+    import_node_child_process3 = require("node:child_process");
+    import_node_fs3 = __toESM(require("node:fs"), 1);
+    import_node_path4 = __toESM(require("node:path"), 1);
+    init_skills();
+    init_settings();
+    init_token_usage();
+    init_environment();
+    init_events();
+    PiRunner = class {
+      constructor(settings, contextBuilder, workingDirectory, pluginDirectory) {
+        this.settings = settings;
+        this.contextBuilder = contextBuilder;
+        this.workingDirectory = workingDirectory;
+        this.pluginDirectory = pluginDirectory;
+        this.cancelRequested = false;
+      }
+      async run(prompt, context, sessionId, threadHistory = [], callbacks) {
+        if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+        const compactInstructions = getCompactInstructions(prompt);
+        if (compactInstructions !== void 0)
+          return this.settings.dryRun
+            ? this.formatDryRunCompactResponse(sessionId)
+            : this.runPiRpcCompact(sessionId, compactInstructions, callbacks);
+        const formattedPrompt = this.contextBuilder.formatPrompt(prompt, context, threadHistory);
+        if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+        return this.settings.dryRun
+          ? {
+              finalResponse: this.formatDryRunResponse(prompt, context),
+              sessionId,
+              threadId: sessionId,
+              pendingChanges: [],
+              events: [],
+              changes: [],
+              changedFiles: [],
+              changeStats: emptyChangeStats()
+            }
+          : this.runPiCli(formattedPrompt, sessionId, callbacks);
+      }
+      cancelCurrentRun() {
+        this.cancelRequested = true;
+        if (!this.activeChild) return;
+        this.terminateActiveChild("SIGTERM");
+        window.setTimeout(() => {
+          if (this.activeChild) this.terminateActiveChild("SIGKILL");
+        }, 1500);
+      }
+      terminateActiveChild(signal) {
+        const child = this.activeChild;
+        if (!child) return;
+        try {
+          process.platform !== "win32" && child.pid
+            ? process.kill(-child.pid, signal)
+            : child.kill(signal);
+        } catch {
+          try {
+            child.kill(signal);
+          } catch {}
+        }
+      }
+      runPiCli(prompt, sessionId, callbacks) {
+        if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
+        if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+        const resolvedSessionId = sessionId ?? this.createSessionFilePath();
+        const args = this.buildPiArgs(resolvedSessionId, "json");
+        return new Promise((resolve, reject) => {
+          this.cancelRequested = false;
+          const child = (0, import_node_child_process3.spawn)("pi", args, {
+            cwd: this.workingDirectory ?? this.pluginDirectory,
+            env: createPiEnvironment(),
+            detached: process.platform !== "win32"
+          });
+          this.activeChild = child;
+          callbacks?.onEvent?.({
+            type: "pi_start",
+            raw: {
+              args: args.slice(1),
+              cwd: this.workingDirectory ?? this.pluginDirectory
+            }
+          });
+          let stdoutBuffer = "";
+          let stderr = "";
+          let finalResponse = "";
+          let settled = false;
+          const events = [];
+          let runState;
+          const updateRunState = (nextRunState) => {
+            if (nextRunState) runState = { ...runState, ...nextRunState };
+          };
+          const failOnce = (error) => {
+            if (!settled) {
+              settled = true;
+              reject(error);
+            }
+          };
+          const flushStdoutBuffer = () => {
+            if (!stdoutBuffer.trim()) return;
+            handlePiJsonEventLine(
+              stdoutBuffer.trim(),
+              callbacks,
+              events,
+              (delta) => {
+                finalResponse += delta;
+              },
+              updateRunState
+            );
+            stdoutBuffer = "";
+          };
+          const getErrorText = () =>
+            runState?.errorMessage ?? stderr.trim() ?? runState?.fallbackText?.trim();
+          child.stdout.on("data", (chunk) => {
+            stdoutBuffer += chunk.toString("utf8");
+            const lines = stdoutBuffer.split(/\r?\n/);
+            stdoutBuffer = lines.pop() ?? "";
+            for (const line of lines) {
+              handlePiJsonEventLine(
+                line,
+                callbacks,
+                events,
+                (delta) => {
+                  finalResponse += delta;
+                },
+                updateRunState
+              );
+            }
+          });
+          child.stderr.on("data", (chunk) => {
+            stderr += chunk.toString("utf8");
+          });
+          child.once("error", (error) => {
+            failOnce(
+              error && error.code === "ENOENT"
+                ? new Error(
+                    "Pi CLI not found. Install it with `npm install -g @earendil-works/pi-coding-agent`, then restart Obsidian so it can find `pi` on PATH."
+                  )
+                : error
+            );
+          });
+          child.once("close", (exitCode) => {
+            if (this.activeChild === child) this.activeChild = void 0;
+            if (settled) return;
+            if (this.cancelRequested) {
+              this.cancelRequested = false;
+              failOnce(new Error("Pi run canceled."));
+              return;
+            }
+            flushStdoutBuffer();
+            const errorText = getErrorText();
+            if (exitCode && exitCode !== 0) {
+              failOnce(new Error(errorText || `Pi exited with code ${exitCode}.`));
+              return;
+            }
+            if (runState?.errorMessage) {
+              failOnce(new Error(runState.errorMessage));
+              return;
+            }
+            settled = true;
+            resolve({
+              finalResponse: this.getFinalResponse(
+                finalResponse,
+                runState?.fallbackText,
+                events,
+                isPiCliCommandPrompt(prompt)
+              ),
+              sessionId: resolvedSessionId,
+              threadId: resolvedSessionId,
+              pendingChanges: [],
+              events,
+              contextUsage: this.getRunContextUsage(runState?.tokenUsage, events),
+              contextCompacted: this.didCompactContext(events),
+              tokenUsage: runState?.tokenUsage ?? void 0,
+              changes: [],
+              changedFiles: [],
+              changeStats: emptyChangeStats()
+            });
+          });
+          child.stdin.write(prompt);
+          child.stdin.end();
+        });
+      }
+      runPiRpcCompact(sessionId, customInstructions = "", callbacks) {
+        if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
+        if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+        const resolvedSessionId = sessionId ?? this.createSessionFilePath();
+        const args = this.buildPiArgs(resolvedSessionId, "rpc");
+        return new Promise((resolve, reject) => {
+          this.cancelRequested = false;
+          const child = (0, import_node_child_process3.spawn)("pi", args, {
+            cwd: this.workingDirectory ?? this.pluginDirectory,
+            env: createPiEnvironment(),
+            detached: process.platform !== "win32"
+          });
+          this.activeChild = child;
+          callbacks?.onEvent?.({
+            type: "pi_start",
+            raw: { args: args.slice(1), cwd: this.workingDirectory ?? this.pluginDirectory }
+          });
+          let stdoutBuffer = "";
+          let stderr = "";
+          let settled = false;
+          const events = [];
+          const requestId = `compact-${Date.now()}`;
+          const failOnce = (error) => {
+            if (!settled) {
+              settled = true;
+              reject(error);
+            }
+          };
+          const finishOnce = (response) => {
+            if (settled) return;
+            settled = true;
+            this.terminateActiveChild("SIGTERM");
+            const result = response.data;
+            resolve({
+              finalResponse: response.success
+                ? "Context compacted."
+                : `Context compaction failed: ${response.error ?? "Unknown error"}`,
+              sessionId: resolvedSessionId,
+              threadId: resolvedSessionId,
+              pendingChanges: [],
+              events,
+              contextUsage: void 0,
+              contextCompacted: response.success === true,
+              tokenUsage: void 0,
+              changes: [],
+              changedFiles: [],
+              changeStats: emptyChangeStats(),
+              compactionResult: result
+            });
+          };
+          const handleLine = (line) => {
+            if (!line.trim()) return;
+            let event;
+            try {
+              event = JSON.parse(line);
+            } catch {
+              return;
+            }
+            if (
+              event.type === "response" &&
+              event.id === requestId &&
+              event.command === "compact"
+            ) {
+              finishOnce(event);
+              return;
+            }
+            handlePiJsonEventLine(
+              line,
+              callbacks,
+              events,
+              () => {},
+              () => {}
+            );
+          };
+          child.stdout.on("data", (chunk) => {
+            stdoutBuffer += chunk.toString("utf8");
+            const lines = stdoutBuffer.split(/\r?\n/);
+            stdoutBuffer = lines.pop() ?? "";
+            for (const line of lines) handleLine(line);
+          });
+          child.stderr.on("data", (chunk) => {
+            stderr += chunk.toString("utf8");
+          });
+          child.once("error", (error) => {
+            failOnce(
+              error && error.code === "ENOENT"
+                ? new Error(
+                    "Pi CLI not found. Install it with `npm install -g @earendil-works/pi-coding-agent`, then restart Obsidian so it can find `pi` on PATH."
+                  )
+                : error
+            );
+          });
+          child.once("close", (exitCode) => {
+            if (this.activeChild === child) this.activeChild = void 0;
+            if (settled) return;
+            if (this.cancelRequested) {
+              this.cancelRequested = false;
+              failOnce(new Error("Pi run canceled."));
+              return;
+            }
+            if (stdoutBuffer.trim()) handleLine(stdoutBuffer.trim());
+            if (settled) return;
+            failOnce(new Error(stderr.trim() || `Pi RPC compact exited with code ${exitCode}.`));
+          });
+          child.stdin.write(
+            `${JSON.stringify({
+              id: requestId,
+              type: "compact",
+              ...(customInstructions ? { customInstructions } : {})
+            })}
+`
+          );
+        });
+      }
+      getFinalResponse(finalResponse, fallbackText, events, isCommandPrompt = false) {
+        const response = (finalResponse.trim() || (fallbackText || "").trim()).trim();
+        if (response) return response;
+        const compactionEnd = [...events]
+          .reverse()
+          .find((event) => this.normalizeCompactionEventType(event.type) === "compaction_end");
+        if (!compactionEnd || !isCommandPrompt) return response;
+        if (compactionEnd.raw?.errorMessage)
+          return `Context compaction failed: ${String(compactionEnd.raw.errorMessage)}`;
+        if (compactionEnd.raw?.aborted) return "Context compaction skipped.";
+        return "Context compacted.";
+      }
+      getRunContextUsage(tokenUsage, events = []) {
+        if (this.didCompactContext(events)) return void 0;
+        const model = this.getSelectedModelInfo();
+        const contextWindow = model?.contextWindow ?? 0;
+        const tokens = calculateContextTokens(tokenUsage);
+        return contextWindow > 0 && tokens > 0
+          ? {
+              tokens,
+              contextWindow,
+              percent: (tokens / contextWindow) * 100
+            }
+          : void 0;
+      }
+      didCompactContext(events = []) {
+        return events.some((event) => {
+          if (this.normalizeCompactionEventType(event.type) !== "compaction_end") return false;
+          return !event.raw?.errorMessage && !event.raw?.aborted;
+        });
+      }
+      normalizeCompactionEventType(type) {
+        return type === "auto_compaction_start" || type === "session_before_compact"
+          ? "compaction_start"
+          : type === "auto_compaction_end" || type === "session_compact"
+            ? "compaction_end"
+            : type;
+      }
+      getSelectedModelInfo() {
+        let modelId =
+          this.settings.model === CUSTOM_MODEL_VALUE
+            ? this.settings.customModel
+            : this.settings.model;
+        if (!modelId) modelId = this.settings.effectiveModel;
+        return modelId
+          ? this.settings.availableModels.find((model) => model.slug === modelId)
+          : void 0;
+      }
+      buildPiArgs(sessionId, mode = "json") {
+        const args = ["--mode", mode, "--session", sessionId];
+        const model =
+          this.settings.model === CUSTOM_MODEL_VALUE
+            ? this.settings.customModel
+            : this.settings.model;
+        if (model) args.push("--model", model);
+        if (this.settings.reasoningEffort) args.push("--thinking", this.settings.reasoningEffort);
+        if (this.settings.includeDefaultSkills === false) args.push("--no-skills");
+        for (const skillPath of getConfiguredSkillPaths(this.settings, this.workingDirectory)) {
+          args.push("--skill", skillPath);
+        }
+        const toolMode =
+          this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
+        if (toolMode === "chat") {
+          args.push("--no-tools");
+        } else {
+          args.push(
+            "--tools",
+            toolMode === "full-agent"
+              ? "read,grep,find,ls,edit,write,bash"
+              : toolMode === "edit"
+                ? "read,grep,find,ls,edit,write"
+                : "read,grep,find,ls"
+          );
+        }
+        return args;
+      }
+      createSessionFilePath() {
+        const sessionDir = import_node_path4.default.join(
+          this.pluginDirectory ?? ".",
+          "pi-sessions"
+        );
+        import_node_fs3.default.mkdirSync(sessionDir, { recursive: true });
+        return import_node_path4.default.join(
+          sessionDir,
+          `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
+        );
+      }
+      createForkSessionFile(sessionPath) {
+        if (!sessionPath || !import_node_fs3.default.existsSync(sessionPath)) return void 0;
+        const events = import_node_fs3.default
+          .readFileSync(sessionPath, "utf8")
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => JSON.parse(line));
+        const sessionEvent = events.find((event) => event.type === "session");
+        if (!sessionEvent) return void 0;
+        const forkSessionPath = this.createSessionFilePath();
+        const forkSessionEvent = {
+          ...sessionEvent,
+          id: createSessionId(),
+          timestamp: /* @__PURE__ */ new Date().toISOString(),
+          cwd: this.workingDirectory || sessionEvent.cwd,
+          parentSession: sessionPath
+        };
+        import_node_fs3.default.writeFileSync(
+          forkSessionPath,
+          `${JSON.stringify(forkSessionEvent)}
+${events
+  .filter((event) => event.type !== "session")
+  .map((event) => JSON.stringify(event))
+  .join("\n")}
+`,
+          "utf8"
+        );
+        return forkSessionPath;
+      }
+      formatDryRunCompactResponse(sessionId) {
+        return {
+          finalResponse: "Dry run: context would be compacted.",
+          sessionId,
+          threadId: sessionId,
+          pendingChanges: [],
+          events: [],
+          contextCompacted: true,
+          changes: [],
+          changedFiles: [],
+          changeStats: emptyChangeStats()
+        };
+      }
+      formatDryRunResponse(prompt, context) {
+        const lines = [
+          "Dry run: Pi CLI was not called.",
+          "",
+          `Prompt: ${prompt}`,
+          "",
+          context.activeNote
+            ? `Active note: [[${context.activeNote.path.replace(/\.md$/i, "")}]]`
+            : "Active note: none",
+          `Search results: ${context.searchResults.length}`,
+          `Linked notes: ${context.linkedNeighborhood.length}`
+        ];
+        if (context.activeNote) {
+          lines.push(
+            "",
+            "Backlinks:",
+            ...context.activeNote.backlinks
+              .slice(0, 8)
+              .map(
+                (backlink) => `- [[${backlink.path.replace(/\.md$/i, "")}]] (${backlink.count})`
+              ),
+            "",
+            "Outgoing links:",
+            ...context.activeNote.outgoingLinks
+              .slice(0, 8)
+              .map(
+                (outgoingLink) =>
+                  `- [[${outgoingLink.path.replace(/\.md$/i, "")}]] (${outgoingLink.count})`
+              ),
+            "",
+            "Unresolved links:",
+            ...context.activeNote.unresolvedLinks
+              .slice(0, 8)
+              .map((unresolvedLink) => `- [[${unresolvedLink.display}]] (${unresolvedLink.count})`)
+          );
+        }
+        if (context.searchResults.length > 0) {
+          lines.push(
+            "",
+            "Top note matches:",
+            ...context.searchResults.map(
+              (result) => `- [[${result.path.replace(/\.md$/i, "")}]] score=${result.score}`
+            )
+          );
+        }
+        return lines.join("\n");
+      }
+    };
+  }
+});
+
+// src/ui/modals/confirm-modal.mjs
+function confirmWithModal(app, options) {
+  return new Promise((resolve) => {
+    new ConfirmModal(app, options, resolve).open();
+  });
+}
+var import_obsidian2, ConfirmModal;
+var init_confirm_modal = __esm({
+  "src/ui/modals/confirm-modal.mjs"() {
+    "use strict";
+    import_obsidian2 = require("obsidian");
+    ConfirmModal = class extends import_obsidian2.Modal {
+      constructor(app, options, resolve) {
+        super(app);
+        this.options = options;
+        this.resolve = resolve;
+        this.settled = false;
+      }
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        new import_obsidian2.Setting(contentEl).setName(this.options.title).setHeading();
+        contentEl.createEl("p", { text: this.options.message });
+        const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
+        actionsEl
+          .createEl("button", { text: this.options.cancelText ?? "Cancel" })
+          .addEventListener("click", () => {
+            this.finish(false);
+            this.close();
+          });
+        actionsEl
+          .createEl("button", {
+            text: this.options.confirmText ?? "Continue",
+            cls: this.options.warning ? "mod-warning" : "mod-cta"
+          })
+          .addEventListener("click", () => {
+            this.finish(true);
+            this.close();
+          });
+      }
+      onClose() {
+        this.finish(false);
+        this.contentEl.empty();
+      }
+      finish(value) {
+        if (this.settled) return;
+        this.settled = true;
+        this.resolve(value);
+      }
+    };
+  }
+});
+
+// src/plugin/settings-tab.mjs
+var import_obsidian3, PiAgentSettingTab;
+var init_settings_tab = __esm({
+  "src/plugin/settings-tab.mjs"() {
+    "use strict";
+    import_obsidian3 = require("obsidian");
+    init_settings();
+    init_skills();
+    init_confirm_modal();
+    PiAgentSettingTab = class extends import_obsidian3.PluginSettingTab {
+      constructor(app, plugin) {
+        super(app, plugin);
+        this.plugin = plugin;
+      }
+      display() {
+        const { containerEl } = this;
+        containerEl.empty();
+        new import_obsidian3.Setting(containerEl)
+          .setName("Model")
+          .setDesc(
+            "Provider/model from Pi's built-in and custom model registry. Use default to follow ~/.pi/agent/settings.json or .pi/settings.json."
+          )
+          .addDropdown((dropdown) =>
+            dropdown
+              .addOptions(getModelOptions(this.plugin.settings))
+              .setValue(this.getModelDropdownValue())
+              .onChange(async (value) => {
+                this.plugin.settings.model = value;
+                this.plugin.settings.reasoningEffort = "";
+                await this.plugin.saveSettings();
+                this.display();
+              })
+          )
+          .addButton((button) =>
+            button
+              .setButtonText("Refresh")
+              .setTooltip("Refresh models from Pi")
+              .onClick(async () => {
+                button.setButtonText("Refreshing...");
+                button.setDisabled(true);
+                await this.plugin.refreshModelCatalog(true);
+                this.display();
+              })
+          );
+        if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) {
+          new import_obsidian3.Setting(containerEl)
+            .setName("Custom model ID")
+            .setDesc("Provider/model ID, for example anthropic/claude-sonnet-4-5.")
+            .addText((text) =>
+              text
+                .setPlaceholder("e.g. anthropic/claude-sonnet-4-5")
+                .setValue(this.plugin.settings.customModel)
+                .onChange(async (value) => {
+                  this.plugin.settings.customModel = value.trim();
+                  await this.plugin.saveSettings();
+                })
+            );
+        }
+        new import_obsidian3.Setting(containerEl)
+          .setName("Thinking level")
+          .setDesc(
+            "Controls reasoning effort only. Values come from the selected model returned by Pi."
+          )
+          .addDropdown((dropdown) =>
+            dropdown
+              .addOptions(this.getReasoningOptions())
+              .setValue(this.getReasoningDropdownValue())
+              .onChange(async (value) => {
+                this.plugin.settings.reasoningEffort = value;
+                await this.plugin.saveSettings();
+              })
+          );
+        new import_obsidian3.Setting(containerEl)
+          .setName("Tool mode")
+          .setDesc(
+            "Controls which Pi CLI tools are enabled. Tool modes are not an OS-level sandbox."
+          )
+          .addDropdown((dropdown) =>
+            dropdown
+              .addOptions(getToolModeOptions())
+              .setValue(this.plugin.settings.sandboxMode)
+              .onChange(async (value) => {
+                if (
+                  (value === "edit" || value === "full-agent" || value === "workspace-write") &&
+                  !this.plugin.settings.acknowledgedToolRisk &&
+                  !(await confirmWithModal(this.app, {
+                    title: "Enable write tools?",
+                    message:
+                      "Pi tool modes are not an OS-level sandbox. Edit and Full agent can modify vault/project files, and Full agent can run shell commands.",
+                    confirmText: "Enable tools",
+                    warning: true
+                  }))
+                ) {
+                  this.display();
+                  return;
+                }
+                this.plugin.settings.sandboxMode = value;
+                if (value === "edit" || value === "full-agent" || value === "workspace-write") {
+                  this.plugin.settings.acknowledgedToolRisk = true;
+                }
+                await this.plugin.saveSettings();
+              })
+          );
+        new import_obsidian3.Setting(containerEl)
+          .setName("Custom instructions")
+          .setDesc("Vault-specific instructions added to every Pi run.")
+          .addTextArea((text) =>
+            text
+              .setPlaceholder("Prefer PARA folders. Keep project notes concise.")
+              .setValue(this.plugin.settings.customInstructions)
+              .onChange(async (value) => {
+                this.plugin.settings.customInstructions = value;
+                await this.plugin.saveSettings();
+              })
+          );
+        new import_obsidian3.Setting(containerEl).setName("Pi CLI").setHeading();
+        new import_obsidian3.Setting(containerEl)
+          .setName("Check Pi installation")
+          .setDesc("Verify that Obsidian can run the Pi CLI from its current environment.")
+          .addButton((button) =>
+            button.setButtonText("Check").onClick(() => {
+              this.plugin.checkPiInstallation(true);
+            })
+          );
+        new import_obsidian3.Setting(containerEl).setName("Skills").setHeading();
+        new import_obsidian3.Setting(containerEl)
+          .setName("Include default Pi skills")
+          .setDesc(
+            "Load skills discovered by Pi from global and vault/project skill locations. Turn this off to use only the additional skill folders below."
+          )
+          .addToggle((toggle) =>
+            toggle
+              .setValue(this.plugin.settings.includeDefaultSkills !== false)
+              .onChange(async (value) => {
+                this.plugin.settings.includeDefaultSkills = value;
+                await this.plugin.saveSettings();
+              })
+          );
+        new import_obsidian3.Setting(containerEl)
+          .setName("Additional skill folders")
+          .setDesc(
+            "One skill file or folder per line. Supports absolute paths, ~, and vault-relative paths. Only add trusted skills."
+          )
+          .addTextArea((text) =>
+            text
+              .setPlaceholder(".pi/skills\n~/my-skills")
+              .setValue(
+                normalizeSkillFolderList(this.plugin.settings.additionalSkillFolders).join("\n")
+              )
+              .onChange(async (value) => {
+                this.plugin.settings.additionalSkillFolders = value
+                  .split(/\r?\n/)
+                  .map((item) => item.trim())
+                  .filter(Boolean);
+                await this.plugin.saveSettings();
+              })
+          );
+        new import_obsidian3.Setting(containerEl).setName("Advanced context").setHeading();
+        this.addNumberSlider(
+          "Max context results",
+          "Number of ranked notes/links returned to Pi as Obsidian context.",
+          {
+            min: 3,
+            max: 25,
+            step: 1,
+            value: this.plugin.settings.maxSearchResults,
+            onChange: async (value) => {
+              this.plugin.settings.maxSearchResults = value;
+              await this.plugin.saveSettings();
+            }
+          }
+        );
+        this.addPositiveIntegerSetting(
+          "Max searched files",
+          "Maximum markdown files scanned for each vault search.",
+          "200",
+          0,
+          async (value) => {
+            this.plugin.settings.maxSearchFiles = value;
+            await this.plugin.saveSettings();
+          }
+        );
+        this.addPositiveIntegerSetting(
+          "Max note characters",
+          "Maximum characters read from a single note for context.",
+          "12000",
+          500,
+          async (value) => {
+            this.plugin.settings.maxFileChars = value;
+            await this.plugin.saveSettings();
+          }
+        );
+        this.addPositiveIntegerSetting(
+          "Max tracked files",
+          "Maximum text files snapshotted to detect agent changes.",
+          "500",
+          0,
+          async (value) => {
+            this.plugin.settings.maxChangeSnapshotFiles = value;
+            await this.plugin.saveSettings();
+          }
+        );
+        new import_obsidian3.Setting(containerEl)
+          .setName("Ignored folders")
+          .setDesc("Comma-separated folder prefixes that Pi retrieval should ignore.")
+          .addTextArea((text) =>
+            text
+              .setPlaceholder(".obsidian, .git, node_modules")
+              .setValue(this.plugin.settings.ignoredFolders.join(", "))
+              .onChange(async (value) => {
+                this.plugin.settings.ignoredFolders = value
+                  .split(",")
+                  .map((item) => item.trim())
+                  .filter(Boolean);
+                await this.plugin.saveSettings();
+              })
+          );
+      }
+      addNumberSlider(name, description, options) {
+        new import_obsidian3.Setting(this.containerEl)
+          .setName(name)
+          .setDesc(description)
+          .addSlider((slider) =>
+            slider
+              .setLimits(options.min, options.max, options.step)
+              .setValue(options.value)
+              .setDynamicTooltip()
+              .onChange(options.onChange)
+          );
+      }
+      addPositiveIntegerSetting(name, description, placeholder, minExclusive, onChange) {
+        const setting = new import_obsidian3.Setting(this.containerEl)
+          .setName(name)
+          .setDesc(description);
+        const errorEl = this.containerEl.createDiv({ cls: "pi-agent-setting-error" });
+        errorEl.hidden = true;
+        setting.addText((text) =>
+          text
+            .setPlaceholder(placeholder)
+            .setValue(String(this.getSettingValueByName(name)))
+            .onChange(async (value) => {
+              const parsed = Number.parseInt(value, 10);
+              const isValid = String(parsed) === value.trim() && parsed > minExclusive;
+              errorEl.hidden = isValid;
+              errorEl.setText(
+                isValid ? "" : `${name} must be a whole number greater than ${minExclusive}.`
+              );
+              if (isValid) await onChange(parsed);
+            })
+        );
+      }
+      getSettingValueByName(name) {
+        return name === "Max searched files"
+          ? this.plugin.settings.maxSearchFiles
+          : name === "Max note characters"
+            ? this.plugin.settings.maxFileChars
+            : this.plugin.settings.maxChangeSnapshotFiles;
+      }
+      getModelDropdownValue() {
+        const { model } = this.plugin.settings;
+        return Object.prototype.hasOwnProperty.call(getModelOptions(this.plugin.settings), model)
+          ? model
+          : CUSTOM_MODEL_VALUE;
+      }
+      getReasoningOptions() {
+        return getReasoningOptions(this.plugin.settings);
+      }
+      getReasoningDropdownValue() {
+        const options = this.getReasoningOptions();
+        const value = this.plugin.settings.reasoningEffort;
+        return Object.prototype.hasOwnProperty.call(options, value) ? value : "";
+      }
+    };
+  }
+});
+
+// src/plugin/constants.mjs
+var PI_AGENT_VIEW_TYPE, PI_AGENT_DISPLAY_NAME, PI_AGENT_ICON_ID, PI_AGENT_ICON_SVG;
+var init_constants = __esm({
+  "src/plugin/constants.mjs"() {
+    "use strict";
+    PI_AGENT_VIEW_TYPE = "pi-agent-view";
+    PI_AGENT_DISPLAY_NAME = "Pi Agent";
+    PI_AGENT_ICON_ID = "pi-agent";
+    PI_AGENT_ICON_SVG =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M165.29 165.29H517.36V400H400V517.36H282.65V634.72H165.29ZM282.65 282.65V400H400V282.65Z"/><path fill="currentColor" d="M517.36 400H634.72V634.72H517.36Z"/></svg>';
+  }
+});
+
+// src/shared/frontmatter.mjs
+function readFrontmatter(markdown) {
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) {
+    return { frontmatter: {}, body: markdown, raw: "" };
+  }
+  const raw = match[1].trim();
+  const body = markdown.slice(match[0].length);
+  return { frontmatter: parseSimpleYaml(raw), body, raw };
+}
+function previewFrontmatterPatch(markdown, patch) {
+  const parsed = readFrontmatter(markdown);
+  if (!parsed.raw) {
+    return `---
+${formatSimpleYaml(patch)}
+---
+${markdown}`;
+  }
+  const lines = parsed.raw.split(/\r?\n/);
+  const replacements = Object.fromEntries(
+    Object.entries(patch)
+      .filter(([, value]) => value !== void 0)
+      .map(([key, value]) => [key, formatYamlEntry(key, value).split(/\r?\n/)])
+  );
+  const next = [];
+  let index = 0;
+  while (index < lines.length) {
+    const match = lines[index].match(/^([A-Za-z0-9_-]+):\s*/);
+    if (match && replacements[match[1]]) {
+      next.push(...replacements[match[1]]);
+      delete replacements[match[1]];
+      index++;
+      while (index < lines.length && !/^[A-Za-z0-9_-]+:\s*/.test(lines[index])) index++;
+      continue;
+    }
+    next.push(lines[index]);
+    index++;
+  }
+  for (const value of Object.values(replacements)) next.push(...value);
+  return `---
+${next.join("\n")}
+---
+${parsed.body}`;
+}
+function parseSimpleYaml(raw) {
+  const result = {};
+  const lines = raw.split(/\r?\n/);
+  let currentKey = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const listItem = line.match(/^\s+-\s+(.+)$/);
+    if (listItem && currentKey) {
+      const existing = Array.isArray(result[currentKey]) ? result[currentKey] : [];
+      existing.push(parseYamlScalar(listItem[1]));
+      result[currentKey] = existing;
+      continue;
+    }
+    const entry = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!entry) continue;
+    currentKey = entry[1];
+    result[currentKey] = entry[2] === "" ? [] : parseYamlScalar(entry[2]);
+  }
+  return result;
+}
+function formatSimpleYaml(value) {
+  return Object.entries(value)
+    .filter(([, item]) => item !== void 0)
+    .map(([key, item]) => formatYamlEntry(key, item))
+    .join("\n");
+}
+function formatYamlEntry(key, value) {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return `${key}: []`;
+    return `${key}:
+${value.map((item) => `  - ${formatYamlScalar(item)}`).join("\n")}`;
+  }
+  return `${key}: ${formatYamlScalar(value)}`;
+}
+function parseYamlScalar(value) {
+  const trimmed = value.trim();
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    return trimmed
+      .slice(1, -1)
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => item.replace(/^["']|["']$/g, ""));
+  }
+  return trimmed.replace(/^["']|["']$/g, "");
+}
+function formatYamlScalar(value) {
+  if (typeof value === "string") {
+    return /[:#\n\r]/.test(value) ? JSON.stringify(value) : value;
+  }
+  return String(value);
+}
+var init_frontmatter = __esm({
+  "src/shared/frontmatter.mjs"() {
+    "use strict";
+  }
+});
+
+// src/ui/modals/approval-modal.mjs
+var import_obsidian4, ApprovalModal;
+var init_approval_modal = __esm({
+  "src/ui/modals/approval-modal.mjs"() {
+    "use strict";
+    import_obsidian4 = require("obsidian");
+    init_frontmatter();
+    ApprovalModal = class extends import_obsidian4.Modal {
+      constructor(plugin, change, onDone) {
+        super(plugin.app);
+        this.change = change;
+        this.onDone = onDone;
+        this.settled = false;
+        this.plugin = plugin;
+      }
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.addClass("pi-agent-approval");
+        new import_obsidian4.Setting(contentEl).setName("Approve vault change").setHeading();
+        contentEl.createEl("p", { text: `${this.change.path} - ${this.change.reason}` });
+        const diffEl = contentEl.createEl("div", { cls: "pi-agent-diff" });
+        diffEl.createEl("h3", { text: "Before" });
+        diffEl.createEl("pre", { text: this.change.before || "(new file)" });
+        diffEl.createEl("h3", { text: "After" });
+        diffEl.createEl("pre", { text: this.change.after });
+        const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
+        actionsEl.createEl("button", { text: "Reject" }).addEventListener("click", () => {
+          this.finish();
+          this.close();
+        });
+        actionsEl
+          .createEl("button", { text: "Apply change", cls: "mod-cta" })
+          .addEventListener("click", async () => {
+            await this.applyChange();
+            this.finish();
+            this.close();
+          });
+      }
+      onClose() {
+        this.finish();
+        this.contentEl.empty();
+      }
+      async applyChange() {
+        const file = this.app.vault.getAbstractFileByPath(this.change.path);
+        if (file instanceof import_obsidian4.TFile) {
+          await this.app.vault.process(file, (content) => {
+            if (this.change.before !== void 0 && content !== this.change.before) {
+              throw new Error("File changed since Pi prepared this change.");
+            }
+            return this.change.frontmatterPatch
+              ? previewFrontmatterPatch(content, this.change.frontmatterPatch)
+              : this.change.after;
+          });
+        } else {
+          await this.app.vault.create(this.change.path, this.change.after);
+        }
+        new import_obsidian4.Notice(`Applied Pi change to ${this.change.path}`);
+      }
+      finish() {
+        if (this.settled) return;
+        this.settled = true;
+        this.onDone();
+      }
+    };
+  }
+});
+
+// src/ui/modals/pi-setup-modal.mjs
+var import_obsidian5, INSTALL_COMMAND, PiSetupModal;
+var init_pi_setup_modal = __esm({
+  "src/ui/modals/pi-setup-modal.mjs"() {
+    "use strict";
+    import_obsidian5 = require("obsidian");
+    INSTALL_COMMAND = "npm install -g @earendil-works/pi-coding-agent";
+    PiSetupModal = class extends import_obsidian5.Modal {
+      constructor(plugin, health) {
+        super(plugin.app);
+        this.plugin = plugin;
+        this.health = health;
+      }
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        new import_obsidian5.Setting(contentEl).setName("Set up Pi CLI").setHeading();
+        contentEl.createEl("p", {
+          text: this.health?.message ?? "Pi Agent needs the Pi CLI before it can run prompts."
+        });
+        contentEl.createEl("p", {
+          text: "Install Pi in a terminal, authenticate it if needed, then restart Obsidian so it can pick up your updated PATH."
+        });
+        contentEl.createEl("pre", {
+          text: `${INSTALL_COMMAND}
+pi --version`
+        });
+        contentEl.createEl("p", {
+          text: "Start in Chat or Review mode. Only enable Edit or Full agent in vaults you are comfortable letting Pi modify."
+        });
+        const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
+        actionsEl
+          .createEl("button", { text: "Copy install command" })
+          .addEventListener("click", async () => {
+            await navigator.clipboard.writeText(INSTALL_COMMAND);
+            new import_obsidian5.Notice("Copied Pi install command.");
+          });
+        actionsEl
+          .createEl("button", { text: "Do not show again" })
+          .addEventListener("click", async () => {
+            this.plugin.settings.dismissedPiSetup = true;
+            await this.plugin.saveSettings();
+            this.close();
+          });
+        actionsEl
+          .createEl("button", { text: "Close", cls: "mod-cta" })
+          .addEventListener("click", () => this.close());
+      }
+      onClose() {
+        this.contentEl.empty();
+      }
+    };
+  }
+});
+
+// src/ui/modals/change-review-modal.mjs
+async function revertFileSnapshots(plugin, fileSnapshots) {
+  const revertedFiles = [];
+  for (const snapshot of fileSnapshots) {
+    if (snapshot.status === "added") {
+      await deleteCreatedFile(plugin, snapshot.path, snapshot.after);
+      revertedFiles.push(snapshot.path);
+      continue;
+    }
+    if (snapshot.before !== void 0) {
+      await restoreFile(plugin, snapshot.path, snapshot.before, snapshot.after, snapshot.status);
+      revertedFiles.push(snapshot.path);
+    }
+  }
+  return revertedFiles;
+}
+async function restoreFile(plugin, filePath, before, after, status) {
+  const file = plugin.app.vault.getAbstractFileByPath(filePath);
+  if (file instanceof import_obsidian6.TFile) {
+    await plugin.app.vault.process(file, (content) => {
+      if (after !== void 0 && content !== after)
+        throw new Error(`File changed since Pi edited it: ${filePath}`);
+      if (after === void 0 && status === "deleted") {
+        throw new Error(`File was recreated after Pi deleted it: ${filePath}`);
+      }
+      return before;
+    });
+  } else {
+    await plugin.app.vault.create(filePath, before);
+  }
+}
+async function deleteCreatedFile(plugin, filePath, after) {
+  const file = plugin.app.vault.getAbstractFileByPath(filePath);
+  if (!(file instanceof import_obsidian6.TFile)) return;
+  if (after !== void 0) {
+    const content = await plugin.app.vault.cachedRead(file);
+    if (content !== after) throw new Error(`File changed since Pi created it: ${filePath}`);
+  }
+  await plugin.app.vault.delete(file);
+}
+var import_obsidian6, ChangeReviewModal;
+var init_change_review_modal = __esm({
+  "src/ui/modals/change-review-modal.mjs"() {
+    "use strict";
+    import_obsidian6 = require("obsidian");
+    ChangeReviewModal = class extends import_obsidian6.Modal {
+      constructor(plugin, message) {
+        super(plugin.app);
+        this.message = message;
+        this.plugin = plugin;
+      }
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        this.modalEl.addClass("pi-agent-change-review-modal");
+        contentEl.addClass("pi-agent-change-review");
+        new import_obsidian6.Setting(contentEl).setName("Agent changes").setHeading();
+        const stats = this.getStats();
+        const summaryEl = contentEl.createEl("p", { cls: "pi-agent-change-summary" });
+        summaryEl.createSpan({ text: `${stats.filesChanged} files changed, ` });
+        summaryEl.createSpan({ cls: "pi-agent-diff-additions", text: `+${stats.additions}` });
+        summaryEl.createSpan({ text: " " });
+        summaryEl.createSpan({ cls: "pi-agent-diff-deletions", text: `-${stats.deletions}` });
+        const changedFiles = this.getChangedFiles();
+        if (changedFiles.length > 0) {
+          const filesEl = contentEl.createEl("ul", { cls: "pi-agent-change-files" });
+          for (const file of changedFiles) {
+            filesEl.createEl("li", {
+              text: `${file.status} ${file.path} (+${file.additions} -${file.deletions})`
+            });
+          }
+        }
+        const unifiedDiffs = this.getUnifiedDiffs();
+        if (unifiedDiffs.length > 0) {
+          for (const diff of unifiedDiffs) this.renderDiff(contentEl, diff);
+        } else {
+          contentEl.createEl("p", {
+            cls: "pi-agent-empty",
+            text: "Agent reported changed files, but did not emit a unified diff for this response."
+          });
+        }
+        const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
+        const fileSnapshots = this.getFileSnapshots();
+        actionsEl.createEl("button", { text: "Copy diff" }).addEventListener("click", () => {
+          this.copyDiff();
+        });
+        const revertButton = actionsEl.createEl("button", { text: "Revert", cls: "mod-warning" });
+        revertButton.disabled = fileSnapshots.length === 0;
+        revertButton.addEventListener("click", () => {
+          this.revertDiff();
+        });
+        actionsEl
+          .createEl("button", { text: "Close", cls: "mod-cta" })
+          .addEventListener("click", () => this.close());
+      }
+      onClose() {
+        this.modalEl.removeClass("pi-agent-change-review-modal");
+        this.contentEl.empty();
+      }
+      getStats() {
+        if (this.message.changeStats) return this.message.changeStats;
+        const changedFiles = this.getChangedFiles();
+        return {
+          filesChanged: changedFiles.length,
+          additions: changedFiles.reduce((sum, file) => sum + file.additions, 0),
+          deletions: changedFiles.reduce((sum, file) => sum + file.deletions, 0)
+        };
+      }
+      getChangedFiles() {
+        if (this.message.changedFiles?.length) return this.message.changedFiles;
+        const changedFiles = /* @__PURE__ */ new Map();
+        for (const summary of this.message.changeSummaries ?? []) {
+          for (const file of summary.files) changedFiles.set(file.path, file);
+        }
+        return [...changedFiles.values()];
+      }
+      getUnifiedDiffs() {
+        return (this.message.changeSummaries ?? [])
+          .map((summary) => summary.unifiedDiff?.trim() ?? "")
+          .filter(Boolean);
+      }
+      renderDiff(containerEl, diff) {
+        const diffEl = containerEl.createDiv({ cls: "pi-agent-change-diff" });
+        const lines = diff.split(/\r?\n/);
+        for (let index = 0; index < lines.length; index++) {
+          const line = lines[index];
+          const lineEl = diffEl.createDiv({ cls: this.getDiffLineClass(line) });
+          lineEl.createSpan({ cls: "pi-agent-diff-line-number", text: String(index + 1) });
+          lineEl.createSpan({ cls: "pi-agent-diff-line-text", text: line || " " });
+        }
+      }
+      getDiffLineClass(line) {
+        return line.startsWith("+++") || line.startsWith("---")
+          ? "pi-agent-diff-line pi-agent-diff-line-meta"
+          : line.startsWith("+")
+            ? "pi-agent-diff-line pi-agent-diff-line-add"
+            : line.startsWith("-")
+              ? "pi-agent-diff-line pi-agent-diff-line-delete"
+              : line.startsWith("@@")
+                ? "pi-agent-diff-line pi-agent-diff-line-hunk"
+                : "pi-agent-diff-line";
+      }
+      async copyDiff() {
+        const diff = this.getUnifiedDiffs().join("\n\n");
+        if (!diff) {
+          new import_obsidian6.Notice("No unified diff available for this response.");
+          return;
+        }
+        await navigator.clipboard.writeText(diff);
+        new import_obsidian6.Notice("Copied agent diff.");
+      }
+      async revertDiff() {
+        const fileSnapshots = this.getFileSnapshots();
+        if (fileSnapshots.length === 0) {
+          new import_obsidian6.Notice(
+            "No reversible file snapshot is available for this response."
+          );
+          return;
+        }
+        try {
+          const revertedFiles = await revertFileSnapshots(this.plugin, fileSnapshots);
+          if (revertedFiles.length === 0) {
+            new import_obsidian6.Notice("No reversible changes found in this diff.");
+            return;
+          }
+          new import_obsidian6.Notice(
+            `Reverted ${revertedFiles.length} file${revertedFiles.length === 1 ? "" : "s"}.`
+          );
+          this.close();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          new import_obsidian6.Notice(`Could not revert diff: ${message}`);
+        }
+      }
+      getFileSnapshots() {
+        return (this.message.changeSummaries ?? []).flatMap(
+          (summary) => summary.fileSnapshots ?? []
+        );
+      }
+    };
+  }
+});
+
+// src/ui/message-actions.mjs
+function getDiffStats(content) {
+  let additions = 0;
+  let deletions = 0;
+  for (const match of content.matchAll(/```(?:diff|patch)?\s*\n([\s\S]*?)```/g)) {
+    for (const line of match[1].split(/\r?\n/)) {
+      if (!line.startsWith("+++") && !line.startsWith("---")) {
+        if (line.startsWith("+")) additions++;
+        if (line.startsWith("-")) deletions++;
+      }
+    }
+  }
+  return additions > 0 || deletions > 0 ? { additions, deletions } : void 0;
+}
+var import_obsidian7, MessageActions;
+var init_message_actions = __esm({
+  "src/ui/message-actions.mjs"() {
+    "use strict";
+    import_obsidian7 = require("obsidian");
+    init_change_review_modal();
+    MessageActions = class {
+      constructor(plugin, callbacks) {
+        this.plugin = plugin;
+        this.callbacks = callbacks;
+      }
+      showMessageMenu(event, message, messageIndex) {
+        const menu = new import_obsidian7.Menu();
+        if (message.role === "user") {
+          menu.addItem((item) =>
+            item
+              .setTitle("Edit and resend")
+              .setIcon("pencil")
+              .onClick(() => {
+                const input = this.callbacks.getInput();
+                if (input) {
+                  input.value = message.content;
+                  input.focus();
+                }
+              })
+          );
+          menu.addItem((item) =>
+            item
+              .setTitle("Search vault for this")
+              .setIcon("search")
+              .onClick(() =>
+                this.callbacks.runPrompt(`Search the vault for notes related to:
+
+${message.content}`)
+              )
+          );
+        } else {
+          if (this.messageHasChanges(message)) {
+            menu.addItem((item) =>
+              item
+                .setTitle("Review changes")
+                .setIcon("git-compare")
+                .onClick(() => new ChangeReviewModal(this.plugin, message).open())
+            );
+          }
+          if (message.changedFiles?.length) {
+            menu.addItem((item) =>
+              item
+                .setTitle("Open changed files")
+                .setIcon("folder-open")
+                .onClick(() => {
+                  this.callbacks.openChangedFiles(message.changedFiles ?? []);
+                })
+            );
+            menu.addSeparator();
+          }
+          menu.addItem((item) =>
+            item
+              .setTitle("Copy response")
+              .setIcon("copy")
+              .onClick(() => this.copyResponse(message.content))
+          );
+          menu.addItem((item) =>
+            item
+              .setTitle("Insert into current note")
+              .setIcon("file-plus")
+              .onClick(() => this.callbacks.insertIntoCurrentNote(message.content))
+          );
+          menu.addItem((item) =>
+            item
+              .setTitle("Create note from response")
+              .setIcon("file-text")
+              .onClick(() => this.callbacks.createNoteFromResponse(message.content))
+          );
+          menu.addItem((item) =>
+            item
+              .setTitle("Open cited notes")
+              .setIcon("links-coming-in")
+              .setDisabled(this.callbacks.extractVaultLinks(message.content).length === 0)
+              .onClick(() => this.callbacks.openCitedNotes(message.content))
+          );
+          menu.addSeparator();
+          menu.addItem((item) =>
+            item
+              .setTitle("Regenerate")
+              .setIcon("refresh-cw")
+              .setDisabled(!this.callbacks.getPreviousUserPrompt(messageIndex))
+              .onClick(() => {
+                const prompt = this.callbacks.getPreviousUserPrompt(messageIndex);
+                if (prompt) this.callbacks.runPrompt(prompt);
+              })
+          );
+        }
+        menu.showAtMouseEvent(event);
+      }
+      async copyResponse(content) {
+        await navigator.clipboard.writeText(content);
+        new import_obsidian7.Notice("Copied response.");
+      }
+      getMessageChangeStats(message) {
+        if (message.changeStats) {
+          const { filesChanged, additions, deletions } = message.changeStats;
+          if (filesChanged > 0 || additions > 0 || deletions > 0) return message.changeStats;
+        }
+        const diffStats = getDiffStats(message.content);
+        return diffStats
+          ? { filesChanged: 0, additions: diffStats.additions, deletions: diffStats.deletions }
+          : void 0;
+      }
+      messageHasChanges(message) {
+        return !!(
+          message.changeSummaries?.length ||
+          message.changedFiles?.length ||
+          (message.changeStats &&
+            (message.changeStats.filesChanged > 0 ||
+              message.changeStats.additions > 0 ||
+              message.changeStats.deletions > 0))
+        );
+      }
+    };
+  }
+});
+
+// src/ui/note-actions.mjs
+function normalizeArchiveFolder(folder) {
+  return (0, import_obsidian8.normalizePath)(normalizeVaultFolder(folder, "Pi"));
+}
+var import_obsidian8, NoteActions;
+var init_note_actions = __esm({
+  "src/ui/note-actions.mjs"() {
+    "use strict";
+    import_obsidian8 = require("obsidian");
+    init_paths();
+    NoteActions = class {
+      constructor(plugin, callbacks) {
+        this.plugin = plugin;
+        this.callbacks = callbacks;
+      }
+      async copyText(text) {
+        await navigator.clipboard.writeText(text);
+        new import_obsidian8.Notice("Copied to clipboard.");
+      }
+      insertIntoCurrentNote(text) {
+        const editor = this.plugin.app.workspace.activeEditor?.editor;
+        if (!editor) {
+          new import_obsidian8.Notice("Open a note first.");
+          return;
+        }
+        editor.replaceSelection(text);
+      }
+      async createNoteFromResponse(response) {
+        const title = this.getResponseTitle(response);
+        const path5 = await this.getAvailableNotePath(`${title}.md`);
+        await this.ensureFolder("Pi");
+        const file = await this.plugin.app.vault.create(path5, response);
+        await this.plugin.app.workspace.getLeaf(false).openFile(file);
+      }
+      async openCitedNotes(text) {
+        const links = this.extractVaultLinks(text);
+        if (links.length === 0) {
+          new import_obsidian8.Notice("No vault links found.");
+          return;
+        }
+        for (const link of links.slice(0, 5)) await this.callbacks.openVaultLink(link);
+      }
+      getPreviousUserPrompt(messageIndex) {
+        for (let index = messageIndex - 1; index >= 0; index--) {
+          const message = this.plugin.messages[index];
+          if (message?.role === "user") return message.content;
+        }
+        return void 0;
+      }
+      extractVaultLinks(text) {
+        const links = /* @__PURE__ */ new Set();
+        for (const match of text.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g)) {
+          links.add(match[1]);
+        }
+        for (const match of text.matchAll(/\[[^\]]+\]\(([^)]+\.md)(?:#[^)]+)?\)/g)) {
+          links.add(
+            this.callbacks.formatVaultLinkTarget(
+              this.callbacks.parseVaultLinkTarget(match[1]) ?? { path: match[1] }
+            )
+          );
+        }
+        for (const match of text.matchAll(
+          /(^|\s)((?:\/?[A-Za-z0-9 _.-]+\/)+[A-Za-z0-9 _.-]+\.md(?::\d+)?)/g
+        )) {
+          const rawTarget = match[2];
+          const target = this.callbacks.parseVaultLinkTarget(rawTarget);
+          links.add(target ? this.callbacks.formatVaultLinkTarget(target) : rawTarget);
+        }
+        return [...links];
+      }
+      getResponseTitle(response) {
+        const heading = response.match(/^#\s+(.+)$/m)?.[1];
+        return (
+          (heading ?? response.split(/\r?\n/).find((line) => line.trim()) ?? "Agent response")
+            .replace(/[\\/:*?"<>|#[\]]/g, "")
+            .trim()
+            .slice(0, 80) || "Agent response"
+        );
+      }
+      async ensureFolder(folder) {
+        const parts = normalizeArchiveFolder(folder).split("/");
+        let current = "";
+        for (const part of parts) {
+          current = current ? `${current}/${part}` : part;
+          if (!this.plugin.app.vault.getAbstractFileByPath(current)) {
+            await this.plugin.app.vault.createFolder(current);
+          }
+        }
+      }
+      async getAvailableNotePath(name, folder = "Pi") {
+        const normalizedFolder = normalizeArchiveFolder(folder);
+        const path5 = `${normalizedFolder}/${name}`;
+        if (!this.plugin.app.vault.getAbstractFileByPath(path5)) return path5;
+        const basename = name.replace(/\.md$/i, "");
+        for (let index = 2; index < 100; index++) {
+          const candidate = `${normalizedFolder}/${basename} ${index}.md`;
+          if (!this.plugin.app.vault.getAbstractFileByPath(candidate)) return candidate;
+        }
+        return `${normalizedFolder}/${basename} ${Date.now()}.md`;
+      }
+    };
+  }
+});
+
+// src/ui/prompt-queue.mjs
+var prompt_queue_exports = {};
+__export(prompt_queue_exports, {
+  enqueuePrompt: () => enqueuePrompt,
+  prioritizeQueuedPrompt: () => prioritizeQueuedPrompt,
+  removeQueuedPrompt: () => removeQueuedPrompt,
+  renderPromptQueue: () => renderPromptQueue,
+  runNextQueuedPrompt: () => runNextQueuedPrompt
+});
+function enqueuePrompt(e, t = this.plugin.getCurrentThread().id) {
+  let n = e.trim();
+  if (!n) return;
+  (this.promptQueue.push({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    prompt: n,
+    threadId: t
+  }),
+    this.renderPromptQueue(),
+    this.syncCurrentRunFlags(),
+    this.setRunningState(this.running),
+    new f.Notice(
+      this.promptQueue.length === 1
+        ? "Message queued. It will send after the current run finishes."
+        : `${this.promptQueue.length} messages queued.`
+    ));
+}
+function runNextQueuedPrompt() {
+  if (this.canceling || this.promptQueue.length === 0) return;
+  let t = this.promptQueue.findIndex((n) => !this.isThreadRunning(n.threadId));
+  if (t < 0) return;
+  let [e] = this.promptQueue.splice(t, 1);
+  (this.renderPromptQueue(),
+    this.syncCurrentRunFlags(),
+    this.setRunningState(this.running),
+    e && this.runPrompt(e.prompt, e.threadId));
+}
+function removeQueuedPrompt(e) {
+  let t = this.promptQueue.length;
+  ((this.promptQueue = this.promptQueue.filter((n) => n.id !== e)),
+    this.promptQueue.length !== t &&
+      (this.renderPromptQueue(), this.syncCurrentRunFlags(), this.setRunningState(this.running)));
+}
+function prioritizeQueuedPrompt(e) {
+  let t = this.promptQueue.findIndex((n2) => n2.id === e);
+  if (t <= 0) return;
+  let [n] = this.promptQueue.splice(t, 1);
+  (this.promptQueue.unshift(n),
+    this.renderPromptQueue(),
+    this.syncCurrentRunFlags(),
+    this.setRunningState(this.running));
+}
+function renderPromptQueue() {
+  if (!this.promptQueueEl) return;
+  let e = this.promptQueueEl;
+  if (
+    (e.empty(),
+    e.toggleClass("is-empty", this.promptQueue.length === 0),
+    this.promptQueue.length === 0)
+  )
+    return;
+  let t = e.createDiv({ cls: "pi-agent-prompt-queue-heading" });
+  (t.createSpan({
+    text: `${this.promptQueue.length} queued message${this.promptQueue.length === 1 ? "" : "s"}`
+  }),
+    t.createSpan({
+      cls: "pi-agent-prompt-queue-hint",
+      text: "Runs after the current response."
+    }));
+  for (let [n, s] of this.promptQueue.entries()) {
+    let a = e.createDiv({ cls: "pi-agent-prompt-queue-item" });
+    a.createDiv({ cls: "pi-agent-prompt-queue-text", text: s.prompt });
+    let o = a.createDiv({ cls: "pi-agent-prompt-queue-actions" });
+    if (n > 0) {
+      let l = o.createEl("button", {
+        cls: "clickable-icon pi-agent-prompt-queue-action",
+        attr: { "aria-label": "Run this queued message next", title: "Run next" }
+      });
+      ((0, f.setIcon)(l, "corner-up-left"),
+        l.addEventListener("click", () => this.prioritizeQueuedPrompt(s.id)));
+    }
+    let d = o.createEl("button", {
+      cls: "clickable-icon pi-agent-prompt-queue-action",
+      attr: { "aria-label": "Remove queued message", title: "Remove" }
+    });
+    ((0, f.setIcon)(d, "x"), d.addEventListener("click", () => this.removeQueuedPrompt(s.id)));
+  }
+}
+var f;
+var init_prompt_queue = __esm({
+  "src/ui/prompt-queue.mjs"() {
+    "use strict";
+    f = __toESM(require("obsidian"), 1);
+  }
+});
+
+// src/ui/thread-list-view.mjs
+var thread_list_view_exports = {};
+__export(thread_list_view_exports, {
+  deleteThreadFromList: () => deleteThreadFromList,
+  formatThreadDate: () => formatThreadDate,
+  formatThreadMeta: () => formatThreadMeta,
+  renderThreadList: () => renderThreadList,
+  renderThreadListRow: () => renderThreadListRow,
+  showThreadList: () => showThreadList,
+  showThreadRowMenu: () => showThreadRowMenu,
+  startThreadListRename: () => startThreadListRename
+});
+function showThreadList() {
+  ((this.showingThreadList = true), this.renderThreadList());
+}
+function renderThreadList() {
+  var a;
+  let e = this.containerEl.children[1],
+    t = this.plugin.listThreads({ includeArchived: true }),
+    n = this.plugin.getCurrentThread();
+  ((a = this.suggestions) == null || a.close(),
+    this.cleanupComposerBarObserver(),
+    (this.messagesEl = void 0),
+    (this.inputEl = void 0),
+    (this.sendButtonEl = void 0),
+    (this.composerBarEl = void 0),
+    (this.composerBarExpandEl = void 0),
+    (this.runSettings = void 0),
+    (this.toolBadgesEl = void 0),
+    (this.threadTitleEl = void 0),
+    e.empty(),
+    e.addClass("pi-agent-view"));
+  let s = e.createDiv({ cls: "pi-agent-thread-list-header" }),
+    o = s.createEl("button", {
+      cls: "clickable-icon pi-agent-header-action",
+      attr: { "aria-label": "Back to chat", title: "Back to chat" }
+    });
+  ((0, f2.setIcon)(o, "arrow-left"), o.addEventListener("click", () => this.renderChatView()));
+  let l = s.createDiv({ cls: "pi-agent-thread-list-heading" });
+  (l.createDiv({ cls: "pi-agent-thread-list-title-heading", text: "Threads" }),
+    l.createDiv({
+      cls: "pi-agent-thread-list-subtitle",
+      text: `${t.length} chat${t.length === 1 ? "" : "s"}`
+    }));
+  let d = s.createEl("button", {
+    cls: "clickable-icon pi-agent-header-action",
+    attr: { "aria-label": "New chat", title: "New chat" }
+  });
+  ((0, f2.setIcon)(d, "plus"),
+    d.addEventListener("click", () => {
+      (this.plugin.startNewThread(), this.renderChatView());
+    }));
+  let h = e.createDiv({ cls: "pi-agent-thread-list" });
+  t.length === 0
+    ? h.createDiv({ cls: "pi-agent-empty", text: "No chat threads." })
+    : t.forEach((m) => this.renderThreadListRow(h, m, m.id === n.id));
+}
+function renderThreadListRow(e, t, n) {
+  let s = e.createDiv({
+      cls: `pi-agent-thread-list-row${n ? " is-current" : ""}`
+    }),
+    a = s.createDiv({ cls: "pi-agent-thread-list-info" }),
+    o = a.createDiv({
+      cls: "pi-agent-thread-list-title",
+      attr: { title: "Open chat" }
+    });
+  if (this.isThreadRunning(t.id)) {
+    let h = o.createSpan({
+      cls: "pi-agent-thread-list-running",
+      attr: { title: "Agent is running in this chat" }
+    });
+    (0, f2.setIcon)(h, "loader");
+  }
+  o.createSpan({ text: t.title });
+  (s.addEventListener("click", () => {
+    (this.plugin.switchThread(t.id), this.renderChatView());
+  }),
+    a.createDiv({ cls: "pi-agent-thread-list-meta", text: this.formatThreadMeta(t, n) }));
+  let l = s.createDiv({ cls: "pi-agent-thread-list-actions" }),
+    d = l.createEl("button", {
+      cls: "clickable-icon pi-agent-thread-list-action",
+      attr: { "aria-label": "Thread actions", title: "Thread actions" }
+    });
+  ((0, f2.setIcon)(d, "more-horizontal"),
+    d.addEventListener("click", (h) => {
+      (h.preventDefault(), h.stopPropagation(), this.showThreadRowMenu(h, t, n, o));
+    }));
+}
+function showThreadRowMenu(e, t, n, s) {
+  let a = new f2.Menu();
+  (a.addItem((o) =>
+    o
+      .setTitle(n ? "Current chat" : "Open")
+      .setIcon(n ? "check" : "arrow-right")
+      .setDisabled(n)
+      .onClick(() => {
+        (this.plugin.switchThread(t.id), this.renderChatView());
+      })
+  ),
+    a.addItem((o) =>
+      o
+        .setTitle("Rename")
+        .setIcon("pencil")
+        .onClick(() => this.startThreadListRename(t, s))
+    ),
+    a.addSeparator(),
+    a.addItem((o) =>
+      o
+        .setTitle("Delete")
+        .setIcon("trash-2")
+        .onClick(() => this.deleteThreadFromList(t))
+    ),
+    a.showAtMouseEvent(e));
+}
+function startThreadListRename(e, t) {
+  let n = document.createElement("input");
+  (n.addClass("pi-agent-thread-list-title-input"),
+    n.setAttr("type", "text"),
+    n.setAttr("aria-label", "Chat title"),
+    (n.value = e.title),
+    t.replaceWith(n));
+  let s = (a) => {
+    let o = n.value.trim();
+    (a && o && o !== e.title && this.plugin.renameThread(e.id, o), this.renderThreadList());
+  };
+  (n.addEventListener("click", (a) => a.stopPropagation()),
+    n.addEventListener("keydown", (a) => {
+      a.key === "Enter"
+        ? (a.preventDefault(), s(true))
+        : a.key === "Escape" && (a.preventDefault(), s(false));
+    }),
+    n.addEventListener("blur", () => s(true)),
+    n.focus(),
+    n.select());
+}
+async function deleteThreadFromList(e) {
+  if (this.isThreadRunning(e.id)) {
+    new f2.Notice("Wait for the agent run to finish before deleting this chat.");
+    return;
+  }
+  let t = await confirmWithModal(this.plugin.app, {
+    title: "Delete chat?",
+    message: `Delete chat "${e.title}" from plugin history?`,
+    confirmText: "Delete",
+    warning: true
+  });
+  if (!t) return;
+  this.plugin.deleteThread(e.id)
+    ? (new f2.Notice("Chat deleted."), this.renderThreadList())
+    : new f2.Notice("Chat thread was not found.");
+}
+function formatThreadMeta(e, t) {
+  let n = this.plugin.getThreadDisplayMessageCount
+      ? this.plugin.getThreadDisplayMessageCount(e)
+      : e.messages.length,
+    s = `${n} message${n === 1 ? "" : "s"} \u2022 Updated ${this.formatThreadDate(e.updatedAt)}`;
+  return t ? `Current \u2022 ${s}` : s;
+}
+function formatThreadDate(e) {
+  try {
+    return new Date(e).toLocaleString();
+  } catch {
+    return "unknown date";
+  }
+}
+var f2;
+var init_thread_list_view = __esm({
+  "src/ui/thread-list-view.mjs"() {
+    "use strict";
+    f2 = __toESM(require("obsidian"), 1);
+    init_confirm_modal();
+  }
+});
+
+// src/ui/vault-link-actions.mjs
+var vault_link_actions_exports = {};
+__export(vault_link_actions_exports, {
+  createChatLink: () => createChatLink,
+  formatVaultLinkTarget: () => formatVaultLinkTarget,
+  getLinkLabel: () => getLinkLabel,
+  getLinkSourcePath: () => getLinkSourcePath,
+  getVaultBasePath: () => getVaultBasePath,
+  isExternalLinkTarget: () => isExternalLinkTarget,
+  normalizeVaultPath: () => normalizeVaultPath,
+  openChangedFiles: () => openChangedFiles,
+  openExternalUrl: () => openExternalUrl,
+  openVaultLink: () => openVaultLink,
+  openVaultPath: () => openVaultPath,
+  parseVaultLinkTarget: () => parseVaultLinkTarget,
+  resolveDirectVaultFile: () => resolveDirectVaultFile,
+  revealLine: () => revealLine,
+  showExternalLinkMenu: () => showExternalLinkMenu,
+  showVaultLinkMenu: () => showVaultLinkMenu
+});
+function createChatLink(e, t) {
+  let n = document.createElement("a");
+  return (
+    n.addClass("pi-agent-vault-link"),
+    n.setText(e),
+    this.isExternalLinkTarget(t)
+      ? (n.setAttr("href", t.url), n.setAttr("title", t.url))
+      : (n.setAttr("href", "#"), n.setAttr("title", this.formatVaultLinkTarget(t))),
+    n.addEventListener("click", (s) => {
+      if ((s.preventDefault(), s.stopPropagation(), this.isExternalLinkTarget(t))) {
+        this.openExternalUrl(t.url);
+        return;
+      }
+      let a = s.metaKey || s.ctrlKey ? "tab" : false;
+      this.openVaultLink(t, a);
+    }),
+    n.addEventListener("contextmenu", (s) => {
+      if ((s.preventDefault(), s.stopPropagation(), this.isExternalLinkTarget(t))) {
+        this.showExternalLinkMenu(s, t.url);
+        return;
+      }
+      this.showVaultLinkMenu(s, t);
+    }),
+    n
+  );
+}
+function isExternalLinkTarget(e) {
+  return "url" in e;
+}
+function showExternalLinkMenu(e, t) {
+  let n = new f3.Menu();
+  (n.addItem((s) =>
+    s
+      .setTitle("Open link")
+      .setIcon("external-link")
+      .onClick(() => this.openExternalUrl(t))
+  ),
+    n.addItem((s) =>
+      s
+        .setTitle("Copy link")
+        .setIcon("copy")
+        .onClick(() => {
+          var a;
+          (a = this.noteActions) == null ? void 0 : a.copyText(t);
+        })
+    ),
+    n.showAtMouseEvent(e));
+}
+function openExternalUrl(e) {
+  var s, a, o;
+  let t = window,
+    n =
+      (o =
+        (a = (s = t.require) == null ? void 0 : s.call(t, "electron")) == null
+          ? void 0
+          : a.shell) == null
+        ? void 0
+        : o.openExternal;
+  if (n) {
+    n(e);
+    return;
+  }
+  window.open(e, "_blank", "noopener");
+}
+function showVaultLinkMenu(e, t) {
+  let n = new f3.Menu();
+  (n.addItem((s) =>
+    s
+      .setTitle("Open")
+      .setIcon("file")
+      .onClick(() => {
+        this.openVaultLink(t, false);
+      })
+  ),
+    n.addItem((s) =>
+      s
+        .setTitle("Open in new tab")
+        .setIcon("lucide-panel-top-open")
+        .onClick(() => {
+          this.openVaultLink(t, "tab");
+        })
+    ),
+    n.addItem((s) =>
+      s
+        .setTitle("Open in split")
+        .setIcon("separator-vertical")
+        .onClick(() => {
+          this.openVaultLink(t, "split");
+        })
+    ),
+    n.addItem((s) =>
+      s
+        .setTitle("Open in new window")
+        .setIcon("picture-in-picture-2")
+        .onClick(() => {
+          this.openVaultLink(t, "window");
+        })
+    ),
+    n.showAtMouseEvent(e));
+}
+async function openVaultLink(e, t = false) {
+  var h, u, g;
+  let n = typeof e == "string" ? this.parseVaultLinkTarget(e) : e;
+  if (!n) {
+    new f3.Notice(`Note not found: ${String(e)}`);
+    return;
+  }
+  let s = n.path,
+    a = s.replace(/\.md$/i, ""),
+    o = this.getLinkSourcePath(),
+    l =
+      (g =
+        (u = (h = this.resolveDirectVaultFile(s)) != null ? h : this.resolveDirectVaultFile(a)) !=
+        null
+          ? u
+          : this.plugin.app.metadataCache.getFirstLinkpathDest(a, o)) != null
+        ? g
+        : this.plugin.app.metadataCache.getFirstLinkpathDest(s, o);
+  if (!l) {
+    new f3.Notice(`Note not found: ${this.formatVaultLinkTarget(n)}`);
+    return;
+  }
+  let d = this.plugin.app.workspace.getLeaf(t);
+  (await d.openFile(l, { active: true }), this.revealLine(d, n.line));
+}
+function parseVaultLinkTarget(e) {
+  let t = e
+      .trim()
+      .replace(/^obsidian:\/\//, "")
+      .replace(/\|.*$/, "")
+      .replace(/#.*$/, ""),
+    n = t.match(/:(\d+)$/),
+    s = n ? Number.parseInt(n[1], 10) : void 0,
+    a = n ? t.slice(0, -n[0].length) : t,
+    o = this.normalizeVaultPath(a);
+  return o ? { path: o, line: s } : void 0;
+}
+function normalizeVaultPath(e) {
+  let t = e.replace(/\\/g, "/"),
+    n = this.getVaultBasePath();
+  return (n && t.startsWith(`${n}/`) ? t.slice(n.length + 1) : t)
+    .replace(/^\/+/, "")
+    .replace(/\.md$/i, ".md");
+}
+function formatVaultLinkTarget(e) {
+  return e.line ? `${e.path}:${e.line}` : e.path;
+}
+function getLinkLabel(e) {
+  var s, a;
+  let t = this.parseVaultLinkTarget(e),
+    n = (s = t == null ? void 0 : t.path) != null ? s : e;
+  return (a = n.split("/").pop()) != null ? a : n;
+}
+function getLinkSourcePath() {
+  var e, t, n, s;
+  return (s =
+    (n = (e = this.plugin.getCurrentContextFile()) == null ? void 0 : e.path) != null
+      ? n
+      : (t = this.plugin.app.workspace.getActiveFile()) == null
+        ? void 0
+        : t.path) != null
+    ? s
+    : "";
+}
+function getVaultBasePath() {
+  var t, n;
+  let e = this.plugin.app.vault.adapter;
+  return (n = (t = e.getBasePath) == null ? void 0 : t.call(e)) == null
+    ? void 0
+    : n.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+function resolveDirectVaultFile(e) {
+  let t = [e, e.endsWith(".md") ? e : `${e}.md`];
+  for (let n of t) {
+    let s = this.plugin.app.vault.getAbstractFileByPath(n);
+    if (s instanceof f3.TFile) return s;
+  }
+}
+function revealLine(e, t) {
+  !t ||
+    t < 1 ||
+    window.setTimeout(() => {
+      var o, l, d;
+      let s = e.view.editor;
+      if (!s) return;
+      let a = { line: t - 1, ch: 0 };
+      ((o = s.setCursor) == null || o.call(s, a),
+        (l = s.scrollIntoView) == null || l.call(s, { from: a, to: a }, true),
+        (d = s.focus) == null || d.call(s));
+    }, 50);
+}
+async function openChangedFiles(e) {
+  if (e.length !== 0) for (let t of e.slice(0, 5)) await this.openVaultPath(t.path);
+}
+async function openVaultPath(e, t = "tab") {
+  let n = this.parseVaultLinkTarget(e);
+  if (!n) {
+    new f3.Notice(`Note not found: ${e}`);
+    return;
+  }
+  let s = n.path,
+    a = this.plugin.app.vault.getAbstractFileByPath(s);
+  if (a instanceof f3.TFile) {
+    let o = this.plugin.app.workspace.getLeaf(t);
+    (await o.openFile(a, { active: true }), this.revealLine(o, n.line));
+    return;
+  }
+  await this.openVaultLink(n, t);
+}
+var f3;
+var init_vault_link_actions = __esm({
+  "src/ui/vault-link-actions.mjs"() {
+    "use strict";
+    f3 = __toESM(require("obsidian"), 1);
+  }
+});
+
+// src/ui/links.mjs
+function segmentMessageLinks(text, callbacks) {
+  const links = [];
+  const addLink = (start, end, label, target) => {
+    if (!target) return;
+    if (links.some((link) => start < link.end && end > link.start)) return;
+    links.push({ start, end, text: label, target });
+  };
+  const addVaultLink = (start, end, label, target) => {
+    addLink(start, end, label, callbacks.parseVaultLinkTarget(target));
+  };
+  for (const match of text.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g)) {
+    if (match.index !== void 0) {
+      addVaultLink(match.index, match.index + match[0].length, match[2] ?? match[1], match[1]);
+    }
+  }
+  for (const match of text.matchAll(/\[([^\]]+)\]\(([^)]+?\.md(?::\d+)?)(?:#[^)]+)?\)/g)) {
+    if (match.index !== void 0)
+      addVaultLink(match.index, match.index + match[0].length, match[1], match[2]);
+  }
+  for (const match of text.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
+    if (match.index !== void 0) {
+      addLink(match.index, match.index + match[0].length, match[1], {
+        url: stripTrailingUrlPunctuation(match[2])
+      });
+    }
+  }
+  for (const match of text.matchAll(/https?:\/\/[^\s<>()]+/g)) {
+    if (match.index === void 0) continue;
+    const url = stripTrailingUrlPunctuation(match[0]);
+    addLink(match.index, match.index + url.length, url, { url });
+  }
+  for (const match of text.matchAll(
+    /(^|\s)((?:\/?[A-Za-z0-9 _.-]+\/)+[A-Za-z0-9 _.-]+\.md(?::\d+)?)/g
+  )) {
+    if (match.index !== void 0) {
+      const start = match.index + match[1].length;
+      const target = match[2];
+      addVaultLink(start, start + target.length, callbacks.getLinkLabel(target), target);
+    }
+  }
+  links.sort((left, right) => left.start - right.start);
+  const segments = [];
+  let offset = 0;
+  for (const link of links) {
+    if (link.start > offset) segments.push({ text: text.slice(offset, link.start) });
+    segments.push({ text: link.text, target: link.target });
+    offset = link.end;
+  }
+  if (offset < text.length) segments.push({ text: text.slice(offset) });
+  return segments;
+}
+function stripTrailingUrlPunctuation(url) {
+  return url.replace(/[.,;:!?]+$/g, "");
+}
+var init_links = __esm({
+  "src/ui/links.mjs"() {
+    "use strict";
+  }
+});
+
+// src/ui/activity.mjs
+function isStickyActivityKind(kind) {
+  return kind === "read" || kind === "search" || kind === "edit" || kind === "shell";
+}
+function shouldBypassActivityStickiness(kind) {
+  return kind === "answer" || kind === "finishing" || kind === "error";
+}
+function getToolKind(toolName) {
+  const name = String(toolName || "").toLowerCase();
+  return name === "bash"
+    ? "shell"
+    : name === "edit" || name === "write"
+      ? "edit"
+      : name === "grep" || name === "find" || name === "ls"
+        ? "search"
+        : name === "read"
+          ? "read"
+          : "thinking";
+}
+function formatToolStatus(toolName, toolArgs, phase = "running") {
+  const name = String(toolName || "tool").toLowerCase();
+  const kind = getToolKind(name);
+  const target = formatToolTarget(name, toolArgs);
+  const verb = getToolVerb(name, phase);
+  const label = target ? `${verb} ${target}` : verb;
+  return { label: truncateActivityText(label), kind, detail: "" };
+}
+function getToolEventKey(event) {
+  return String(
+    event.toolCallId ||
+      `${event.toolName || event.message || "tool"}:${JSON.stringify(event.toolArgs || {}).slice(
+        0,
+        80
+      )}`
+  );
+}
+function formatRetryDetail(event) {
+  if (!event || typeof event !== "object") return "";
+  const attempt =
+    event.attempt && event.maxAttempts ? `attempt ${event.attempt}/${event.maxAttempts}` : "";
+  return [attempt, event.errorMessage ? String(event.errorMessage).slice(0, 120) : ""]
+    .filter(Boolean)
+    .join(" \u2014 ");
+}
+function getToolVerb(toolName, phase) {
+  if (phase === "preparing") {
+    return toolName === "bash"
+      ? "Preparing command"
+      : toolName === "edit"
+        ? "Preparing edit"
+        : toolName === "write"
+          ? "Preparing write"
+          : toolName === "grep" || toolName === "find" || toolName === "ls"
+            ? "Preparing search"
+            : toolName === "read"
+              ? "Preparing read"
+              : "Preparing action";
+  }
+  return toolName === "bash"
+    ? "Running"
+    : toolName === "edit"
+      ? "Editing"
+      : toolName === "write"
+        ? "Writing"
+        : toolName === "grep"
+          ? "Searching"
+          : toolName === "find"
+            ? "Finding"
+            : toolName === "ls"
+              ? "Listing"
+              : toolName === "read"
+                ? "Reading"
+                : "Using";
+}
+function formatToolTarget(toolName, toolArgs) {
+  if (toolName === "bash") return "command";
+  if (toolName === "grep") {
+    const pattern = sanitizeActivityDetail(pickNestedString(toolArgs, ["pattern", "query"]));
+    const path5 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+    return pattern && path5 ? `"${pattern}" in ${path5}` : pattern ? `"${pattern}"` : path5;
+  }
+  if (toolName === "find") {
+    return sanitizeActivityDetail(pickNestedString(toolArgs, ["glob", "pattern", "query", "path"]));
+  }
+  if (toolName === "ls") {
+    return formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+  }
+  return formatPathForActivity(
+    pickNestedString(toolArgs, [
+      "path",
+      "filePath",
+      "file",
+      "target",
+      "command",
+      "cmd",
+      "pattern",
+      "query"
+    ])
+  );
+}
+function formatPathForActivity(value) {
+  const path5 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
+  return path5 ? path5.split("/").pop() || path5 : "";
+}
+function sanitizeActivityDetail(value) {
+  return value ? String(value).replace(/\s+/g, " ").trim() : "";
+}
+function truncateActivityText(value) {
+  const detail = sanitizeActivityDetail(value);
+  return detail.length > 120 ? `${detail.slice(0, 117)}\u2026` : detail;
+}
+function pickNestedString(value, keys, seen = /* @__PURE__ */ new Set()) {
+  if (!value || typeof value !== "object" || seen.has(value)) return "";
+  seen.add(value);
+  for (const key of keys) {
+    if (typeof value[key] === "string" && value[key].trim()) return value[key];
+  }
+  for (const key of ["input", "args", "arguments", "parameters", "params", "toolInput", "data"]) {
+    if (!value[key]) continue;
+    const nested = pickNestedString(value[key], keys, seen);
+    if (nested) return nested;
+  }
+  for (const nestedValue of Object.values(value)) {
+    const nested = pickNestedString(nestedValue, keys, seen);
+    if (nested) return nested;
+  }
+  return "";
+}
+var init_activity = __esm({
+  "src/ui/activity.mjs"() {
+    "use strict";
+  }
+});
+
+// src/ui/message-renderer.mjs
+var message_renderer_exports = {};
+__export(message_renderer_exports, {
+  getVisibleActivityDetails: () => getVisibleActivityDetails,
+  renderActivityDetails: () => renderActivityDetails,
+  renderActivityMessage: () => renderActivityMessage,
+  renderEmptyState: () => renderEmptyState,
+  renderMessage: () => renderMessage,
+  renderMessages: () => renderMessages,
+  renderPlainMessageContent: () => renderPlainMessageContent,
+  renderRoleLabel: () => renderRoleLabel,
+  renderStreamingAssistantMessage: () => renderStreamingAssistantMessage,
+  restoreMessagesScroll: () => restoreMessagesScroll
+});
+function renderMessages() {
+  this.syncCurrentRunFlags();
+  if (!this.messagesEl) return;
+  let e = this.messagesEl,
+    t = this.stickToBottom,
+    n = e.scrollTop;
+  ((this.isRenderingMessages = true),
+    (this.activityItemEl = void 0),
+    (this.activityInlineEl = void 0),
+    (this.activityInlineTextEl = void 0),
+    (this.activityDetailsEl = void 0),
+    (this.activityDetailsSignature = ""),
+    e.empty());
+  let s = this.plugin.messages;
+  if (s.length === 0) {
+    (this.renderEmptyState(),
+      this.restoreMessagesScroll(e, t, n),
+      (this.isRenderingMessages = false));
+    return;
+  }
+  for (let a = 0; a < s.length; a++) this.renderMessage(s[a], a);
+  (this.running && this.streamingAssistantContent
+    ? this.renderStreamingAssistantMessage()
+    : this.running && this.activityText && this.renderActivityMessage(),
+    this.restoreMessagesScroll(e, t, n),
+    (this.isRenderingMessages = false));
+}
+function restoreMessagesScroll(e, t, n) {
+  t ? (e.scrollTop = e.scrollHeight) : (e.scrollTop = Math.min(n, e.scrollHeight));
+}
+function renderEmptyState() {
+  if (!this.messagesEl) return;
+  let t = this.messagesEl
+    .createDiv({ cls: "pi-agent-empty-state" })
+    .createSpan({ cls: "pi-agent-empty-icon" });
+  (0, f4.setIcon)(t, "messages-square");
+}
+function renderMessage(e, t) {
+  if (!this.messagesEl) return;
+  let n = this.messagesEl.createDiv({
+    cls: `pi-agent-message pi-agent-message-${e.role}`
+  });
+  this.renderRoleLabel(n, e.role === "user" ? "user" : "pi", e, t);
+  let s = n.createDiv({ cls: "pi-agent-message-content" });
+  this.renderPlainMessageContent(s, e.content);
+}
+function renderPlainMessageContent(e, t) {
+  let n = document.createDocumentFragment();
+  for (let s of segmentMessageLinks(t, {
+    parseVaultLinkTarget: (a) => this.parseVaultLinkTarget(a),
+    getLinkLabel: (a) => this.getLinkLabel(a)
+  }))
+    s.target
+      ? n.appendChild(this.createChatLink(s.text, s.target))
+      : n.appendChild(document.createTextNode(s.text));
+  e.appendChild(n);
+}
+function renderStreamingAssistantMessage() {
+  if (!this.messagesEl) return;
+  let e = this.messagesEl.createDiv({
+    cls: "pi-agent-message pi-agent-message-assistant pi-agent-message-streaming"
+  });
+  ((this.streamingItemEl = e), this.renderRoleLabel(e, "pi"));
+  let t = e.createDiv({
+    cls: "pi-agent-message-content pi-agent-message-content-streaming"
+  });
+  ((this.streamingTextEl = t.createSpan({
+    cls: "pi-agent-streaming-text"
+  })),
+    this.streamingTextEl.setText(this.streamingAssistantContent),
+    t.createSpan({ cls: "pi-agent-typing-cursor", text: "\u258C" }));
+}
+function renderActivityMessage() {
+  if (!this.messagesEl) return;
+  let e = this.messagesEl.createDiv({
+    cls: "pi-agent-message pi-agent-message-assistant pi-agent-message-activity"
+  });
+  this.activityItemEl = e;
+  this.renderRoleLabel(e, "pi");
+  let t = this.getVisibleActivityDetails();
+  t.length > 0 && this.renderActivityDetails(e, t);
+}
+function getVisibleActivityDetails() {
+  if (this.activeToolCalls.size < 2) return [];
+  return [...this.activeToolCalls.values()].map(
+    (e) => formatToolStatus(e.name, e.args, "running").label
+  );
+}
+function renderActivityDetails(e, t) {
+  let n = e.createDiv({ cls: "pi-agent-activity-details" });
+  ((this.activityDetailsEl = n), (this.activityDetailsSignature = t.join("\n")));
+  for (let s of t.slice(0, 5)) n.createDiv({ cls: "pi-agent-activity-detail", text: s });
+}
+function renderRoleLabel(e, t, n, s) {
+  var d;
+  let a = e.createDiv({ cls: "pi-agent-message-role" }),
+    o = a.createSpan({ cls: "pi-agent-message-role-title" }),
+    l = o.createSpan({
+      cls: `pi-agent-role-icon pi-agent-role-icon-${t}`
+    });
+  if (t === "user") ((0, f4.setIcon)(l, "user"), o.createSpan({ text: "You" }));
+  else if (
+    (this.renderPiIcon(l), o.createSpan({ text: "Agent" }), !n && this.running && this.activityText)
+  ) {
+    let h = o.createSpan({
+      cls: `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
+      attr: { title: this.activityDetail || this.activityText }
+    });
+    ((this.activityInlineEl = h),
+      (this.activityInlineTextEl = h.createSpan({
+        cls: "pi-agent-inline-activity-text",
+        text: this.activityText
+      })));
+  }
+  if (n && s !== void 0) {
+    let h =
+      n.role === "assistant"
+        ? (d = this.messageActions) == null
+          ? void 0
+          : d.getMessageChangeStats(n)
+        : void 0;
+    if (h) {
+      let g = a.createSpan({
+          cls: "pi-agent-message-diff-stat",
+          attr: {
+            role: "button",
+            tabindex: "0",
+            title: "Review changed files and diff lines",
+            "aria-label": "Review changed files and diff lines"
+          }
+        }),
+        m = (p) => {
+          (p.preventDefault(), p.stopPropagation(), new ChangeReviewModal(this.plugin, n).open());
+        };
+      (h.filesChanged &&
+        g.createSpan({
+          cls: "pi-agent-diff-files",
+          text: `${h.filesChanged} files`
+        }),
+        g.createSpan({
+          cls: "pi-agent-diff-additions",
+          text: `+${h.additions}`
+        }),
+        g.createSpan({
+          cls: "pi-agent-diff-deletions",
+          text: `-${h.deletions}`
+        }),
+        g.addEventListener("click", m),
+        g.addEventListener("keydown", (p) => {
+          (p.key === "Enter" || p.key === " ") && m(p);
+        }));
+    }
+    let u = a.createEl("button", {
+      cls: "clickable-icon pi-agent-message-actions",
+      attr: { "aria-label": "Message actions" }
+    });
+    ((0, f4.setIcon)(u, "ellipsis"),
+      u.addEventListener("click", (g) => {
+        var m;
+        (g.preventDefault(),
+          g.stopPropagation(),
+          (m = this.messageActions) == null || m.showMessageMenu(g, n, s));
+      }));
+  }
+}
+var f4;
+var init_message_renderer = __esm({
+  "src/ui/message-renderer.mjs"() {
+    "use strict";
+    f4 = __toESM(require("obsidian"), 1);
+    init_links();
+    init_change_review_modal();
+    init_activity();
+  }
+});
+
+// src/ui/run-activity-state.mjs
+var run_activity_state_exports = {};
+__export(run_activity_state_exports, {
+  applyActivity: () => applyActivity,
+  captureContextUsage: () => captureContextUsage,
+  clearPendingActivityTimer: () => clearPendingActivityTimer,
+  flushPendingActivity: () => flushPendingActivity,
+  formatActiveToolStatus: () => formatActiveToolStatus,
+  getContextUsageForTokens: () => getContextUsageForTokens,
+  handleRunEvent: () => handleRunEvent,
+  normalizeRunEventType: () => normalizeRunEventType,
+  queuePendingActivity: () => queuePendingActivity,
+  refreshActivityDetailsDom: () => refreshActivityDetailsDom,
+  rememberAction: () => rememberAction,
+  schedulePendingActivity: () => schedulePendingActivity,
+  setActivity: () => setActivity,
+  trackActiveTool: () => trackActiveTool,
+  untrackActiveTool: () => untrackActiveTool,
+  updateActivityDom: () => updateActivityDom
+});
+function setActivity(e, t, n = "") {
+  let s = Date.now(),
+    a = isStickyActivityKind(t),
+    o = !a && !shouldBypassActivityStickiness(t) && s < this.activityStickyUntil;
+  if (o) {
+    this.queuePendingActivity(e, t, n);
+    return;
+  }
+  this.applyActivity(e, t, n, a ? s + ACTIVITY_STICKY_MS : 0);
+}
+function applyActivity(e, t, n = "", s = 0) {
+  let a = this.activityText === e && this.activityKind === t && this.activityDetail === n;
+  ((this.activityText = e),
+    (this.activityKind = t),
+    (this.activityDetail = n),
+    (this.activityStickyUntil = s),
+    s && ((this.pendingActivity = void 0), this.clearPendingActivityTimer()),
+    n && t !== "context" && t !== "thinking" && this.rememberAction(n),
+    a || this.updateActivityDom() || this.renderMessages());
+}
+function queuePendingActivity(e, t, n = "") {
+  ((this.pendingActivity = { text: e, kind: t, detail: n }), this.schedulePendingActivity());
+}
+function schedulePendingActivity() {
+  if (this.pendingActivityTimer) return;
+  let e = Math.max(0, this.activityStickyUntil - Date.now());
+  this.pendingActivityTimer = window.setTimeout(() => {
+    ((this.pendingActivityTimer = void 0), this.flushPendingActivity());
+  }, e);
+}
+function clearPendingActivityTimer() {
+  (this.pendingActivityTimer && window.clearTimeout(this.pendingActivityTimer),
+    (this.pendingActivityTimer = void 0));
+}
+function flushPendingActivity() {
+  if (!this.pendingActivity || Date.now() < this.activityStickyUntil) {
+    this.pendingActivity && this.schedulePendingActivity();
+    return;
+  }
+  if (!this.running || this.streamingAssistantContent || this.activeToolCalls.size > 0) {
+    this.pendingActivity = void 0;
+    return;
+  }
+  let e = this.pendingActivity;
+  ((this.pendingActivity = void 0), this.applyActivity(e.text, e.kind, e.detail));
+}
+function updateActivityDom() {
+  if (
+    !this.running ||
+    this.streamingAssistantContent ||
+    !this.activityText ||
+    !this.activityItemEl ||
+    !this.activityInlineEl ||
+    !this.activityInlineTextEl ||
+    !this.activityItemEl.isConnected ||
+    !this.activityInlineEl.isConnected
+  )
+    return false;
+  let e = `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
+    t = this.activityDetail;
+  (this.activityInlineEl.getAttribute("class") !== e && this.activityInlineEl.setAttr("class", e),
+    this.activityInlineEl.getAttribute("title") !== t && this.activityInlineEl.setAttr("title", t),
+    this.activityInlineTextEl.textContent !== this.activityText &&
+      this.activityInlineTextEl.setText(this.activityText),
+    this.refreshActivityDetailsDom());
+  return true;
+}
+function refreshActivityDetailsDom() {
+  var e;
+  let t = this.getVisibleActivityDetails(),
+    n = t.join("\n");
+  if (this.activityDetailsSignature === n) return;
+  ((this.activityDetailsSignature = n),
+    (e = this.activityDetailsEl) == null || e.remove(),
+    (this.activityDetailsEl = void 0));
+  t.length > 0 && this.activityItemEl && this.renderActivityDetails(this.activityItemEl, t);
+}
+function rememberAction(e) {
+  e &&
+    this.recentActions[this.recentActions.length - 1] !== e &&
+    (this.recentActions = [...this.recentActions, e].slice(-5));
+}
+function captureContextUsage(e) {
+  let t = extractEventTokenUsage(e == null ? void 0 : e.raw),
+    n = this.getContextUsageForTokens(t);
+  n &&
+    (this.runningThreadId && this.invalidatedContextThreadIds.delete(this.runningThreadId),
+    (this.currentRunContextUsage = { contextUsage: n, tokenUsage: t }),
+    this.updateActivityDom(),
+    this.renderToolBadges());
+}
+function getContextUsageForTokens(e) {
+  var a;
+  if (!e) return;
+  let t = this.plugin.getSelectedModelInfo(),
+    n = (a = t == null ? void 0 : t.contextWindow) != null ? a : 0,
+    s = calculateContextTokens(e);
+  return n > 0 && s > 0 ? { tokens: s, contextWindow: n, percent: (s / n) * 100 } : void 0;
+}
+function handleRunEvent(e) {
+  let t = this.normalizeRunEventType(e.type);
+  this.captureContextUsage(e);
+  if (t === "context_ready") {
+    this.setActivity("Starting Pi", "context");
+    return;
+  }
+  if (t === "compaction_start") {
+    let n = this.currentRunContextUsage?.contextUsage
+      ? formatContextUsageTitle(
+          this.currentRunContextUsage.contextUsage,
+          this.currentRunContextUsage.tokenUsage
+        )
+      : "";
+    (this.runningThreadId && this.invalidatedContextThreadIds.add(this.runningThreadId),
+      (this.currentRunContextUsage = void 0),
+      this.renderToolBadges(),
+      this.setActivity("Compacting context", "context", n));
+    return;
+  }
+  if (t === "compaction_end") {
+    if (e.raw && e.raw.errorMessage) {
+      this.setActivity("Compaction failed", "error", String(e.raw.errorMessage));
+      return;
+    }
+    if (e.raw && e.raw.aborted) {
+      this.setActivity("Compaction skipped", "thinking");
+      return;
+    }
+    let n = e.raw && e.raw.result ? e.raw.result.tokensBefore : void 0;
+    (this.runningThreadId && this.invalidatedContextThreadIds.add(this.runningThreadId),
+      (this.currentRunContextUsage = {
+        compacted: true,
+        contextWindow: this.plugin.getSelectedModelInfo()?.contextWindow
+      }),
+      this.renderToolBadges(),
+      this.setActivity(
+        e.raw && e.raw.willRetry ? "Compacted context, retrying" : "Finishing",
+        e.raw && e.raw.willRetry ? "context" : "finishing",
+        n ? `Before compaction: ${formatTokenCount(n)} tokens` : ""
+      ));
+    return;
+  }
+  if (t === "auto_retry_start") {
+    this.setActivity("Retrying", "finishing", formatRetryDetail(e.raw));
+    return;
+  }
+  if (
+    t === "pi_start" ||
+    t === "agent_start" ||
+    t === "turn_start" ||
+    t === "message_start" ||
+    t === "thinking_start" ||
+    t === "thinking_delta" ||
+    t === "thinking_end"
+  ) {
+    this.streamingAssistantContent || this.setActivity("Thinking", "thinking");
+    return;
+  }
+  if (t === "toolcall_start" || t === "toolcall_delta" || t === "toolcall_end") {
+    let n = formatToolStatus(e.toolName, e.toolArgs, "preparing");
+    this.setActivity(n.label, n.kind, n.detail);
+    return;
+  }
+  if (t === "tool_start" || t === "tool_update") {
+    this.trackActiveTool(e);
+    let n = this.formatActiveToolStatus();
+    this.setActivity(n.label, n.kind, n.detail);
+    return;
+  }
+  if (t === "tool_end") {
+    this.untrackActiveTool(e);
+    if (this.activeToolCalls.size > 0) {
+      let n = this.formatActiveToolStatus();
+      this.setActivity(n.label, n.kind, n.detail);
+      return;
+    }
+    this.streamingAssistantContent ||
+      this.setActivity(
+        e.isError ? "Tool failed" : "Reviewing results",
+        e.isError ? "error" : "thinking"
+      );
+    return;
+  }
+  if (t === "text_start") {
+    this.setActivity("Responding", "answer");
+    return;
+  }
+  if (t === "message_end" || t === "turn_end") {
+    this.streamingAssistantContent || this.setActivity("Thinking", "thinking");
+    return;
+  }
+  t === "agent_end" &&
+    ((this.activityText = ""),
+    (this.activityDetail = ""),
+    (this.activityStickyUntil = 0),
+    (this.pendingActivity = void 0),
+    this.clearPendingActivityTimer(),
+    this.activeToolCalls.clear(),
+    this.renderMessages());
+}
+function normalizeRunEventType(e) {
+  return e === "auto_compaction_start" || e === "session_before_compact"
+    ? "compaction_start"
+    : e === "auto_compaction_end" || e === "session_compact"
+      ? "compaction_end"
+      : e;
+}
+function trackActiveTool(e) {
+  let t = getToolEventKey(e),
+    n = String(e.toolName || e.message || "tool"),
+    s = e.toolArgs || {};
+  this.activeToolCalls.set(t, { name: n, args: s });
+}
+function untrackActiveTool(e) {
+  this.activeToolCalls.delete(getToolEventKey(e));
+}
+function formatActiveToolStatus() {
+  let e = [...this.activeToolCalls.values()];
+  if (e.length === 0) return { label: "Thinking", kind: "thinking", detail: "" };
+  if (e.length === 1) return formatToolStatus(e[0].name, e[0].args, "running");
+  let t = e.map((n) => formatToolStatus(n.name, n.args, "running"));
+  return {
+    label: `Running ${e.length} actions`,
+    kind: t.some((n) => n.kind === "shell")
+      ? "shell"
+      : t.some((n) => n.kind === "edit")
+        ? "edit"
+        : t.some((n) => n.kind === "search")
+          ? "search"
+          : "read",
+    detail: t.map((n) => n.label).join(" \u2022 ")
+  };
+}
+var ACTIVITY_STICKY_MS;
+var init_run_activity_state = __esm({
+  "src/ui/run-activity-state.mjs"() {
+    "use strict";
+    init_events();
+    init_token_usage();
+    init_activity();
+    ACTIVITY_STICKY_MS = 1200;
+  }
+});
+
+// src/ui/run-settings.mjs
+var import_obsidian9, RunSettingsControls;
+var init_run_settings = __esm({
+  "src/ui/run-settings.mjs"() {
+    "use strict";
+    import_obsidian9 = require("obsidian");
+    init_settings();
+    init_confirm_modal();
+    RunSettingsControls = class {
+      constructor(plugin) {
+        this.plugin = plugin;
+      }
+      render(containerEl) {
+        this.row = containerEl.createDiv({ cls: "pi-agent-run-settings" });
+        this.populate(this.row);
+      }
+      refresh() {
+        if (!this.row) return;
+        this.row.empty();
+        this.populate(this.row);
+      }
+      populate(containerEl) {
+        this.addRunSetting(
+          containerEl,
+          "Model",
+          "sparkles",
+          getModelOptions(this.plugin.settings),
+          this.plugin.settings.model,
+          async (value) => {
+            this.plugin.settings.model = value;
+            this.plugin.settings.reasoningEffort = "";
+            if (value === CUSTOM_MODEL_VALUE && !this.plugin.settings.customModel) {
+              new import_obsidian9.Notice("Set custom model ID in plugin settings.");
+            }
+            await this.plugin.saveSettings();
+            this.refresh();
+          }
+        );
+        this.addRunSetting(
+          containerEl,
+          "Think",
+          "brain",
+          getReasoningOptions(this.plugin.settings),
+          this.plugin.settings.reasoningEffort,
+          async (value) => {
+            this.plugin.settings.reasoningEffort = value;
+            await this.plugin.saveSettings();
+          }
+        );
+        this.addRunSetting(
+          containerEl,
+          "Tools",
+          this.getRunSettingIcon("Tools", this.plugin.settings.sandboxMode),
+          getToolModeOptions(),
+          this.plugin.settings.sandboxMode,
+          async (value) => {
+            if (
+              (value === "edit" || value === "full-agent" || value === "workspace-write") &&
+              !this.plugin.settings.acknowledgedToolRisk &&
+              !(await confirmWithModal(this.plugin.app, {
+                title: "Enable write tools?",
+                message:
+                  "Pi tool modes are not an OS-level sandbox. Edit and Full agent can modify vault/project files, and Full agent can run shell commands.",
+                confirmText: "Enable tools",
+                warning: true
+              }))
+            ) {
+              this.refresh();
+              return;
+            }
+            this.plugin.settings.sandboxMode = value;
+            if (value === "edit" || value === "full-agent" || value === "workspace-write") {
+              this.plugin.settings.acknowledgedToolRisk = true;
+            }
+            await this.plugin.saveSettings();
+          }
+        );
+      }
+      addRunSetting(containerEl, name, icon, options, value, onChange) {
+        const selectedValue =
+          Object.prototype.hasOwnProperty.call(options, value) || value ? value : "";
+        const selectedLabel = options[selectedValue] ?? value ?? "Default";
+        const displayLabel = this.formatRunSettingDisplayLabel(name, selectedValue, selectedLabel);
+        const buttonEl = containerEl.createEl("button", {
+          cls: `clickable-icon pi-agent-run-setting ${this.getRunSettingClass(name, selectedValue)}`,
+          attr: { "aria-label": `${name}: ${selectedLabel}`, title: `${name}: ${selectedLabel}` }
+        });
+        (0, import_obsidian9.setIcon)(buttonEl, icon);
+        buttonEl.createSpan({ cls: "pi-agent-control-label", text: displayLabel });
+        buttonEl.addEventListener("click", async (event) => {
+          event.preventDefault();
+          const menu = new import_obsidian9.Menu();
+          for (const [optionValue, optionLabel] of Object.entries(options)) {
+            menu.addItem((item) => {
+              item.setTitle(optionLabel).onClick(async () => {
+                await onChange(optionValue);
+                this.refresh();
+              });
+              if (optionValue === selectedValue) item.setIcon("check");
+            });
+          }
+          menu.showAtMouseEvent(event);
+        });
+      }
+      formatRunSettingDisplayLabel(name, value, label) {
+        return name === "Model"
+          ? value === CUSTOM_MODEL_VALUE
+            ? this.plugin.settings.customModel.trim() || "Custom"
+            : value
+              ? label.split(" - ")[0].replace(/^GPT-/i, "GPT-")
+              : this.formatDefaultModelLabel()
+          : name === "Think"
+            ? value
+              ? label.split(" - ")[0].replace(/^XHigh$/i, "XHigh")
+              : this.formatDefaultReasoningLabel()
+            : name === "Tools"
+              ? value === "chat"
+                ? "Chat"
+                : value === "read-only"
+                  ? "Review"
+                  : value === "full-agent"
+                    ? "Full"
+                    : value === "edit" || value === "workspace-write"
+                      ? "Edit"
+                      : label
+              : label;
+      }
+      formatDefaultModelLabel() {
+        const model = this.plugin.settings.effectiveModel;
+        return model ? model.split("/").pop() || model : "Default";
+      }
+      formatDefaultReasoningLabel() {
+        const reasoning = this.plugin.settings.effectiveReasoning;
+        return reasoning
+          ? this.formatReasoningLabel(reasoning)
+          : this.formatReasoningLabel(getResolvedReasoning(this.plugin.settings));
+      }
+      formatReasoningLabel(reasoning) {
+        return reasoning === "pi-default" || reasoning === "cli-default"
+          ? "Pi default"
+          : reasoning === "xhigh"
+            ? "XHigh"
+            : reasoning.charAt(0).toUpperCase() + reasoning.slice(1);
+      }
+      getRunSettingIcon(name, value) {
+        return name === "Tools"
+          ? value === "chat"
+            ? "message-square"
+            : value === "full-agent"
+              ? "terminal"
+              : value === "edit" || value === "workspace-write"
+                ? "pencil-line"
+                : "eye"
+          : "";
+      }
+      getRunSettingClass(name, value) {
+        return name === "Tools"
+          ? value === "full-agent"
+            ? "pi-agent-run-setting-mode-full"
+            : value === "edit" || value === "workspace-write"
+              ? "pi-agent-run-setting-mode-write"
+              : "pi-agent-run-setting-mode-read"
+          : "";
+      }
+    };
+  }
+});
+
+// src/ui/suggestions.mjs
+var ComposerSuggestions;
+var init_suggestions = __esm({
+  "src/ui/suggestions.mjs"() {
+    "use strict";
+    init_slash_commands();
+    ComposerSuggestions = class {
+      constructor(inputEl, plugin, onApply) {
+        this.inputEl = inputEl;
+        this.plugin = plugin;
+        this.onApply = onApply;
+        this.suggestions = [];
+        this.selectedSuggestionIndex = 0;
+      }
+      update() {
+        const match = this.getActiveSuggestMatch();
+        if (!match) {
+          this.close();
+          return;
+        }
+        this.activeSuggestRange = { start: match.start, end: match.end };
+        this.suggestions = this.getSuggestions(match.trigger, match.query).slice(0, 16);
+        this.selectedSuggestionIndex = 0;
+        if (this.suggestions.length === 0) {
+          this.close();
+          return;
+        }
+        this.render();
+      }
+      handleKeydown(event) {
+        if (!this.suggestEl || this.suggestions.length === 0) return false;
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          this.selectedSuggestionIndex =
+            (this.selectedSuggestionIndex + 1) % this.suggestions.length;
+          this.render();
+          return true;
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          this.selectedSuggestionIndex =
+            (this.selectedSuggestionIndex - 1 + this.suggestions.length) % this.suggestions.length;
+          this.render();
+          return true;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+          event.preventDefault();
+          this.apply(this.selectedSuggestionIndex);
+          return true;
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          this.close();
+          return true;
+        }
+        return false;
+      }
+      close() {
+        this.suggestEl?.remove();
+        this.suggestEl = void 0;
+        this.suggestions = [];
+        this.activeSuggestRange = void 0;
+        this.selectedSuggestionIndex = 0;
+      }
+      getActiveSuggestMatch() {
+        const cursor = this.inputEl.selectionStart;
+        const prefix = this.inputEl.value.slice(0, cursor);
+        const match = prefix.match(/(^|\s)([@#/])([^\s]*)$/);
+        if (!match || match.index === void 0) return void 0;
+        const start = match.index + match[1].length;
+        if (
+          match[2] === "/" &&
+          prefix.slice(prefix.lastIndexOf("\n", start - 1) + 1, start).trim().length > 0
+        ) {
+          return void 0;
+        }
+        return { trigger: match[2], query: match[3].toLowerCase(), start, end: cursor };
+      }
+      getSuggestions(trigger, query) {
+        return trigger === "@"
+          ? this.getNoteAndFolderSuggestions(query)
+          : trigger === "#"
+            ? this.getTagSuggestions(query)
+            : this.getCommandSuggestions(query);
+      }
+      formatAttachmentInsert(value) {
+        return /\s/.test(value) ? `@"${value.replace(/"/g, '\\"')}" ` : `@${value} `;
+      }
+      getNoteAndFolderSuggestions(query) {
+        const files = this.plugin.app.vault.getMarkdownFiles();
+        const folders = /* @__PURE__ */ new Set();
+        for (const file of files) {
+          const parts = file.path.split("/");
+          for (let index = 1; index < parts.length; index++)
+            folders.add(parts.slice(0, index).join("/"));
+        }
+        const folderSuggestions = [...folders].map((folder) => ({
+          label: `${folder}/`,
+          detail: "Folder",
+          insertText: this.formatAttachmentInsert(`${folder}/`)
+        }));
+        const noteSuggestions = files.map((file) => {
+          const label = file.path.replace(/\.md$/i, "");
+          return {
+            label,
+            detail: "Note",
+            insertText: this.formatAttachmentInsert(label)
+          };
+        });
+        return [...folderSuggestions, ...noteSuggestions]
+          .filter((suggestion) => suggestion.label.toLowerCase().includes(query))
+          .sort((left, right) => left.label.localeCompare(right.label));
+      }
+      getTagSuggestions(query) {
+        const tags = /* @__PURE__ */ new Set();
+        for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+          const cache = this.plugin.app.metadataCache.getFileCache(file);
+          for (const tag of cache?.tags ?? []) tags.add(tag.tag);
+          const frontmatterTags = cache?.frontmatter?.tags;
+          if (Array.isArray(frontmatterTags)) {
+            for (const tag of frontmatterTags)
+              tags.add(String(tag).startsWith("#") ? String(tag) : `#${tag}`);
+          } else if (typeof frontmatterTags === "string") {
+            tags.add(frontmatterTags.startsWith("#") ? frontmatterTags : `#${frontmatterTags}`);
+          }
+        }
+        return [...tags]
+          .filter((tag) => tag.toLowerCase().includes(query))
+          .sort()
+          .map((tag) => ({ label: tag, detail: "Tag", insertText: `${tag} ` }));
+      }
+      getCommandSuggestions(query) {
+        return getSlashCommands(this.plugin.settings, this.plugin.getVaultBasePath())
+          .map((command) => ({
+            label: command.command,
+            detail: command.command.startsWith("/skill:")
+              ? `Skill \u2014 ${command.detail}`
+              : command.detail,
+            insertText: command.insertText
+          }))
+          .filter((suggestion) =>
+            `${suggestion.label} ${suggestion.detail} ${suggestion.insertText}`
+              .toLowerCase()
+              .includes(query)
+          );
+      }
+      render() {
+        this.suggestEl?.remove();
+        const parentEl = this.inputEl.parentElement;
+        if (!parentEl) return;
+        this.suggestEl = parentEl.createDiv({
+          cls: "pi-agent-suggest",
+          attr: { role: "listbox" }
+        });
+        for (let index = 0; index < this.suggestions.length; index++) {
+          const suggestion = this.suggestions[index];
+          const itemEl = this.suggestEl.createDiv({
+            cls: `pi-agent-suggest-item${index === this.selectedSuggestionIndex ? " is-selected" : ""}`,
+            attr: {
+              role: "option",
+              "aria-selected": index === this.selectedSuggestionIndex ? "true" : "false"
+            }
+          });
+          itemEl.createSpan({ cls: "pi-agent-suggest-label", text: suggestion.label });
+          itemEl.createSpan({ cls: "pi-agent-suggest-detail", text: suggestion.detail });
+          itemEl.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            this.apply(index);
+          });
+        }
+      }
+      apply(index) {
+        if (!this.activeSuggestRange) return;
+        const suggestion = this.suggestions[index];
+        if (!suggestion) return;
+        const value = this.inputEl.value;
+        this.inputEl.value =
+          value.slice(0, this.activeSuggestRange.start) +
+          suggestion.insertText +
+          value.slice(this.activeSuggestRange.end);
+        const cursor = this.activeSuggestRange.start + suggestion.insertText.length;
+        this.inputEl.setSelectionRange(cursor, cursor);
+        this.close();
+        this.onApply();
+        this.inputEl.focus();
+      }
+    };
+  }
+});
+
+// src/ui/thread-actions.mjs
+var import_obsidian10, ThreadActions;
+var init_thread_actions = __esm({
+  "src/ui/thread-actions.mjs"() {
+    "use strict";
+    import_obsidian10 = require("obsidian");
+    ThreadActions = class {
+      constructor(plugin, callbacks) {
+        this.plugin = plugin;
+        this.callbacks = callbacks;
+      }
+      startNewChat() {
+        this.plugin.startNewThread();
+        this.callbacks.resetThreadUiState?.();
+        this.callbacks.renderThreadTitle();
+        this.callbacks.renderMessages();
+        this.callbacks.renderToolBadges?.();
+      }
+      forkChat() {
+        this.plugin.forkCurrentThread()
+          ? (this.callbacks.resetThreadUiState?.(),
+            this.callbacks.renderThreadTitle(),
+            this.callbacks.renderMessages(),
+            this.callbacks.renderToolBadges?.())
+          : new import_obsidian10.Notice("Nothing to fork yet.");
+      }
+    };
+  }
+});
+
+// src/ui/view/run-metadata.mjs
+function getCurrentRunMetadata(settings) {
+  return {
+    model: getDisplayedModel(settings),
+    reasoning: settings.reasoningEffort || settings.effectiveReasoning || "Pi default",
+    toolMode: settings.sandboxMode,
+    toolModeLabel: formatToolModeLabel(settings.sandboxMode)
+  };
+}
+function formatToolModeLabel(toolMode) {
+  return toolMode === "chat"
+    ? "Chat"
+    : toolMode === "edit" || toolMode === "workspace-write"
+      ? "Edit"
+      : toolMode === "full-agent"
+        ? "Full agent"
+        : "Review";
+}
+function getDisplayedModel(settings) {
+  if (settings.model === CUSTOM_MODEL_VALUE) return settings.customModel || "Custom";
+  return settings.model || settings.effectiveModel || "Pi default";
+}
+var init_run_metadata = __esm({
+  "src/ui/view/run-metadata.mjs"() {
+    "use strict";
+    init_settings();
+  }
+});
+
+// src/ui/PiAgentView.mjs
+var f5, PiAgentView;
+var init_PiAgentView = __esm({
+  "src/ui/PiAgentView.mjs"() {
+    "use strict";
+    f5 = __toESM(require("obsidian"), 1);
+    init_token_usage();
+    init_constants();
+    init_message_actions();
+    init_note_actions();
+    init_prompt_queue();
+    init_thread_list_view();
+    init_vault_link_actions();
+    init_message_renderer();
+    init_run_activity_state();
+    init_run_settings();
+    init_suggestions();
+    init_thread_actions();
+    init_run_metadata();
+    PiAgentView = class extends f5.ItemView {
+      constructor(e, t) {
+        super(e);
+        this.plugin = t;
+        this.running = false;
+        this.canceling = false;
+        this.composerBarExpanded = false;
+        this.activityText = "Thinking";
+        this.activityKind = "thinking";
+        this.activityDetail = "";
+        this.activityStickyUntil = 0;
+        this.pendingActivity = void 0;
+        this.pendingActivityTimer = void 0;
+        this.isRenderingMessages = false;
+        this.activeToolCalls = /* @__PURE__ */ new Map();
+        this.recentActions = [];
+        this.currentRunContextUsage = void 0;
+        this.invalidatedContextThreadIds = /* @__PURE__ */ new Set();
+        this.streamingAssistantContent = "";
+        this.promptQueue = [];
+        this.activeRuns = /* @__PURE__ */ new Map();
+        this.activeEditorScrollSnapshot = void 0;
+        this.stickToBottom = true;
+      }
+      getViewType() {
+        return PI_AGENT_VIEW_TYPE;
+      }
+      getDisplayText() {
+        return PI_AGENT_DISPLAY_NAME;
+      }
+      getIcon() {
+        return PI_AGENT_ICON_ID;
+      }
+      async onOpen() {
+        this.registerDomEvent(document, "keydown", (e) => {
+          (this.syncCurrentRunFlags(),
+            e.key !== "Escape" || !this.running || (e.preventDefault(), this.cancelCurrentRun()));
+        });
+        this.registerEvent(
+          this.plugin.app.workspace.on("file-open", () => {
+            this.renderToolBadges();
+          })
+        );
+        this.registerEvent(
+          this.plugin.app.workspace.on("active-leaf-change", () => {
+            this.renderToolBadges();
+          })
+        );
+        this.registerEvent(
+          this.plugin.app.vault.on("modify", (e) => {
+            this.handleVaultFileModify(e);
+          })
+        );
+        this.renderChatView();
+      }
+      renderChatView() {
+        this.showingThreadList = false;
+        let currentThreadId = this.getCurrentThreadId();
+        if (this.renderedThreadId !== currentThreadId) this.resetTransientRunUiState();
+        this.renderedThreadId = currentThreadId;
+        this.syncCurrentRunFlags();
+        this.cleanupComposerBarObserver();
+        let e = this.containerEl.children[1];
+        (e.empty(),
+          e.addClass("pi-agent-view"),
+          (this.noteActions = new NoteActions(this.plugin, {
+            parseVaultLinkTarget: (c) => this.parseVaultLinkTarget(c),
+            formatVaultLinkTarget: (c) => this.formatVaultLinkTarget(c),
+            openVaultLink: (c) => this.openVaultLink(c)
+          })),
+          (this.messageActions = new MessageActions(this.plugin, {
+            getInput: () => this.inputEl,
+            runPrompt: (c) => {
+              this.runPrompt(c);
+            },
+            openChangedFiles: (c) => this.openChangedFiles(c),
+            insertIntoCurrentNote: (c) => {
+              var p;
+              return (p = this.noteActions) == null ? void 0 : p.insertIntoCurrentNote(c);
+            },
+            createNoteFromResponse: (c) => {
+              var p, v;
+              return (v = (p = this.noteActions) == null ? void 0 : p.createNoteFromResponse(c)) !=
+                null
+                ? v
+                : Promise.resolve();
+            },
+            openCitedNotes: (c) => {
+              var p, v;
+              return (v = (p = this.noteActions) == null ? void 0 : p.openCitedNotes(c)) != null
+                ? v
+                : Promise.resolve();
+            },
+            extractVaultLinks: (c) => {
+              var p, v;
+              return (v = (p = this.noteActions) == null ? void 0 : p.extractVaultLinks(c)) != null
+                ? v
+                : [];
+            },
+            getPreviousUserPrompt: (c) => {
+              var p;
+              return (p = this.noteActions) == null ? void 0 : p.getPreviousUserPrompt(c);
+            }
+          })),
+          (this.threadMenu = new ThreadActions(this.plugin, {
+            renderThreadTitle: () => this.renderThreadTitle(),
+            renderMessages: () => this.renderMessages(),
+            renderToolBadges: () => this.renderToolBadges(),
+            resetThreadUiState: () => {
+              this.renderedThreadId = this.getCurrentThreadId();
+              this.resetTransientRunUiState();
+              this.syncCurrentRunFlags();
+              this.renderPromptQueue();
+              this.setRunningState(this.running);
+            }
+          })));
+        let t = e.createDiv({ cls: "pi-agent-header" }),
+          n = t.createDiv({ cls: "pi-agent-brand" }),
+          s = n.createSpan({
+            cls: "pi-agent-brand-icon",
+            attr: { title: "Pi Agent" }
+          });
+        (this.renderPiIcon(s),
+          (this.threadTitleEl = n.createSpan({
+            cls: "pi-agent-thread-title",
+            attr: { role: "button", tabindex: "0", title: "Rename chat" }
+          })),
+          this.threadTitleEl.addEventListener("click", () => this.startThreadTitleRename()),
+          this.threadTitleEl.addEventListener("keydown", (c) => {
+            (c.key === "Enter" || c.key === " ") &&
+              (c.preventDefault(), this.startThreadTitleRename());
+          }),
+          this.renderThreadTitle());
+        let a = t.createDiv({ cls: "pi-agent-header-actions" }),
+          o = a.createEl("button", {
+            cls: "clickable-icon pi-agent-header-action",
+            attr: { "aria-label": "New chat", title: "New chat" }
+          });
+        ((0, f5.setIcon)(o, "plus"),
+          o.addEventListener("click", (c) => {
+            var p;
+            (c.preventDefault(), (p = this.threadMenu) == null || p.startNewChat());
+          }));
+        let l = a.createEl("button", {
+          cls: "clickable-icon pi-agent-header-action",
+          attr: { "aria-label": "Fork chat", title: "Fork chat" }
+        });
+        ((0, f5.setIcon)(l, "split"),
+          l.addEventListener("click", (c) => {
+            var p;
+            if ((c.preventDefault(), this.isThreadRunning(this.plugin.getCurrentThread().id))) {
+              new f5.Notice("Wait for this chat's agent run to finish before forking it.");
+              return;
+            }
+            ((p = this.threadMenu) == null || p.forkChat(), this.renderToolBadges());
+          }));
+        let u = a.createEl("button", {
+          cls: "clickable-icon pi-agent-thread-menu",
+          attr: {
+            "aria-label": "Manage chat threads",
+            title: "Manage chat threads"
+          }
+        });
+        ((0, f5.setIcon)(u, "list"),
+          u.addEventListener("click", (c) => {
+            (c.preventDefault(), this.showThreadList());
+          }));
+        ((this.messagesEl = e.createDiv({ cls: "pi-agent-messages" })),
+          this.messagesEl.addEventListener("scroll", () => {
+            if (!this.messagesEl || this.isRenderingMessages) return;
+            let c =
+              this.messagesEl.scrollHeight -
+              this.messagesEl.scrollTop -
+              this.messagesEl.clientHeight;
+            this.stickToBottom = c < 40;
+          }));
+        let d = e.createDiv({ cls: "pi-agent-composer" });
+        ((this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" })),
+          this.renderToolBadges(),
+          (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
+          this.renderPromptQueue(),
+          (this.inputEl = d.createEl("textarea", {
+            placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
+          })),
+          this.inputEl.addEventListener("keydown", (c) => {
+            var p;
+            ((p = this.suggestions) != null && p.handleKeydown(c)) ||
+              (c.key === "Enter" &&
+                !c.shiftKey &&
+                !c.isComposing &&
+                (c.preventDefault(), this.submitInput()),
+              c.key === "Escape" &&
+                (this.syncCurrentRunFlags(), this.running) &&
+                (c.preventDefault(), this.cancelCurrentRun()));
+          }),
+          this.inputEl.addEventListener("input", () => {
+            var c;
+            (this.syncCurrentRunFlags(),
+              this.resizeInput(),
+              (c = this.suggestions) == null || c.update(),
+              this.setRunningState(this.running));
+          }),
+          this.inputEl.addEventListener("click", () => {
+            var c;
+            return (c = this.suggestions) == null ? void 0 : c.update();
+          }),
+          this.inputEl.addEventListener("blur", () => {
+            window.setTimeout(() => {
+              var c;
+              return (c = this.suggestions) == null ? void 0 : c.close();
+            }, 120);
+          }),
+          (this.suggestions = new ComposerSuggestions(this.inputEl, this.plugin, () =>
+            this.resizeInput()
+          )),
+          this.resizeInput());
+        let h = d.createDiv({ cls: "pi-agent-composer-bar" });
+        ((this.composerBarEl = h),
+          (this.runSettings = new RunSettingsControls(this.plugin)),
+          this.runSettings.render(h));
+        let m = h.createEl("button", {
+          cls: "clickable-icon pi-agent-send-button",
+          attr: { "aria-label": "Send message", title: "Send message" }
+        });
+        ((0, f5.setIcon)(m, "send"),
+          m.createSpan({ cls: "pi-agent-control-label", text: "Send" }),
+          (this.sendButtonEl = m),
+          m.addEventListener("click", () => this.handleSendButtonClick()),
+          this.observeComposerBar(h),
+          this.renderMessages(),
+          this.setRunningState(this.running));
+      }
+      async onClose() {
+        var e;
+        ((this.messagesEl = void 0),
+          (this.inputEl = void 0),
+          (this.promptQueueEl = void 0),
+          (this.sendButtonEl = void 0),
+          (this.composerBarEl = void 0),
+          (this.composerBarExpandEl = void 0),
+          (this.runSettings = void 0),
+          (this.toolBadgesEl = void 0),
+          (this.threadTitleEl = void 0),
+          this.cleanupComposerBarObserver(),
+          this.clearPendingActivityTimer(),
+          (this.messageActions = void 0),
+          (this.noteActions = void 0),
+          (this.threadMenu = void 0),
+          (e = this.suggestions) == null || e.close(),
+          (this.suggestions = void 0));
+      }
+      renderToolBadges() {
+        let e = this.toolBadgesEl;
+        if (!e) return;
+        e.empty();
+        let t = this.plugin.getCurrentContextFile(),
+          n = t
+            ? { label: `Current: ${t.basename}`, enabled: true, title: t.path }
+            : {
+                label: "No current note",
+                enabled: false,
+                title: "Open a markdown note to attach it automatically"
+              };
+        e.createSpan({
+          cls: `pi-agent-tool-badge${n.enabled ? " is-enabled" : ""}`,
+          text: n.label,
+          attr: { title: n.title }
+        });
+        this.renderToolBadgesContextUsage(e);
+      }
+      renderToolBadgesContextUsage(e) {
+        let t = this.getDisplayedContextUsage(),
+          n = t?.compacted
+            ? {
+                label: `ctx compacted \xB7 ?/${formatTokenCount(t.contextWindow || 0)}`,
+                title:
+                  "Pi compacted this session. Exact context usage is unknown until the next model response returns fresh token usage."
+              }
+            : t
+              ? formatContextUsageBadge(t.contextUsage, t.tokenUsage)
+              : void 0;
+        e.createSpan({
+          cls: `pi-agent-tool-badge pi-agent-tool-badge-context${n ? " is-enabled" : ""}`,
+          text: n ? n.label : "ctx --",
+          attr: {
+            title: n
+              ? n.title
+              : "Context usage appears after Pi returns token usage for the selected model."
+          }
+        });
+      }
+      getDisplayedContextUsage() {
+        var n;
+        if (this.currentRunContextUsage) return this.currentRunContextUsage;
+        let e = this.plugin.getCurrentThread();
+        if (this.invalidatedContextThreadIds.has(e.id))
+          return {
+            compacted: true,
+            contextWindow: this.plugin.getSelectedModelInfo()?.contextWindow
+          };
+        let t = (n = e.messages) != null ? n : [];
+        for (let s = t.length - 1; s >= 0; s--) {
+          let a = t[s];
+          if (a.role === "assistant" && a.contextUsage)
+            return { contextUsage: a.contextUsage, tokenUsage: a.tokenUsage };
+        }
+      }
+      renderThreadTitle() {
+        if (!this.threadTitleEl) return;
+        let e = this.plugin.getCurrentThread();
+        (this.threadTitleEl.empty(), this.threadTitleEl.createSpan({ text: e.title }));
+      }
+      startThreadTitleRename() {
+        var a;
+        if (!((a = this.threadTitleEl) != null && a.isConnected)) return;
+        let e = this.plugin.getCurrentThread();
+        (this.threadTitleEl.empty(), this.threadTitleEl.addClass("is-editing"));
+        let t = this.threadTitleEl.createEl("input", {
+            cls: "pi-agent-thread-title-input",
+            attr: { type: "text", value: e.title, "aria-label": "Chat title" }
+          }),
+          n = (o) => {
+            var d;
+            let l = t.value.trim();
+            ((d = this.threadTitleEl) == null || d.removeClass("is-editing"),
+              o && l && l !== e.title && this.plugin.renameThread(e.id, l),
+              this.renderThreadTitle());
+          },
+          s = (o) => {
+            o.stopPropagation();
+          };
+        (t.addEventListener(
+          "keydown",
+          (o) => {
+            (s(o), o.key === "Enter" && n(true), o.key === "Escape" && n(false));
+          },
+          { capture: true }
+        ),
+          t.addEventListener("keypress", s, { capture: true }),
+          t.addEventListener("keyup", s, { capture: true }),
+          t.addEventListener("click", (o) => o.stopPropagation()),
+          t.addEventListener("blur", () => n(true)),
+          t.focus(),
+          t.select());
+      }
+      submitInput() {
+        var t, n;
+        let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
+        if (!e) return;
+        (this.inputEl && (this.inputEl.value = ""),
+          (n = this.suggestions) == null || n.close(),
+          this.resizeInput(),
+          this.syncCurrentRunFlags(),
+          this.running ? this.enqueuePrompt(e) : this.runPrompt(e),
+          this.setRunningState(this.running));
+      }
+      handleSendButtonClick() {
+        var t;
+        this.syncCurrentRunFlags();
+        if (this.running && !((t = this.inputEl) != null && t.value.trim())) {
+          this.cancelCurrentRun();
+          return;
+        }
+        this.submitInput();
+      }
+      cancelCurrentRun() {
+        this.syncCurrentRunFlags();
+        let e = this.getCurrentThreadRun();
+        e &&
+          !e.canceling &&
+          ((e.canceling = true),
+          (this.canceling = true),
+          this.setActivity("Canceling", "finishing"),
+          this.plugin.cancelPiRun(e.runner),
+          this.setRunningState(true),
+          this.renderThreadListIfVisible());
+      }
+      finishCanceledRun() {
+        ((this.running = false),
+          (this.canceling = false),
+          (this.streamingAssistantContent = ""),
+          (this.streamingItemEl = void 0),
+          (this.streamingTextEl = void 0),
+          (this.activityText = ""),
+          (this.activityDetail = ""),
+          (this.activityStickyUntil = 0),
+          (this.pendingActivity = void 0),
+          this.clearPendingActivityTimer(),
+          this.activeToolCalls.clear(),
+          (this.currentRunContextUsage = void 0),
+          (this.runningThreadId = void 0),
+          (this.activeEditorScrollSnapshot = void 0),
+          this.plugin.cancelPiRun(),
+          this.renderPromptQueue(),
+          this.setRunningState(false),
+          this.renderMessages(),
+          this.renderToolBadges());
+      }
+      cleanupComposerBarObserver() {
+        this.composerBarCleanup && (this.composerBarCleanup(), (this.composerBarCleanup = void 0));
+      }
+      observeComposerBar(e) {
+        this.cleanupComposerBarObserver();
+        let t = () => this.updateComposerBarMode(e.clientWidth);
+        if ((t(), typeof ResizeObserver == "undefined")) {
+          window.addEventListener("resize", t);
+          let n2 = false,
+            s2 = () => {
+              n2 || ((n2 = true), window.removeEventListener("resize", t));
+            };
+          ((this.composerBarCleanup = s2), this.register(s2));
+          return;
+        }
+        let n = new ResizeObserver((a2) => {
+            var l, d;
+            let o =
+              (d = (l = a2[0]) == null ? void 0 : l.contentRect.width) != null ? d : e.clientWidth;
+            this.updateComposerBarMode(o);
+          }),
+          s = false,
+          a = () => {
+            s || ((s = true), n.disconnect());
+          };
+        (n.observe(e), (this.composerBarCleanup = a), this.register(a));
+      }
+      updateComposerBarMode(e) {
+        let t = this.composerBarEl;
+        if (!t) return;
+        let n = e < 560,
+          s = e < 390;
+        (!n && this.composerBarExpanded && (this.composerBarExpanded = false),
+          t.toggleClass("is-compact", n),
+          t.toggleClass("is-narrow", s),
+          this.updateComposerBarExpansion());
+      }
+      updateComposerBarExpansion() {
+        let e = this.composerBarEl,
+          t = this.composerBarExpandEl;
+        if (!e || !t) return;
+        let n = this.composerBarExpanded && e.hasClass("is-compact");
+        (e.toggleClass("is-expanded", n),
+          t.setAttr("aria-label", n ? "Collapse run options" : "Expand run options"),
+          t.setAttr("title", n ? "Collapse run options" : "Expand run options"),
+          (0, f5.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
+      }
+      resizeInput() {
+        this.inputEl &&
+          ((this.inputEl.style.height = "auto"),
+          (this.inputEl.style.height = `${Math.min(this.inputEl.scrollHeight, 160)}px`));
+      }
+      getCurrentThreadId() {
+        var e;
+        return (e = this.plugin.getCurrentThread()) == null ? void 0 : e.id;
+      }
+      isCurrentThread(e) {
+        return this.getCurrentThreadId() === e;
+      }
+      isThreadRunning(e) {
+        return this.activeRuns.has(e);
+      }
+      getCurrentThreadRun() {
+        let e = this.getCurrentThreadId();
+        return e ? this.activeRuns.get(e) : void 0;
+      }
+      syncCurrentRunFlags() {
+        let e = this.getCurrentThreadRun();
+        ((this.running = !!e), (this.canceling = e?.canceling === true));
+      }
+      resetTransientRunUiState() {
+        ((this.activityText = ""),
+          (this.activityKind = "thinking"),
+          (this.activityDetail = ""),
+          (this.activityStickyUntil = 0),
+          (this.pendingActivity = void 0),
+          this.clearPendingActivityTimer(),
+          this.activeToolCalls.clear(),
+          (this.recentActions = []),
+          (this.currentRunContextUsage = void 0),
+          (this.streamingAssistantContent = ""),
+          (this.streamingItemEl = void 0),
+          (this.streamingTextEl = void 0));
+      }
+      renderThreadListIfVisible() {
+        this.showingThreadList && this.renderThreadList();
+      }
+      async runPrompt(e, t = this.plugin.getCurrentThread().id) {
+        if (this.isThreadRunning(t)) {
+          this.enqueuePrompt(e, t);
+          return;
+        }
+        let n = { canceling: false, runner: this.plugin.createPiRunner() };
+        (this.activeRuns.set(t, n),
+          this.syncCurrentRunFlags(),
+          (this.runningThreadId = t),
+          (this.running = this.isCurrentThread(t)),
+          (this.canceling = false),
+          (this.activityText = "Preparing context"),
+          (this.activityKind = "context"),
+          (this.activityDetail =
+            "Collecting current note, links, backlinks, search results, and attachments."),
+          (this.activityStickyUntil = 0),
+          (this.pendingActivity = void 0),
+          this.clearPendingActivityTimer(),
+          this.activeToolCalls.clear(),
+          (this.recentActions = []),
+          (this.currentRunContextUsage = void 0),
+          (this.streamingAssistantContent = ""),
+          (this.activeEditorScrollSnapshot = this.isCurrentThread(t)
+            ? this.getActiveEditorScrollSnapshot()
+            : this.activeEditorScrollSnapshot),
+          (this.stickToBottom = true),
+          this.setRunningState(this.running),
+          this.plugin.addMessageToThread(t, {
+            role: "user",
+            content: e,
+            createdAt: Date.now()
+          }),
+          this.isCurrentThread(t) && (this.renderThreadTitle(), this.renderMessages()));
+        this.renderThreadListIfVisible();
+        let s = getCurrentRunMetadata(this.plugin.settings);
+        try {
+          let a = await this.plugin.runPiPrompt(
+            e,
+            {
+              isCanceled: () => n.canceling,
+              onEvent: (o) => this.isCurrentThread(t) && this.handleRunEvent(o),
+              onTextDelta: (o) => this.isCurrentThread(t) && this.appendStreamingDelta(o)
+            },
+            t,
+            n.runner
+          );
+          ((this.streamingAssistantContent = ""),
+            (this.streamingItemEl = void 0),
+            (this.streamingTextEl = void 0),
+            this.plugin.addMessageToThread(t, {
+              role: "assistant",
+              content: a.finalResponse,
+              createdAt: Date.now(),
+              changeSummaries: a.changes,
+              changedFiles: a.changedFiles,
+              changeStats: a.changeStats,
+              contextUsage: a.contextUsage,
+              tokenUsage: a.tokenUsage,
+              runMetadata: s
+            }),
+            a.contextUsage && !a.contextCompacted && this.invalidatedContextThreadIds.delete(t),
+            a.contextCompacted && this.invalidatedContextThreadIds.add(t),
+            this.isCurrentThread(t) &&
+              (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
+        } catch (a) {
+          let o = a instanceof Error ? a.message : String(a);
+          if (o === "Pi run canceled.") {
+            new f5.Notice("Agent run canceled.");
+            return;
+          }
+          (this.plugin.addMessageToThread(t, {
+            role: "assistant",
+            content: `Agent run failed: ${o}`,
+            createdAt: Date.now()
+          }),
+            this.isCurrentThread(t) &&
+              (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()),
+            new f5.Notice(o));
+        } finally {
+          (this.activeRuns.delete(t),
+            this.syncCurrentRunFlags(),
+            (this.running = this.isThreadRunning(this.plugin.getCurrentThread().id)),
+            (this.canceling = this.getCurrentThreadRun()?.canceling === true),
+            (this.streamingAssistantContent = ""),
+            (this.activityStickyUntil = 0),
+            (this.pendingActivity = void 0),
+            this.clearPendingActivityTimer(),
+            this.activeToolCalls.clear(),
+            (this.activityText = ""),
+            (this.activityDetail = ""),
+            (this.currentRunContextUsage = void 0),
+            this.activeEditorScrollSnapshot &&
+              this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
+            (this.activeEditorScrollSnapshot = void 0),
+            this.renderPromptQueue(),
+            (this.runningThreadId = void 0),
+            this.setRunningState(this.running),
+            this.isCurrentThread(t) && (this.renderMessages(), this.renderToolBadges()),
+            this.renderThreadListIfVisible(),
+            this.runNextQueuedPrompt());
+        }
+      }
+      getActiveEditorScrollSnapshot() {
+        var s;
+        let e = this.plugin.app.workspace.activeEditor,
+          t = e == null ? void 0 : e.file,
+          n = e == null ? void 0 : e.editor;
+        if (!t || !n) return void 0;
+        try {
+          return { path: t.path, ...n.getScrollInfo(), createdAt: Date.now() };
+        } catch {
+          return (s = this.activeEditorScrollSnapshot) != null ? s : void 0;
+        }
+      }
+      handleVaultFileModify(e) {
+        this.syncCurrentRunFlags();
+        if (!(e instanceof f5.TFile) || !this.running || e.extension !== "md") return;
+        this.scheduleEditorScrollRestore(e.path);
+      }
+      scheduleEditorScrollRestore(e) {
+        let t = this.activeEditorScrollSnapshot;
+        if (!t || t.path !== e) return;
+        for (let n of [0, 50, 150])
+          window.setTimeout(() => {
+            this.restoreEditorScroll(t);
+          }, n);
+      }
+      restoreEditorScroll(e) {
+        let t = this.plugin.app.workspace.activeEditor,
+          n = t == null ? void 0 : t.file,
+          s = t == null ? void 0 : t.editor;
+        if (!n || !s || n.path !== e.path) return;
+        try {
+          s.scrollTo(e.left, e.top);
+        } catch (a) {
+          console.warn("Pi Agent: failed to restore editor scroll after external file change", a);
+        }
+      }
+      appendStreamingDelta(e) {
+        if (e) {
+          if (
+            ((this.activityText = ""),
+            (this.activityDetail = ""),
+            (this.activityStickyUntil = 0),
+            (this.pendingActivity = void 0),
+            this.clearPendingActivityTimer(),
+            (this.streamingAssistantContent += e),
+            !this.streamingTextEl)
+          ) {
+            this.renderMessages();
+            return;
+          }
+          (this.streamingTextEl.appendText(e),
+            this.messagesEl &&
+              this.stickToBottom &&
+              (this.messagesEl.scrollTop = this.messagesEl.scrollHeight));
+        }
+      }
+      setRunningState(e) {
+        var n;
+        let s = !!((n = this.inputEl) != null && n.value.trim()),
+          a = e && !this.canceling && s,
+          o = e ? (this.canceling ? "loader" : a ? "send" : "x") : "send",
+          l = e ? (this.canceling ? "Canceling" : a ? "Queue" : "Cancel") : "Send",
+          d = e
+            ? this.canceling
+              ? "Canceling agent run"
+              : a
+                ? "Queue message"
+                : "Cancel agent run"
+            : "Send message";
+        this.sendButtonEl &&
+          (this.sendButtonEl.empty(),
+          (0, f5.setIcon)(this.sendButtonEl, o),
+          this.sendButtonEl.createSpan({
+            cls: "pi-agent-control-label",
+            text: l
+          }),
+          this.sendButtonEl.toggleAttribute("disabled", e && this.canceling),
+          this.sendButtonEl.setAttr("aria-label", d),
+          this.sendButtonEl.setAttr(
+            "title",
+            this.promptQueue.length > 0 && !this.canceling
+              ? `${d}. ${this.promptQueue.length} queued.`
+              : d
+          ));
+      }
+      renderPiIcon(e) {
+        (0, f5.setIcon)(e, PI_AGENT_ICON_ID);
+      }
+    };
+    Object.assign(
+      PiAgentView.prototype,
+      prompt_queue_exports,
+      thread_list_view_exports,
+      vault_link_actions_exports,
+      message_renderer_exports,
+      run_activity_state_exports
+    );
+  }
+});
+
+// src/shared/thread-history.mjs
+function sanitizeThreadHistory(history, limit = 40) {
+  return {
+    currentThreadId: history.currentThreadId,
+    threads: [...(history.threads || [])]
+      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .slice(0, limit)
+      .map((thread) => ({
+        ...thread,
+        messages: (thread.messages || []).map(compactPersistedMessage)
+      }))
+  };
+}
+function compactPersistedMessage(message) {
+  return {
+    ...message,
+    changeSummaries: message.changeSummaries?.map((summary) => ({
+      files: summary.files,
+      stats: summary.stats,
+      sourceEventType: summary.sourceEventType,
+      unifiedDiff: summary.unifiedDiff
+    }))
+  };
+}
+var init_thread_history = __esm({
+  "src/shared/thread-history.mjs"() {
+    "use strict";
+  }
+});
+
+// src/threads/thread-store.mjs
+function normalizeThreadHistory(history, legacyMessages, legacyPiSessionId) {
+  const source = isPlainObject(history) ? history : {};
+  const sourceThreads = Array.isArray(source.threads) ? source.threads : [];
+  const seenIds = /* @__PURE__ */ new Set();
+  const threads = sourceThreads.map((thread) => normalizeThread(thread, seenIds)).filter(Boolean);
+  if (threads.length === 0) threads.push(createLegacyThread(legacyMessages, legacyPiSessionId));
+  return {
+    currentThreadId:
+      typeof source.currentThreadId === "string" &&
+      threads.some((thread) => thread.id === source.currentThreadId)
+        ? source.currentThreadId
+        : (getMostRecentThread(threads.filter((thread) => !thread.archived))?.id ??
+          getMostRecentThread(threads)?.id ??
+          threads[0].id),
+    threads
+  };
+}
+function normalizeThread(thread, seenIds) {
+  if (!isPlainObject(thread)) return void 0;
+  const messages = normalizeMessages(thread.messages);
+  const now = Date.now();
+  const createdAt = normalizeTimestamp(thread.createdAt) ?? messages[0]?.createdAt ?? now;
+  const updatedAt =
+    normalizeTimestamp(thread.updatedAt) ?? messages[messages.length - 1]?.createdAt ?? createdAt;
+  const sourceId = typeof thread.id === "string" && thread.id.trim() ? thread.id : "";
+  const id = sourceId && !seenIds.has(sourceId) ? sourceId : createThreadId(now);
+  seenIds.add(id);
+  return {
+    id,
+    title: normalizeTitle(
+      typeof thread.title === "string" && thread.title.trim()
+        ? thread.title
+        : inferThreadTitle(messages)
+    ),
+    messages,
+    createdAt,
+    updatedAt,
+    archived: thread.archived === true,
+    piSessionId: normalizeOptionalString(thread.piSessionId ?? thread.piThreadId)
+  };
+}
+function createLegacyThread(legacyMessages, legacyPiSessionId) {
+  const messages = normalizeMessages(legacyMessages);
+  const now = Date.now();
+  return createThread({
+    title: inferThreadTitle(messages),
+    now,
+    messages,
+    piSessionId: normalizeOptionalString(legacyPiSessionId)
+  });
+}
+function createThread(options) {
+  const messages = (options.messages ?? []).map(cloneMessage);
+  const createdAt = messages[0]?.createdAt ?? options.now;
+  const updatedAt = messages[messages.length - 1]?.createdAt ?? options.now;
+  return {
+    id: createThreadId(options.now),
+    title: normalizeTitle(options.title ?? inferThreadTitle(messages)),
+    messages,
+    createdAt,
+    updatedAt,
+    archived: false,
+    piSessionId: options.piSessionId
+  };
+}
+function normalizeMessages(messages) {
+  return Array.isArray(messages) ? messages.filter(isValidMessage).map(cloneMessage) : [];
+}
+function isValidMessage(message) {
+  return isPlainObject(message)
+    ? (message.role === "user" || message.role === "assistant" || message.role === "system") &&
+        typeof message.content === "string" &&
+        typeof message.createdAt === "number" &&
+        Number.isFinite(message.createdAt)
+    : false;
+}
+function cloneMessage(message) {
+  return {
+    role: message.role,
+    content: message.content,
+    createdAt: message.createdAt,
+    changeSummaries: message.changeSummaries?.map((summary) => ({
+      files: summary.files.map((file) => ({ ...file })),
+      stats: { ...summary.stats },
+      sourceEventType: summary.sourceEventType,
+      unifiedDiff: summary.unifiedDiff,
+      fileSnapshots: summary.fileSnapshots?.map((snapshot) => ({ ...snapshot }))
+    })),
+    changedFiles: message.changedFiles?.map((file) => ({ ...file })),
+    changeStats: message.changeStats ? { ...message.changeStats } : void 0,
+    contextUsage: message.contextUsage ? { ...message.contextUsage } : void 0,
+    tokenUsage: message.tokenUsage ? { ...message.tokenUsage } : void 0,
+    runMetadata: message.runMetadata ? { ...message.runMetadata } : void 0
+  };
+}
+function cloneThread(thread) {
+  return {
+    id: thread.id,
+    title: thread.title,
+    messages: thread.messages.map(cloneMessage),
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
+    archived: thread.archived,
+    piSessionId: thread.piSessionId
+  };
+}
+function normalizeTimestamp(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : void 0;
+}
+function normalizeOptionalString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function normalizeTitle(value) {
+  return value.replace(/\s+/g, " ").trim().slice(0, 80) || DEFAULT_THREAD_TITLE;
+}
+function inferThreadTitle(messages) {
+  const firstUserMessage = messages.find((message) => message.role === "user");
+  return firstUserMessage ? titleFromPrompt(firstUserMessage.content) : DEFAULT_THREAD_TITLE;
+}
+function titleFromPrompt(prompt) {
+  return normalizeTitle(prompt.replace(/^#+\s*/g, "").replace(/[`*_#[\]()>]/g, ""));
+}
+function createThreadId(now) {
+  return `thread-${now}-${Math.random().toString(36).slice(2, 10)}`;
+}
+function getMostRecentThread(threads) {
+  return [...threads].sort((left, right) => right.updatedAt - left.updatedAt)[0];
+}
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+var DEFAULT_THREAD_TITLE, ThreadStore;
+var init_thread_store = __esm({
+  "src/threads/thread-store.mjs"() {
+    "use strict";
+    DEFAULT_THREAD_TITLE = "New chat";
+    ThreadStore = class {
+      constructor(history, legacyMessages, legacyPiSessionId) {
+        this.history = normalizeThreadHistory(history, legacyMessages, legacyPiSessionId);
+      }
+      get currentThreadId() {
+        return this.history.currentThreadId;
+      }
+      getCurrentThread() {
+        return cloneThread(this.getMutableCurrentThread());
+      }
+      getCurrentMessages() {
+        return this.getMutableCurrentThread().messages.map(cloneMessage);
+      }
+      listThreads(options = {}) {
+        const includeArchived = options.includeArchived ?? false;
+        return this.history.threads
+          .filter((thread) => includeArchived || !thread.archived)
+          .sort((left, right) => right.updatedAt - left.updatedAt)
+          .map(cloneThread);
+      }
+      startNewThread(title) {
+        const now = Date.now();
+        const thread = createThread({ title, now });
+        this.history = {
+          currentThreadId: thread.id,
+          threads: [thread, ...this.history.threads]
+        };
+        return cloneThread(thread);
+      }
+      forkCurrentThread(piSessionId) {
+        const current = this.getMutableCurrentThread();
+        if (current.messages.length === 0) return void 0;
+        const now = Date.now();
+        const thread = createThread({
+          title: `${current.title} (fork)`,
+          now,
+          messages: current.messages,
+          piSessionId
+        });
+        this.history = {
+          currentThreadId: thread.id,
+          threads: [thread, ...this.history.threads]
+        };
+        return cloneThread(thread);
+      }
+      switchThread(threadId) {
+        const thread = this.history.threads.find((item) => item.id === threadId);
+        if (!thread) return false;
+        this.history.currentThreadId = thread.id;
+        return true;
+      }
+      archiveThread(threadId = this.history.currentThreadId) {
+        return this.updateThread(threadId, (thread, now) => {
+          thread.archived = true;
+          thread.updatedAt = now;
+        });
+      }
+      unarchiveThread(threadId) {
+        return this.updateThread(threadId, (thread, now) => {
+          thread.archived = false;
+          thread.updatedAt = now;
+        });
+      }
+      deleteThread(threadId) {
+        const threads = this.history.threads.filter((thread) => thread.id !== threadId);
+        if (threads.length === this.history.threads.length) return false;
+        this.history.threads = threads;
+        if (this.history.currentThreadId === threadId) {
+          const nextThread =
+            this.getMostRecentThread(threads.filter((thread) => !thread.archived)) ??
+            this.getMostRecentThread(threads);
+          this.history.currentThreadId = nextThread?.id ?? this.startNewThread().id;
+        }
+        return true;
+      }
+      clearArchivedThreads() {
+        const previousCount = this.history.threads.length;
+        this.history.threads = this.history.threads.filter(
+          (thread) => !thread.archived || thread.id === this.history.currentThreadId
+        );
+        return previousCount - this.history.threads.length;
+      }
+      renameThread(threadId, title) {
+        const nextTitle = normalizeTitle(title);
+        return this.updateThread(threadId, (thread, now) => {
+          thread.title = nextTitle;
+          thread.updatedAt = now;
+        });
+      }
+      addMessage(message) {
+        return this.addMessageToThread(this.history.currentThreadId, message);
+      }
+      addMessageToThread(threadId, message) {
+        const thread = this.history.threads.find((item) => item.id === threadId);
+        if (!thread) return void 0;
+        const normalizedMessage = cloneMessage(message);
+        if (message.role === "user" && thread.archived) thread.archived = false;
+        thread.messages = [...thread.messages, normalizedMessage];
+        thread.updatedAt = Math.max(thread.updatedAt, normalizedMessage.createdAt, Date.now());
+        if (thread.title === DEFAULT_THREAD_TITLE && normalizedMessage.role === "user") {
+          thread.title = titleFromPrompt(normalizedMessage.content);
+        }
+        return cloneThread(thread);
+      }
+      getThread(threadId) {
+        const thread = this.history.threads.find((item) => item.id === threadId);
+        return thread ? cloneThread(thread) : void 0;
+      }
+      setCurrentPiSessionId(piSessionId) {
+        return this.setThreadPiSessionId(this.history.currentThreadId, piSessionId);
+      }
+      setThreadPiSessionId(threadId, piSessionId) {
+        return this.updateThread(threadId, (thread, now) => {
+          thread.piSessionId = piSessionId;
+          thread.updatedAt = now;
+        });
+      }
+      toJSON() {
+        return {
+          currentThreadId: this.history.currentThreadId,
+          threads: this.history.threads.map(cloneThread)
+        };
+      }
+      updateThread(threadId, update) {
+        const thread = this.history.threads.find((item) => item.id === threadId);
+        if (!thread) return false;
+        update(thread, Date.now());
+        return true;
+      }
+      getMutableCurrentThread() {
+        const currentThread = this.history.threads.find(
+          (thread2) => thread2.id === this.history.currentThreadId
+        );
+        if (currentThread) return currentThread;
+        const thread = createThread({ now: Date.now() });
+        this.history.currentThreadId = thread.id;
+        this.history.threads = [thread, ...this.history.threads];
+        return thread;
+      }
+      getMostRecentThread(threads) {
+        return [...threads].sort((left, right) => right.updatedAt - left.updatedAt)[0];
+      }
+    };
+  }
+});
+
+// src/plugin/PiAgentPlugin.mjs
+var PiAgentPlugin_exports = {};
+__export(PiAgentPlugin_exports, {
+  PiAgentPlugin: () => PiAgentPlugin
+});
+function previewSuggestedFrontmatter(markdown, patch) {
+  return previewFrontmatterPatch(markdown, patch);
+}
+function isLegacyBareModelId(model) {
+  return !model.includes("/") && model !== "__custom";
+}
+function mergeRunChanges(r, i) {
+  var n, s;
+  let e = [...((n = r.changes) != null ? n : []), i],
+    t = mergeChangedFiles([...((s = r.changedFiles) != null ? s : []), ...i.files]);
+  return {
+    ...r,
+    changes: e,
+    changedFiles: t,
+    changeStats: {
+      filesChanged: t.length,
+      additions: t.reduce((a, o) => a + o.additions, 0),
+      deletions: t.reduce((a, o) => a + o.deletions, 0)
+    }
+  };
+}
+function getPriorThreadHistory(r, i) {
+  let e = r[r.length - 1];
+  return (e == null ? void 0 : e.role) === "user" && e.content === i ? r.slice(0, -1) : r;
+}
+function mergeChangedFiles(r) {
+  let i = /* @__PURE__ */ new Map();
+  for (let e of r) {
+    let t = i.get(e.path);
+    if (!t) {
+      i.set(e.path, { ...e });
+      continue;
+    }
+    ((t.additions = Math.max(t.additions, e.additions)),
+      (t.deletions = Math.max(t.deletions, e.deletions)),
+      t.status === "unknown" && (t.status = e.status),
+      e.previousPath && (t.previousPath = e.previousPath));
+  }
+  return [...i.values()];
+}
+var import_node_fs4, P, be, PiAgentPlugin;
+var init_PiAgentPlugin = __esm({
+  "src/plugin/PiAgentPlugin.mjs"() {
+    "use strict";
+    import_node_fs4 = __toESM(require("node:fs"), 1);
+    P = __toESM(require("obsidian"), 1);
+    init_change_tracker();
+    init_context_builder();
+    init_skills();
+    init_vault_graph();
+    init_health();
+    init_model_catalog();
+    init_runner();
+    init_settings();
+    init_settings_tab();
+    init_constants();
+    init_approval_modal();
+    init_pi_setup_modal();
+    init_PiAgentView();
+    init_frontmatter();
+    init_thread_history();
+    init_thread_store();
+    be = `# Pi Agent
+
+You are Pi, an agentic AI coding assistant from https://pi.dev, running inside Pi Agent.
 
 The user is working in an Obsidian vault made of Markdown notes, scripts, configs, and sometimes plugin/source-code projects. Treat vault paths, wikilinks, frontmatter, headings, tags, backlinks, outgoing links, and code files as first-class context. The plugin may provide the current note, selected text, backlinks, outgoing links, search results, and explicit @note, #tag, or /command attachments.
 
@@ -41,7 +6044,7 @@ Your primary role is agentic coding and technical knowledge work inside the vaul
 - Chat: no Pi CLI tools are enabled. Use only the Obsidian context attached by the plugin and ask for more context when needed.
 - Review: read/search/list tools are enabled. Inspect files and explain, review, summarize, or propose changes, but do not modify files.
 - Edit: read/search/list plus edit/write tools are enabled. Make focused file changes when the user asks. Shell commands are not available, so ask the user to run tests/builds manually when needed.
-- Full Agent: read/search/list/edit/write/bash tools are enabled. You may run appropriate shell commands for coding tasks, tests, builds, repo inspection, and diagnostics.
+- Full agent: read/search/list/edit/write/bash tools are enabled. You may run appropriate shell commands for coding tasks, tests, builds, repo inspection, and diagnostics.
 
 Pi CLI tools are controlled by the selected tool mode. They are not an OS-level sandbox. Use tools intentionally, keep edits small, and avoid destructive commands unless explicitly requested and clearly safe.
 
@@ -70,7 +6073,7 @@ Pi CLI tools are controlled by the selected tool mode. They are not an OS-level 
 ## Chat responses
 
 - Be concise and action-oriented.
-- For normal chat replies, keep formatting readable as plain text. Avoid heavy Markdown unless the user asks for Markdown or the content is meant to be inserted into a note.
+- Avoid Markdown formatting in chat responses unless the user asks for it or a structured/note-ready response clearly needs it.
 - When mentioning vault notes in chat, wikilinks or vault paths are useful because the plugin makes them clickable.
 
 ## Frontmatter
@@ -97,4379 +6100,472 @@ Pi CLI tools are controlled by the selected tool mode. They are not an OS-level 
 - A good Base starts from the fields already used in a folder.
 - Suggested fields: type, status, tags, project, area, created, updated.
 - Propose a Base config before creating it unless the user explicitly asks you to create it immediately.`;
-var y = require("obsidian"),
-  b = "__custom",
-  ct = { "": "Use Pi default", [b]: "Custom model ID" },
-  xe = {
-    "": "Pi default",
-    off: "Off",
-    minimal: "Minimal - may be unavailable with tools",
-    low: "Low",
-    medium: "Medium",
-    high: "High",
-    xhigh: "XHigh - deepest"
-  },
-  H = {
-    model: "",
-    customModel: "",
-    reasoningEffort: "",
-    sandboxMode: "read-only",
-    acknowledgedToolRisk: !1,
-    availableModels: [],
-    dryRun: !1,
-    maxSearchResults: 8,
-    maxSearchFiles: 200,
-    maxFileChars: 12e3,
-    archiveFolder: "Pi/Chats",
-    ignoredFolders: [".obsidian", ".git", "node_modules", "Templates"],
-    customInstructions: "",
-    includeDefaultSkills: !0,
-    additionalSkillFolders: [],
-    effectiveModel: "",
-    effectiveReasoning: ""
-  },
-  V = class extends y.PluginSettingTab {
-    constructor(i, e) {
-      (super(i, e), (this.plugin = e));
-    }
-    display() {
-      let { containerEl: i } = this;
-      (i.empty(),
-        i.createEl("h2", { text: "Obsidian Pi" }),
-        new y.Setting(i)
-          .setName("Model")
-          .setDesc(
-            "Provider/model from Pi's built-in and custom model registry. Use default to follow ~/.pi/agent/settings.json or .pi/settings.json."
-          )
-          .addDropdown((e) =>
-            e
-              .addOptions(_(this.plugin.settings))
-              .setValue(this.getModelDropdownValue())
-              .onChange(async (t) => {
-                ((this.plugin.settings.model = t),
-                  (this.plugin.settings.reasoningEffort = ""),
-                  await this.plugin.saveSettings(),
-                  this.display());
-              })
-          )
-          .addButton((e) =>
-            e
-              .setButtonText("Refresh")
-              .setTooltip("Refresh models from Pi")
-              .onClick(async () => {
-                (e.setButtonText("Refreshing..."),
-                  e.setDisabled(!0),
-                  await this.plugin.refreshModelCatalog(!0),
-                  this.display());
-              })
-          ),
-        this.plugin.settings.model === b &&
-          new y.Setting(i)
-            .setName("Custom model ID")
-            .setDesc("Provider/model ID, for example anthropic/claude-sonnet-4-5.")
-            .addText((e) =>
-              e
-                .setPlaceholder("e.g. anthropic/claude-sonnet-4-5")
-                .setValue(this.plugin.settings.customModel)
-                .onChange(async (t) => {
-                  ((this.plugin.settings.customModel = t.trim()), await this.plugin.saveSettings());
-                })
-            ),
-        new y.Setting(i)
-          .setName("Thinking level")
-          .setDesc(
-            "Controls reasoning effort only. Values come from the selected model returned by Pi."
-          )
-          .addDropdown((e) =>
-            e
-              .addOptions(this.getReasoningOptions())
-              .setValue(this.getReasoningDropdownValue())
-              .onChange(async (t) => {
-                ((this.plugin.settings.reasoningEffort = t), await this.plugin.saveSettings());
-              })
-          ),
-        new y.Setting(i)
-          .setName("Tool mode")
-          .setDesc(
-            "Controls which Pi CLI tools are enabled. Tool modes are not an OS-level sandbox."
-          )
-          .addDropdown((e) =>
-            e
-              .addOptions(ce())
-              .setValue(this.plugin.settings.sandboxMode)
-              .onChange(async (t) => {
-                if (
-                  (t === "edit" || t === "full-agent" || t === "workspace-write") &&
-                  !this.plugin.settings.acknowledgedToolRisk &&
-                  !window.confirm(
-                    "Pi tool modes are not an OS-level sandbox. Edit and Full Agent can modify vault/project files, and Full Agent can run shell commands. Continue?"
-                  )
-                ) {
-                  this.display();
-                  return;
-                }
-                ((this.plugin.settings.sandboxMode = t),
-                  (t === "edit" || t === "full-agent" || t === "workspace-write") &&
-                    (this.plugin.settings.acknowledgedToolRisk = !0),
-                  await this.plugin.saveSettings());
-              })
-          ),
-        new y.Setting(i)
-          .setName("Custom instructions")
-          .setDesc("Vault-specific instructions added to every Pi run.")
-          .addTextArea((e) =>
-            e
-              .setPlaceholder("Prefer PARA folders. Keep project notes concise.")
-              .setValue(this.plugin.settings.customInstructions)
-              .onChange(async (t) => {
-                ((this.plugin.settings.customInstructions = t), await this.plugin.saveSettings());
-              })
-          ),
-        i.createEl("h3", { text: "Skills" }),
-        new y.Setting(i)
-          .setName("Include default Pi skills")
-          .setDesc(
-            "Load skills discovered by Pi from global and vault/project skill locations. Turn this off to use only the additional skill folders below."
-          )
-          .addToggle((e) =>
-            e.setValue(this.plugin.settings.includeDefaultSkills !== !1).onChange(async (t) => {
-              ((this.plugin.settings.includeDefaultSkills = t), await this.plugin.saveSettings());
-            })
-          ),
-        new y.Setting(i)
-          .setName("Additional skill folders")
-          .setDesc(
-            "One skill file or folder per line. Supports absolute paths, ~, and vault-relative paths. Only add trusted skills."
-          )
-          .addTextArea((e) =>
-            e
-              .setPlaceholder(".pi/skills\n~/my-skills")
-              .setValue(
-                normalizeSkillFolderList(this.plugin.settings.additionalSkillFolders).join("\n")
-              )
-              .onChange(async (t) => {
-                ((this.plugin.settings.additionalSkillFolders = t
-                  .split(/\r?\n/)
-                  .map((n) => n.trim())
-                  .filter(Boolean)),
-                  await this.plugin.saveSettings());
-              })
-          ),
-        i.createEl("h3", { text: "Advanced context" }),
-        new y.Setting(i)
-          .setName("Max context results")
-          .setDesc("Number of ranked notes/links returned to Pi as Obsidian context.")
-          .addSlider((e) =>
-            e
-              .setLimits(3, 25, 1)
-              .setValue(this.plugin.settings.maxSearchResults)
-              .setDynamicTooltip()
-              .onChange(async (t) => {
-                ((this.plugin.settings.maxSearchResults = t), await this.plugin.saveSettings());
-              })
-          ),
-        new y.Setting(i)
-          .setName("Max searched files")
-          .setDesc("Maximum markdown files scanned for each vault search.")
-          .addText((e) =>
-            e
-              .setPlaceholder("200")
-              .setValue(String(this.plugin.settings.maxSearchFiles))
-              .onChange(async (t) => {
-                let n = Number.parseInt(t, 10);
-                Number.isFinite(n) &&
-                  n > 0 &&
-                  ((this.plugin.settings.maxSearchFiles = n), await this.plugin.saveSettings());
-              })
-          ),
-        new y.Setting(i)
-          .setName("Max note characters")
-          .setDesc("Maximum characters read from a single note for context.")
-          .addText((e) =>
-            e
-              .setPlaceholder("12000")
-              .setValue(String(this.plugin.settings.maxFileChars))
-              .onChange(async (t) => {
-                let n = Number.parseInt(t, 10);
-                Number.isFinite(n) &&
-                  n > 500 &&
-                  ((this.plugin.settings.maxFileChars = n), await this.plugin.saveSettings());
-              })
-          ),
-        new y.Setting(i)
-          .setName("Ignored folders")
-          .setDesc("Comma-separated folder prefixes that Pi retrieval should ignore.")
-          .addTextArea((e) =>
-            e
-              .setPlaceholder(".obsidian, .git, node_modules")
-              .setValue(this.plugin.settings.ignoredFolders.join(", "))
-              .onChange(async (t) => {
-                ((this.plugin.settings.ignoredFolders = t
-                  .split(",")
-                  .map((n) => n.trim())
-                  .filter(Boolean)),
-                  await this.plugin.saveSettings());
-              })
-          ));
-    }
-    getModelDropdownValue() {
-      let { model: i } = this.plugin.settings;
-      return Object.prototype.hasOwnProperty.call(_(this.plugin.settings), i) ? i : b;
-    }
-    getReasoningOptions() {
-      return de(this.plugin.settings);
-    }
-    getReasoningDropdownValue() {
-      let i = this.getReasoningOptions(),
-        e = this.plugin.settings.reasoningEffort;
-      return Object.prototype.hasOwnProperty.call(i, e) ? e : "";
-    }
-    getCatalogDescription() {
-      let i = this.plugin.settings.availableModels.length,
-        e = [
-          i === 0
-            ? "Using fallback options until Pi's model registry is loaded."
-            : `${i} models loaded from Pi's model registry.`
-        ];
-      return (
-        this.plugin.settings.effectiveModel &&
-          e.push(`Pi default model: ${this.plugin.settings.effectiveModel}`),
-        this.plugin.settings.effectiveReasoning &&
-          e.push(`Pi default thinking: ${this.plugin.settings.effectiveReasoning}`),
-        e.join(" ")
-      );
-    }
-  };
-function F(r) {
-  return ht(r, H.archiveFolder);
-}
-function ht(r, i) {
-  return (
-    r
-      .split("/")
-      .map((e) => e.trim())
-      .filter(Boolean)
-      .join("/") || i
-  );
-}
-function _(r) {
-  let i = r.availableModels,
-    e = { "": "Use Pi default" };
-  if (i.length === 0) return { ...ct, ...e, [b]: "Custom model ID" };
-  for (let t of i) e[t.slug] = ut(t);
-  return ((e[b] = "Custom model ID"), e);
-}
-function de(r) {
-  var n, s;
-  let i = Te(r) != null ? Te(r) : rt(r),
-    e = (n = i == null ? void 0 : i.supportedReasoningLevels) != null ? n : [];
-  if (e.length === 0) return { "": "Use Pi/model default" };
-  let t = { "": "Use Pi/model default" };
-  for (let a of e) t[a] = (s = xe[a]) != null ? s : a;
-  return t;
-}
-function W(r) {
-  var i, e;
-  return r.reasoningEffort
-    ? r.reasoningEffort
-    : (e = (i = Te(r) != null ? Te(r) : rt(r)) == null ? void 0 : i.defaultReasoningLevel) != null
-      ? e
-      : r.effectiveReasoning || "pi-default";
-}
-function rt(r) {
-  return r.effectiveModel ? r.availableModels.find((i) => i.slug === r.effectiveModel) : void 0;
-}
-function ce() {
-  return {
-    chat: "Chat \u2014 no Pi CLI tools",
-    "read-only": "Review \u2014 read/search/list only",
-    edit: "Edit \u2014 edit/write, no shell",
-    "full-agent": "Full Agent \u2014 edit/write and shell"
-  };
-}
-function Te(r) {
-  let i = r.model === b ? r.customModel : r.model;
-  return r.availableModels.find((e) => e.slug === i);
-}
-function ut(r) {
-  let i = r.supportedReasoningLevels,
-    e = [i.length > 0 ? `thinking ${i.join("/")}` : ""].filter(Boolean);
-  return e.length > 0 ? `${r.displayName} - ${e.join(", ")}` : r.displayName;
-}
-var Ae = require("fs"),
-  j = require("path"),
-  Me = require("child_process");
-function he() {
-  return { filesChanged: 0, additions: 0, deletions: 0 };
-}
-var ke = require("fs"),
-  Se = require("path"),
-  gt = ["/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"],
-  pt = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
-function z() {
-  for (let r of gt) if ((0, ke.existsSync)(r)) return r;
-  return (0, Se.basename)(process.execPath).startsWith("node") ? process.execPath : "node";
-}
-function U() {
-  var e;
-  let i = ((e = process.env.PATH) != null ? e : "").split(":").filter(Boolean);
-  for (let t of pt) i.includes(t) || i.push(t);
-  return { ...process.env, PATH: i.join(":") };
-}
-function normalizeSkillFolderList(r) {
-  return Array.isArray(r)
-    ? r.map((i) => String(i).trim()).filter(Boolean)
-    : typeof r == "string"
-      ? r
-          .split(/\r?\n|,/)
-          .map((i) => i.trim())
-          .filter(Boolean)
-      : [];
-}
-function resolveConfiguredSkillPath(r, i) {
-  let e = String(r || "").trim();
-  if (!e) return "";
-  return (
-    e.startsWith("~") && (e = (process.env.HOME || process.env.USERPROFILE || "") + e.slice(1)),
-    j.isAbsolute(e) ? e : (0, j.join)(i || "", e)
-  );
-}
-function getConfiguredSkillPaths(r, i) {
-  return normalizeSkillFolderList(r == null ? void 0 : r.additionalSkillFolders)
-    .map((e) => resolveConfiguredSkillPath(e, i))
-    .filter(Boolean);
-}
-var K = class {
-  constructor(i, e, t, n) {
-    this.settings = i;
-    this.contextBuilder = e;
-    this.workingDirectory = t;
-    this.pluginDirectory = n;
-    this.cancelRequested = !1;
-  }
-  async run(i, e, t, n = [], s) {
-    let a = this.contextBuilder.formatPrompt(i, e, n);
-    return this.settings.dryRun
-      ? {
-          finalResponse: this.formatDryRunResponse(i, e),
-          sessionId: t,
-          threadId: t,
-          pendingChanges: [],
-          events: [],
-          changes: [],
-          changedFiles: [],
-          changeStats: he()
-        }
-      : this.runPiCli(a, t, s);
-  }
-  cancelCurrentRun() {
-    this.activeChild &&
-      ((this.cancelRequested = !0),
-      this.activeChild.kill("SIGTERM"),
-      window.setTimeout(() => {
-        this.activeChild && this.activeChild.kill("SIGKILL");
-      }, 1500));
-  }
-  runPiCli(i, e, t) {
-    if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
-    let n = e != null ? e : this.createSessionFilePath(),
-      a = this.buildPiArgs(n);
-    return new Promise((o, l) => {
-      var k, ye, Pe;
-      this.cancelRequested = !1;
-      let d = (0, Me.spawn)("pi", a, {
-        cwd: (k = this.workingDirectory) != null ? k : this.pluginDirectory,
-        env: U()
-      });
-      ((this.activeChild = d),
-        (Pe = t == null ? void 0 : t.onEvent) == null ||
-          Pe.call(t, {
-            type: "pi_start",
-            raw: {
-              args: a.slice(1),
-              cwd: (ye = this.workingDirectory) != null ? ye : this.pluginDirectory
-            }
-          }));
-      let h = "",
-        u = "",
-        g = "",
-        m = !1,
-        c = [],
-        p = (w) => {
-          m || ((m = !0), l(w));
-        },
-        v = () => {
-          var x;
-          if (m) return;
-          m = !0;
-          let w = { type: "agent_end", raw: { sessionFile: n } };
-          (c.push(w),
-            (x = t == null ? void 0 : t.onEvent) == null || x.call(t, w),
-            o({
-              finalResponse: g.trim(),
-              sessionId: n,
-              threadId: n,
-              pendingChanges: [],
-              events: c,
-              changes: [],
-              changedFiles: [],
-              changeStats: he()
-            }),
-            d.kill("SIGTERM"));
-        };
-      (d.stdout.on("data", (w) => {
-        var we;
-        h += w.toString("utf8");
-        let x = h.split(/\r?\n/);
-        h = (we = x.pop()) != null ? we : "";
-        for (let it of x)
-          Ee(
-            it,
-            t,
-            c,
-            (nt) => {
-              g += nt;
-            },
-            v
-          );
-      }),
-        d.stderr.on("data", (w) => {
-          u += w.toString("utf8");
-        }),
-        d.once("error", (w) =>
-          p(
-            w && w.code === "ENOENT"
-              ? new Error(
-                  "Pi CLI not found. Install it with `npm install -g @mariozechner/pi-coding-agent`, then restart Obsidian so it can find `pi` on PATH."
-                )
-              : w
-          )
-        ),
-        d.once("close", (w) => {
-          if ((this.activeChild === d && (this.activeChild = void 0), !m)) {
-            if (this.cancelRequested) {
-              ((this.cancelRequested = !1), p(new Error("Pi run canceled.")));
-              return;
-            }
-            (h.trim() &&
-              Ee(
-                h.trim(),
-                t,
-                c,
-                (x) => {
-                  g += x;
-                },
-                v
-              ),
-              !m && p(new Error(u.trim() || `Pi exited with code ${w != null ? w : 1}.`)));
-          }
-        }),
-        d.stdin.write(i),
-        d.stdin.end());
-    });
-  }
-  buildPiArgs(i) {
-    let e = ["--mode", "json", "--session", i],
-      t = this.settings.model === "__custom" ? this.settings.customModel : this.settings.model;
-    (t && e.push("--model", t),
-      this.settings.reasoningEffort && e.push("--thinking", this.settings.reasoningEffort),
-      this.settings.includeDefaultSkills === !1 && e.push("--no-skills"));
-    for (let s of getConfiguredSkillPaths(this.settings, this.workingDirectory))
-      e.push("--skill", s);
-    let n = this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
-    return (
-      n === "chat"
-        ? e.push("--no-tools")
-        : e.push(
-            "--tools",
-            n === "full-agent"
-              ? "read,grep,find,ls,edit,write,bash"
-              : n === "edit"
-                ? "read,grep,find,ls,edit,write"
-                : "read,grep,find,ls"
-          ),
-      e
-    );
-  }
-  createSessionFilePath() {
-    var e;
-    let i = (0, j.join)((e = this.pluginDirectory) != null ? e : ".", "pi-sessions");
-    return (
-      (0, Ae.mkdirSync)(i, { recursive: !0 }),
-      (0, j.join)(i, `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`)
-    );
-  }
-  formatDryRunResponse(i, e) {
-    let t = [
-      "Dry run: Pi CLI was not called.",
-      "",
-      `Prompt: ${i}`,
-      "",
-      e.activeNote
-        ? `Active note: [[${e.activeNote.path.replace(/\.md$/i, "")}]]`
-        : "Active note: none",
-      `Search results: ${e.searchResults.length}`,
-      `Linked notes: ${e.linkedNeighborhood.length}`
-    ];
-    return (
-      e.activeNote &&
-        t.push(
-          "",
-          "Backlinks:",
-          ...e.activeNote.backlinks
-            .slice(0, 8)
-            .map((n) => `- [[${n.path.replace(/\.md$/i, "")}]] (${n.count})`),
-          "",
-          "Outgoing links:",
-          ...e.activeNote.outgoingLinks
-            .slice(0, 8)
-            .map((n) => `- [[${n.path.replace(/\.md$/i, "")}]] (${n.count})`),
-          "",
-          "Unresolved links:",
-          ...e.activeNote.unresolvedLinks.slice(0, 8).map((n) => `- [[${n.display}]] (${n.count})`)
-        ),
-      e.searchResults.length > 0 &&
-        t.push(
-          "",
-          "Top note matches:",
-          ...e.searchResults.map((n) => `- [[${n.path.replace(/\.md$/i, "")}]] score=${n.score}`)
-        ),
-      t.join(`
-`)
-    );
-  }
-};
-function Ee(r, i, e, t, n) {
-  var l, d, h, u, g, m, c, p, v, k;
-  if (!r.trim()) return;
-  let s;
-  try {
-    s = JSON.parse(r);
-  } catch (w) {
-    return;
-  }
-  let a = String((l = s.type) != null ? l : "event");
-  if (a === "tool_execution_start" || a === "tool_execution_update") {
-    let w = {
-      type: a === "tool_execution_start" ? "tool_start" : "tool_update",
-      raw: s,
-      message: String((d = s.toolName) != null ? d : "tool")
-    };
-    (e.push(w), (h = i == null ? void 0 : i.onEvent) == null || h.call(i, w));
-    return;
-  }
-  if (a === "tool_execution_end") {
-    let w = {
-      type: "tool_end",
-      raw: s,
-      message: String((u = s.toolName) != null ? u : "tool")
-    };
-    (e.push(w), (g = i == null ? void 0 : i.onEvent) == null || g.call(i, w));
-    return;
-  }
-  let o = s.assistantMessageEvent;
-  if (a === "message_update" && (o == null ? void 0 : o.type) === "text_delta") {
-    let w = (m = o.delta) != null ? m : "";
-    t(w);
-    let x = { type: "text_delta", raw: s, textDelta: w };
-    (e.push(x),
-      (c = i == null ? void 0 : i.onEvent) == null || c.call(i, x),
-      (p = i == null ? void 0 : i.onTextDelta) == null || p.call(i, w, x));
-    return;
-  }
-  if (a === "agent_end") {
-    let w = { type: "agent_end", raw: s };
-    (e.push(w), (v = i == null ? void 0 : i.onEvent) == null || v.call(i, w), n());
-    return;
-  }
-  let w = { type: a, raw: s };
-  (e.push(w), (k = i == null ? void 0 : i.onEvent) == null || k.call(i, w));
-}
-var Re = require("child_process"),
-  Le = require("path");
-var q = class {
-  constructor(i) {
-    this.pluginDirectory = i;
-  }
-  async getAvailableModels() {
-    let i = "pi",
-      e = await this.execPi(i, ["--list-models"]);
-    return ft(e);
-  }
-  getEffectiveConfig(i) {
-    return rn(i);
-  }
-  execPi(i, e) {
-    return new Promise((t, n) => {
-      (0, Re.execFile)(i, e, { env: U(), timeout: 2e4 }, (s, a, o) => {
-        if (s) {
-          n(
-            new Error(
-              `Could not query Pi model registry: ${s.message}${
-                o
-                  ? `
-${o}`
-                  : ""
-              }`
-            )
-          );
+    PiAgentPlugin = class extends P.Plugin {
+      constructor() {
+        super(...arguments);
+        this.settings = DEFAULT_SETTINGS;
+        this.messages = [];
+        this.threadHistory = new ThreadStore();
+        this.dataSaveChain = Promise.resolve();
+      }
+      async onload() {
+        if ((await this.loadSettings(), !P.Platform.isDesktopApp)) {
+          new P.Notice("Pi Agent is desktop-only.");
           return;
         }
-        t(a || o);
-      });
-    });
-  }
-};
-function ft(r) {
-  return r
-    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
-    .split(/\r?\n/)
-    .map((i) => i.trim())
-    .filter(Boolean)
-    .filter((i) => !i.startsWith("provider"))
-    .map((i) => i.split(/\s{2,}/))
-    .filter((i) => i.length >= 5)
-    .map((i) => {
-      let e = i[0],
-        t = i[1],
-        n = hn(i[4]);
-      return {
-        slug: `${e}/${t}`,
-        displayName: `${e}: ${t}`,
-        defaultReasoningLevel: n.includes("medium") ? "medium" : n[0] || "off",
-        supportedReasoningLevels: n
-      };
-    });
-}
-function hn(r) {
-  let i = String(r || "")
-    .trim()
-    .toLowerCase();
-  return !i || i === "no" || i === "false"
-    ? ["off"]
-    : i === "yes" || i === "true"
-      ? ["off", "minimal", "low", "medium", "high", "xhigh"]
-      : i
-          .split(/[\/,|]+/)
-          .map((e) => e.trim())
-          .filter(Boolean)
-          .filter((e) => ["off", "minimal", "low", "medium", "high", "xhigh"].includes(e));
-}
-function rn(r) {
-  let i = tn(),
-    e = r ? (0, Le.join)(r, ".pi", "settings.json") : "",
-    t = nn(sn(i), sn(e)),
-    n = t.defaultModel ? String(t.defaultModel) : "",
-    s = t.defaultProvider ? String(t.defaultProvider) : "",
-    a = n ? (n.includes("/") ? n : s ? `${s}/${n}` : n) : "",
-    o = t.defaultThinkingLevel ? String(t.defaultThinkingLevel) : "";
-  return { effectiveModel: a, effectiveReasoning: o };
-}
-function tn() {
-  let r = process.env.PI_CODING_AGENT_DIR;
-  if (r) return un(r, "settings.json");
-  let i = process.env.HOME || process.env.USERPROFILE || "";
-  return i ? (0, Le.join)(i, ".pi", "agent", "settings.json") : "";
-}
-function sn(r) {
-  try {
-    return r && Re && Le && require("fs").existsSync(r)
-      ? JSON.parse(require("fs").readFileSync(r, "utf8"))
-      : {};
-  } catch (i) {
-    return {};
-  }
-}
-function nn(r, i) {
-  let e = { ...r };
-  for (let [t, n] of Object.entries(i || {}))
-    n &&
-    typeof n === "object" &&
-    !Array.isArray(n) &&
-    typeof e[t] === "object" &&
-    !Array.isArray(e[t])
-      ? (e[t] = nn(e[t], n))
-      : (e[t] = n);
-  return e;
-}
-function un(r, ...i) {
-  return (r.startsWith("~") && (r = (process.env.HOME || "") + r.slice(1)), (0, Le.join)(r, ...i));
-}
-var skillCommandCache = { key: "", at: 0, commands: [] };
-function getSkillSlashCommands(r, i) {
-  let e = JSON.stringify({
-      defaults: !r || r.includeDefaultSkills !== !1,
-      additional: normalizeSkillFolderList(r == null ? void 0 : r.additionalSkillFolders),
-      base: i || ""
-    }),
-    t = Date.now();
-  return skillCommandCache.key === e && t - skillCommandCache.at < 5e3
-    ? skillCommandCache.commands
-    : ((skillCommandCache = {
-        key: e,
-        at: t,
-        commands: discoverSkillCommands(r, i)
-      }),
-      skillCommandCache.commands);
-}
-function discoverSkillCommands(r, i) {
-  return discoverSkills(r, i)
-    .sort((a, o) => a.sourceRank - o.sourceRank || a.name.localeCompare(o.name))
-    .map((a) => ({
-      command: `/skill:${a.name}`,
-      label: a.name,
-      detail: a.description || "Pi skill",
-      insertText: `/skill:${a.name} `,
-      implemented: !0
-    }));
-}
-function discoverSkills(r, i) {
-  let e = [],
-    t = (a, o) => {
-      a && !e.some((l) => l.path === a) && e.push({ path: a, rank: o });
-    };
-  for (let a of normalizeSkillFolderList(r == null ? void 0 : r.additionalSkillFolders))
-    t(resolveSkillCommandPath(a, i), 0);
-  if (!r || r.includeDefaultSkills !== !1) {
-    let a = process.env.HOME || process.env.USERPROFILE || "",
-      o = process.env.PI_CODING_AGENT_DIR;
-    (t(o ? un(o, "skills") : a ? (0, Le.join)(a, ".pi", "agent", "skills") : "", 1),
-      t(a ? (0, Le.join)(a, ".agents", "skills") : "", 1),
-      i && (t((0, Le.join)(i, ".pi", "skills"), 1), t((0, Le.join)(i, ".agents", "skills"), 1)));
-    for (let l of getSettingsSkillPaths(i)) t(l, 1);
-  }
-  let n = new Map();
-  for (let { path: a, rank: o } of e)
-    for (let l of findSkillFiles(a))
-      try {
-        let d = parseSkillFile(l, o);
-        d && d.name && !n.has(d.name) && n.set(d.name, d);
-      } catch (d) {}
-  return [...n.values()];
-}
-function resolveSkillCommandPath(r, i) {
-  let e = String(r || "").trim();
-  return e
-    ? (e.startsWith("~") && (e = (process.env.HOME || process.env.USERPROFILE || "") + e.slice(1)),
-      Le.isAbsolute(e) ? e : (0, Le.join)(i || "", e))
-    : "";
-}
-function getSettingsSkillPaths(r) {
-  let i = [],
-    e = (n, s) => {
-      for (let a of normalizeSkillFolderList(n.skills)) i.push(resolveSkillCommandPath(a, s));
-    },
-    t = tn();
-  (t && e(sn(t), Le.dirname(t)), r && e(sn((0, Le.join)(r, ".pi", "settings.json")), r));
-  return i.filter(Boolean);
-}
-function findSkillByName(r, i, e) {
-  return discoverSkills(r, i).find((t) => t.name === e);
-}
-function readSkillContent(r) {
-  return require("fs").readFileSync(r, "utf8");
-}
-function findSkillFiles(r, i = 5, e = !0, t = []) {
-  if (!r || t.length >= 100) return t;
-  let n = require("fs"),
-    s;
-  try {
-    s = n.statSync(r);
-  } catch (a) {
-    return t;
-  }
-  if (s.isFile()) {
-    (/(^|\/)SKILL\.md$/i.test(r) || /\.md$/i.test(r)) && t.push(r);
-    return t;
-  }
-  if (!s.isDirectory() || i < 0) return t;
-  let a = (0, Le.join)(r, "SKILL.md");
-  try {
-    n.existsSync(a) && t.push(a);
-  } catch (o) {}
-  let o = [];
-  try {
-    o = n.readdirSync(r, { withFileTypes: !0 });
-  } catch (l) {
-    return t;
-  }
-  for (let l of o) {
-    if (t.length >= 100) break;
-    let d = (0, Le.join)(r, l.name);
-    l.isDirectory()
-      ? findSkillFiles(d, i - 1, !1, t)
-      : e && /\.md$/i.test(l.name) && l.name.toUpperCase() !== "SKILL.MD" && t.push(d);
-  }
-  return t;
-}
-function parseSkillFile(r, i = 1) {
-  let e = require("fs").readFileSync(r, "utf8").slice(0, 8192),
-    t = e.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/),
-    n = t ? parseSkillFrontmatter(t[1]) : {},
-    s = normalizeSkillName(n.name || inferSkillNameFromPath(r)),
-    a = n.description || inferSkillDescription(e, t);
-  return s ? { name: s, description: a || "Pi skill", path: r, sourceRank: i } : void 0;
-}
-function parseSkillFrontmatter(r) {
-  let i = {},
-    e = "",
-    t = "",
-    n = [],
-    s = () => {
-      e &&
-        ((i[e] = cleanSkillYamlValue(
-          (t === "|" ? n.join("\n") : n.join(" ").replace(/\s+/g, " ")).trim()
-        )),
-        (e = ""),
-        (t = ""),
-        (n = []));
-    };
-  for (let a of r.split(/\r?\n/)) {
-    let o = a.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (o) {
-      s();
-      let l = o[1],
-        d = o[2].trim();
-      if (/^[>|][+-]?$/.test(d)) {
-        ((e = l), (t = d.charAt(0)), (n = []));
-        continue;
-      }
-      i[l] = cleanSkillYamlValue(d);
-    } else e && /^\s+/.test(a) && n.push(a.trim());
-  }
-  return (s(), i);
-}
-function cleanSkillYamlValue(r) {
-  return String(r || "")
-    .trim()
-    .replace(/^['\"]|['\"]$/g, "");
-}
-function inferSkillNameFromPath(r) {
-  let i =
-    Le.basename(r).toLowerCase() === "skill.md"
-      ? Le.basename(Le.dirname(r))
-      : Le.basename(r, Le.extname(r));
-  return i;
-}
-function normalizeSkillName(r) {
-  return String(r || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-+/g, "-")
-    .slice(0, 64);
-}
-function inferSkillDescription(r, i) {
-  let e = i ? r.slice(i[0].length) : r,
-    t = e.match(/^#\s+(.+)$/m),
-    n = e
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .find((s) => s && !s.startsWith("#") && !s.startsWith("---"));
-  return n || (t ? t[1].trim() : "Pi skill");
-}
-var mt = [
-  {
-    command: "/current",
-    label: "Current note",
-    detail: "Attach the active note, selection, links, tags, headings, and frontmatter.",
-    insertText: "/current ",
-    implemented: !0
-  },
-  {
-    command: "/backlinks",
-    label: "Backlinks",
-    detail: "Attach notes that link to the active note.",
-    insertText: "/backlinks ",
-    implemented: !0
-  },
-  {
-    command: "/links",
-    label: "Outgoing links",
-    detail: "Attach notes linked from the active note.",
-    insertText: "/links ",
-    implemented: !0
-  },
-  {
-    command: "/search",
-    label: "Vault search",
-    detail: "Attach ranked vault note matches for a query.",
-    insertText: "/search ",
-    argumentHint: "query",
-    implemented: !0
-  }
-];
-function G(r, i) {
-  return [...mt.map((e) => ({ ...e })), ...getSkillSlashCommands(r, i)];
-}
-function Ie(r) {
-  var e, t;
-  let i = [],
-    n = (s) => {
-      let a = s
-        .trim()
-        .replace(/^\[\[|\]\]$/g, "")
-        .replace(/\|.*$/, "");
-      a &&
-        i.push(
-          a.endsWith("/")
-            ? { type: "folder", value: a.replace(/\/+$/, "") }
-            : { type: "note", value: a }
-        );
-    };
-  for (let s of r.matchAll(/(?:^|\s)@\[\[([^\]]+)\]\]/g)) n(s[1]);
-  for (let s of r.matchAll(/(?:^|\s)@"([^"]+)"/g)) n(s[1]);
-  for (let s of r.matchAll(/(?:^|\s)@'([^']+)'/g)) n(s[1]);
-  for (let s of r.matchAll(/(?:^|\s)@([^\s"'[]+)/g)) n(s[1]);
-  for (let s of r.matchAll(/(?:^|\s)#([A-Za-z0-9/_-]+)/g))
-    i.push({ type: "tag", value: `#${s[1]}` });
-  for (let s of r.split(/\r?\n/)) {
-    let o = s.match(/^\/skill:([a-z0-9-]+)(?:\s+(.+))?$/i);
-    o &&
-      i.push({
-        type: "skill",
-        value: o[1].toLowerCase(),
-        argument: (t = (e = o[2]) == null ? void 0 : e.trim()) != null ? t : ""
-      });
-    let a = s.match(/^\/([A-Za-z0-9_-]+)(?:\s+(.+))?$/);
-    a &&
-      i.push({
-        type: "command",
-        value: a[1],
-        argument: (t = (e = a[2]) == null ? void 0 : e.trim()) != null ? t : ""
-      });
-  }
-  return { cleanPrompt: r, references: vt(i) };
-}
-function vt(r) {
-  let i = new Set();
-  return r.filter((e) => {
-    let t = JSON.stringify(e);
-    return i.has(t) ? !1 : (i.add(t), !0);
-  });
-}
-var J = class {
-  constructor(i, e, t, n) {
-    this.graph = i;
-    this.settings = e;
-    this.bundledInstructions = t;
-    this.vaultBasePath = n;
-  }
-  async build(i, e = "") {
-    let t = Ie(i),
-      n = await this.graph.getActiveNoteContext(e),
-      s = n ? await this.graph.getLinkedNeighborhood(n.path, 1) : [],
-      a = await this.graph.searchNotes(t.cleanPrompt, {
-        limit: this.settings.maxSearchResults
-      }),
-      o = await this.resolveAttachments(t.references, n),
-      l = this.getToolCatalog(),
-      d = G(this.settings, this.vaultBasePath),
-      h = this.createInspection({
-        activeNote: n,
-        linkedNeighborhood: s,
-        searchResults: a,
-        attachments: o
-      });
-    return {
-      activeNote: n,
-      linkedNeighborhood: s,
-      searchResults: a,
-      attachments: o,
-      instructions: [this.bundledInstructions, this.settings.customInstructions]
-        .map((u) => u.trim())
-        .filter(Boolean).join(`
-
-`),
-      toolCatalog: l,
-      inspection: h,
-      slashCommands: d
-    };
-  }
-  async inspectContext(i, e = "") {
-    return (await this.build(i, e)).inspection;
-  }
-  formatPrompt(i, e, t = []) {
-    var n;
-    return [
-      "Use the following Obsidian vault context to answer the user.",
-      "Prefer cited wikilinks or vault paths when referring to notes.",
-      "Respect the selected tool mode. Chat has no Pi CLI tools. Review can read/search/list only. Edit can edit/write but not run shell commands. Full Agent can edit/write and run shell commands. Tool modes are not an OS-level sandbox.",
-      "",
-      "## User prompt",
-      i,
-      "",
-      "## Instructions",
-      e.instructions,
-      "",
-      "## Obsidian context helpers",
-      e.toolCatalog.map((s) => `- ${s}`).join(`
-`),
-      "",
-      "## Context inspection",
-      JSON.stringify(e.inspection, null, 2),
-      "",
-      "## Slash commands",
-      e.slashCommands.map((s) => {
-        let a = s.argumentHint ? ` <${s.argumentHint}>` : "";
-        return `- ${s.command}${a}: ${s.label} - ${s.detail}`;
-      }).join(`
-`),
-      "",
-      "## Local chat thread history",
-      this.formatThreadHistory(t),
-      "",
-      "## Active note",
-      JSON.stringify((n = e.activeNote) != null ? n : null, null, 2),
-      "",
-      "## Linked neighborhood",
-      JSON.stringify(e.linkedNeighborhood, null, 2),
-      "",
-      "## Search results",
-      JSON.stringify(e.searchResults, null, 2),
-      "",
-      "## Explicit prompt attachments",
-      JSON.stringify(e.attachments, null, 2)
-    ].join(`
-`);
-  }
-  formatThreadHistory(i) {
-    let e = i.slice(-12);
-    return e.length === 0
-      ? "[]"
-      : JSON.stringify(
-          e.map((t) => ({ role: t.role, content: t.content })),
-          null,
-          2
-        );
-  }
-  async resolveAttachments(i, e) {
-    let t = [];
-    for (let n of i)
-      try {
-        if (n.type === "note") {
-          let s = this.graph.resolveNoteFile(n.value);
-          t.push({
-            type: "note",
-            label: n.value,
-            content: s
-              ? {
-                  context: await this.graph.getNoteContext(s),
-                  content: await this.graph.readVaultFile(s.path)
-                }
-              : { error: `Note not found: ${n.value}` }
-          });
-        } else
-          n.type === "folder"
-            ? t.push({
-                type: "folder",
-                label: n.value,
-                content: await this.graph.getFolderSummary(n.value)
-              })
-            : n.type === "tag"
-              ? t.push({
-                  type: "tag",
-                  label: n.value,
-                  content: await this.graph.getNotesByTag(n.value)
-                })
-              : n.type === "skill"
-                ? t.push({
-                    type: "skill",
-                    label: `/skill:${n.value}`,
-                    content: this.resolveSkill(n.value, n.argument)
-                  })
-                : n.type === "command" &&
-                  t.push({
-                    type: "command",
-                    label: `/${n.value}`,
-                    content: await this.resolveCommand(n.value, n.argument, e)
-                  });
-      } catch (s) {
-        t.push({
-          type: n.type,
-          label: "value" in n ? n.value : "command",
-          content: { error: s instanceof Error ? s.message : String(s) }
-        });
-      }
-    return t;
-  }
-  resolveSkill(i, e = "") {
-    let t = findSkillByName(this.settings, this.vaultBasePath, i);
-    return t
-      ? {
-          name: t.name,
-          description: t.description,
-          path: t.path,
-          argument: e,
-          instructions: readSkillContent(t.path)
-        }
-      : { error: `Skill not found: ${i}` };
-  }
-  async resolveCommand(i, e, t) {
-    return i === "current"
-      ? t != null
-        ? t
-        : null
-      : i === "backlinks"
-        ? t
-          ? await this.graph.getBacklinks(t.path)
-          : []
-        : i === "links"
-          ? t
-            ? this.graph.getOutgoingLinks(t.path)
-            : []
-          : i === "search"
-            ? e
-              ? await this.graph.searchNotes(e, {
-                  limit: this.settings.maxSearchResults
-                })
-              : []
-            : { error: `Unknown command: /${i}` };
-  }
-  getToolCatalog() {
-    let i = this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
-    if (i === "chat") return ["No Pi CLI tools enabled. Use pre-attached Obsidian context only."];
-    let e = ["read(path)", "grep(pattern, path)", "find(glob)", "ls(path)"];
-    return (
-      (i === "edit" || i === "full-agent") &&
-        e.push("edit(path, oldText, newText)", "write(path, content)"),
-      i === "full-agent" && e.push("bash(command)"),
-      e.push(
-        "Tool modes are not an OS-level sandbox; avoid destructive actions unless explicitly requested."
-      ),
-      e
-    );
-  }
-  createInspection(i) {
-    return {
-      activeNote: i.activeNote
-        ? {
-            path: i.activeNote.path,
-            title: i.activeNote.title,
-            hasSelection: i.activeNote.selection.trim().length > 0,
-            selectionLength: i.activeNote.selection.length,
-            backlinkCount: i.activeNote.backlinks.length,
-            outgoingLinkCount: i.activeNote.outgoingLinks.length,
-            unresolvedLinkCount: i.activeNote.unresolvedLinks.length,
-            tagCount: i.activeNote.tags.length,
-            headingCount: i.activeNote.headings.length
-          }
-        : void 0,
-      attachments: this.summarizeAttachments(i.attachments),
-      searchResults: {
-        count: i.searchResults.length,
-        paths: i.searchResults.map((e) => e.path)
-      },
-      linkedNeighborhood: {
-        count: i.linkedNeighborhood.length,
-        paths: i.linkedNeighborhood.map((e) => e.path)
-      },
-      tools: { badges: this.getToolBadges() },
-      run: {
-        model: this.getEffectiveModelSummary(),
-        reasoning: W(this.settings),
-        mode: this.settings.sandboxMode,
-        dryRun: this.settings.dryRun
-      }
-    };
-  }
-  summarizeAttachments(i) {
-    var t;
-    let e = {};
-    for (let n of i) e[n.type] = ((t = e[n.type]) != null ? t : 0) + 1;
-    return {
-      total: i.length,
-      byType: e,
-      items: i.map((n) => ({ type: n.type, label: n.label }))
-    };
-  }
-  getToolBadges() {
-    let i = this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode,
-      e = i !== "chat",
-      t = i === "edit" || i === "full-agent",
-      n = i === "full-agent";
-    return [
-      {
-        id: "read",
-        label: "Read files",
-        detail: e
-          ? "Pi can read files via CLI tools."
-          : "Pi CLI file reads are disabled; only attached Obsidian context is available.",
-        enabled: e,
-        kind: "read"
-      },
-      {
-        id: "search",
-        label: "Search files",
-        detail: e
-          ? "Pi can search/list files via CLI tools."
-          : "Pi CLI search/list tools are disabled.",
-        enabled: e,
-        kind: "search"
-      },
-      {
-        id: "write",
-        label: "Edit files",
-        detail: t
-          ? "Pi can edit and write files. Not OS-sandboxed."
-          : "File editing is disabled in this mode.",
-        enabled: t,
-        kind: "write"
-      },
-      {
-        id: "shell",
-        label: "Shell",
-        detail: n
-          ? "Pi can run shell commands. Not OS-sandboxed."
-          : "Shell commands are disabled in this mode.",
-        enabled: n,
-        kind: "shell"
-      }
-    ];
-  }
-  getEffectiveModelSummary() {
-    return this.settings.model === b
-      ? this.settings.customModel.trim() || "custom"
-      : this.settings.model.trim() || "default";
-  }
-};
-var ge = "New chat";
-var N = class {
-  constructor(i, e, t) {
-    this.history = yt(i, e, t);
-  }
-  get currentThreadId() {
-    return this.history.currentThreadId;
-  }
-  getCurrentThread() {
-    return D(this.getMutableCurrentThread());
-  }
-  getCurrentMessages() {
-    return this.getMutableCurrentThread().messages.map($);
-  }
-  listThreads(i = {}) {
-    var t;
-    let e = (t = i.includeArchived) != null ? t : !1;
-    return this.history.threads
-      .filter((n) => e || !n.archived)
-      .sort((n, s) => s.updatedAt - n.updatedAt)
-      .map(D);
-  }
-  startNewThread(i) {
-    let e = Date.now(),
-      t = ue({ title: i, now: e });
-    return (
-      (this.history = {
-        currentThreadId: t.id,
-        threads: [t, ...this.history.threads]
-      }),
-      D(t)
-    );
-  }
-  switchThread(i) {
-    let e = this.history.threads.find((t) => t.id === i);
-    return e ? ((this.history.currentThreadId = e.id), !0) : !1;
-  }
-  archiveThread(i = this.history.currentThreadId) {
-    return this.updateThread(i, (e, t) => {
-      ((e.archived = !0), (e.updatedAt = t));
-    });
-  }
-  unarchiveThread(i) {
-    return this.updateThread(i, (e, t) => {
-      ((e.archived = !1), (e.updatedAt = t));
-    });
-  }
-  deleteThread(i) {
-    var t, n, s, a;
-    let e = this.history.threads.filter((o) => o.id !== i);
-    return e.length === this.history.threads.length
-      ? !1
-      : ((this.history.threads = e),
-        this.history.currentThreadId === i &&
-          (this.history.currentThreadId =
-            (a =
-              (s =
-                (t = this.getMostRecentThread(e.filter((o) => !o.archived))) == null
-                  ? void 0
-                  : t.id) != null
-                ? s
-                : (n = this.getMostRecentThread(e)) == null
-                  ? void 0
-                  : n.id) != null
-              ? a
-              : this.startNewThread().id),
-        !0);
-  }
-  clearArchivedThreads() {
-    let i = this.history.threads.length;
-    return (
-      (this.history.threads = this.history.threads.filter(
-        (e) => !e.archived || e.id === this.history.currentThreadId
-      )),
-      i - this.history.threads.length
-    );
-  }
-  renameThread(i, e) {
-    let t = Y(e);
-    return this.updateThread(i, (n, s) => {
-      ((n.title = t), (n.updatedAt = s));
-    });
-  }
-  addMessage(i) {
-    let e = this.getMutableCurrentThread(),
-      t = $(i);
-    return (
-      (e.messages = [...e.messages, t].slice(-50)),
-      (e.updatedAt = Math.max(e.updatedAt, t.createdAt, Date.now())),
-      e.title === ge && t.role === "user" && (e.title = Be(t.content)),
-      D(e)
-    );
-  }
-  setCurrentPiSessionId(i) {
-    this.updateThread(this.history.currentThreadId, (e, t) => {
-      ((e.piSessionId = i), (e.updatedAt = t));
-    });
-  }
-  toJSON() {
-    return {
-      currentThreadId: this.history.currentThreadId,
-      threads: this.history.threads.map(D)
-    };
-  }
-  updateThread(i, e) {
-    let t = this.history.threads.find((n) => n.id === i);
-    return t ? (e(t, Date.now()), !0) : !1;
-  }
-  getMutableCurrentThread() {
-    let i = this.history.threads.find((t) => t.id === this.history.currentThreadId);
-    if (i) return i;
-    let e = ue({ now: Date.now() });
-    return (
-      (this.history.currentThreadId = e.id),
-      (this.history.threads = [e, ...this.history.threads]),
-      e
-    );
-  }
-  getMostRecentThread(i) {
-    return [...i].sort((e, t) => t.updatedAt - e.updatedAt)[0];
-  }
-};
-function yt(r, i, e) {
-  var l, d, h, u;
-  let t = pe(r) ? r : {},
-    n = Array.isArray(t.threads) ? t.threads : [],
-    s = new Set(),
-    a = n.map((g) => Pt(g, s)).filter(bt);
-  return (
-    a.length === 0 && a.push(wt(i, e)),
-    {
-      currentThreadId:
-        typeof t.currentThreadId == "string" && a.some((g) => g.id === t.currentThreadId)
-          ? t.currentThreadId
-          : (u =
-                (h = (l = De(a.filter((g) => !g.archived))) == null ? void 0 : l.id) != null
-                  ? h
-                  : (d = De(a)) == null
-                    ? void 0
-                    : d.id) != null
-            ? u
-            : a[0].id,
-      threads: a
-    }
-  );
-}
-function Pt(r, i) {
-  var l, d, h, u, g, m, c;
-  if (!pe(r)) return;
-  let e = Ne(r.messages),
-    t = Date.now(),
-    n =
-      (h = (d = Fe(r.createdAt)) != null ? d : (l = e[0]) == null ? void 0 : l.createdAt) != null
-        ? h
-        : t,
-    s =
-      (m =
-        (g = Fe(r.updatedAt)) != null ? g : (u = e[e.length - 1]) == null ? void 0 : u.createdAt) !=
-      null
-        ? m
-        : n,
-    a = typeof r.id == "string" && r.id.trim() ? r.id : "",
-    o = a && !i.has(a) ? a : Oe(t);
-  return (
-    i.add(o),
-    {
-      id: o,
-      title: Y(typeof r.title == "string" && r.title.trim() ? r.title : fe(e)),
-      messages: e,
-      createdAt: n,
-      updatedAt: s,
-      archived: r.archived === !0,
-      piSessionId: $e((c = r.piSessionId) != null ? c : r.piThreadId)
-    }
-  );
-}
-function wt(r, i) {
-  let e = Ne(r),
-    t = Date.now();
-  return ue({ title: fe(e), now: t, messages: e, piSessionId: $e(i) });
-}
-function ue(r) {
-  var n, s, a, o, l, d;
-  let i = ((n = r.messages) != null ? n : []).map($).slice(-50),
-    e = (a = (s = i[0]) == null ? void 0 : s.createdAt) != null ? a : r.now,
-    t = (l = (o = i[i.length - 1]) == null ? void 0 : o.createdAt) != null ? l : r.now;
-  return {
-    id: Oe(r.now),
-    title: Y((d = r.title) != null ? d : fe(i)),
-    messages: i,
-    createdAt: e,
-    updatedAt: t,
-    archived: !1,
-    piSessionId: r.piSessionId
-  };
-}
-function Ne(r) {
-  return Array.isArray(r) ? r.filter(Ct).map($).slice(-50) : [];
-}
-function Ct(r) {
-  return pe(r)
-    ? (r.role === "user" || r.role === "assistant" || r.role === "system") &&
-        typeof r.content == "string" &&
-        typeof r.createdAt == "number" &&
-        Number.isFinite(r.createdAt)
-    : !1;
-}
-function $(r) {
-  var i, e;
-  return {
-    role: r.role,
-    content: r.content,
-    createdAt: r.createdAt,
-    changeSummaries:
-      (i = r.changeSummaries) == null
-        ? void 0
-        : i.map((t) => {
-            var n;
-            return {
-              files: t.files.map((s) => ({ ...s })),
-              stats: { ...t.stats },
-              sourceEventType: t.sourceEventType,
-              unifiedDiff: t.unifiedDiff,
-              fileSnapshots: (n = t.fileSnapshots) == null ? void 0 : n.map((s) => ({ ...s }))
-            };
+        ((0, P.addIcon)(PI_AGENT_ICON_ID, PI_AGENT_ICON_SVG),
+          this.rebuildServices(),
+          this.refreshCurrentContextFile(),
+          this.registerEvent(
+            this.app.workspace.on("file-open", (e) => {
+              this.setCurrentContextFile(e);
+            })
+          ),
+          this.registerEvent(
+            this.app.workspace.on("active-leaf-change", () => {
+              this.refreshCurrentContextFile();
+            })
+          ),
+          this.registerView(PI_AGENT_VIEW_TYPE, (e) => new PiAgentView(e, this)),
+          this.addRibbonIcon(PI_AGENT_ICON_ID, "Open Pi Agent", () => {
+            this.activateView();
           }),
-    changedFiles: (e = r.changedFiles) == null ? void 0 : e.map((t) => ({ ...t })),
-    changeStats: r.changeStats ? { ...r.changeStats } : void 0
-  };
-}
-function D(r) {
-  return {
-    id: r.id,
-    title: r.title,
-    messages: r.messages.map($),
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-    archived: r.archived,
-    piSessionId: r.piSessionId
-  };
-}
-function bt(r) {
-  return !!r;
-}
-function pe(r) {
-  return !!r && typeof r == "object" && !Array.isArray(r);
-}
-function Fe(r) {
-  return typeof r == "number" && Number.isFinite(r) ? r : void 0;
-}
-function $e(r) {
-  return typeof r == "string" && r.trim() ? r.trim() : void 0;
-}
-function Y(r) {
-  return r.replace(/\s+/g, " ").trim().slice(0, 80) || ge;
-}
-function fe(r) {
-  let i = r.find((e) => e.role === "user");
-  return i ? Be(i.content) : ge;
-}
-function Be(r) {
-  return Y(r.replace(/^#+\s*/g, "").replace(/[`*_#[\]()>]/g, ""));
-}
-function Oe(r) {
-  return `thread-${r}-${Math.random().toString(36).slice(2, 10)}`;
-}
-function De(r) {
-  return [...r].sort((i, e) => e.updatedAt - i.updatedAt)[0];
-}
-var Z = class {
-  constructor(i, e) {
-    this.app = i;
-    this.settings = e;
-  }
-  async snapshot() {
-    let i = new Map();
-    for (let e of this.getTrackedFiles()) i.set(e.path, await this.app.vault.cachedRead(e));
-    return { files: i };
-  }
-  async diff(i) {
-    let e = await this.snapshot(),
-      t = new Set([...i.files.keys(), ...e.files.keys()]),
-      n = [],
-      s = [],
-      a = [];
-    for (let o of [...t].sort((l, d) => l.localeCompare(d))) {
-      let l = i.files.get(o),
-        d = e.files.get(o);
-      if (l === d) continue;
-      let h = Ve(l != null ? l : ""),
-        u = Ve(d != null ? d : ""),
-        g = xt(h, u),
-        m = g.filter((v) => v.kind === "add").length,
-        c = g.filter((v) => v.kind === "delete").length,
-        p = l === void 0 ? "added" : d === void 0 ? "deleted" : "modified";
-      (n.push({ path: o, status: p, additions: m, deletions: c }),
-        s.push({ path: o, status: p, before: l, after: d }),
-        a.push(kt(o, g)));
-    }
-    if (n.length !== 0)
-      return {
-        files: n,
-        stats: St(n),
-        sourceEventType: "vault-snapshot",
-        fileSnapshots: s,
-        unifiedDiff: a.join(`
-`)
-      };
-  }
-  getTrackedFiles() {
-    let i =
-      typeof this.app.vault.getFiles == "function"
-        ? this.app.vault.getFiles()
-        : this.app.vault.getMarkdownFiles();
-    return i.filter((e) => this.isPathAllowed(e.path) && this.isTextFile(e.path));
-  }
-  isTextFile(i) {
-    let e = i.split(".").pop();
-    return (
-      !!e &&
-      [
-        "md",
-        "txt",
-        "canvas",
-        "css",
-        "js",
-        "mjs",
-        "cjs",
-        "ts",
-        "tsx",
-        "jsx",
-        "json",
-        "jsonc",
-        "yaml",
-        "yml",
-        "toml",
-        "xml",
-        "html",
-        "svg",
-        "csv",
-        "tsv",
-        "sh",
-        "bash",
-        "zsh",
-        "fish",
-        "py",
-        "rb",
-        "go",
-        "rs",
-        "java",
-        "c",
-        "h",
-        "cpp",
-        "hpp",
-        "cs",
-        "php",
-        "sql",
-        "ini",
-        "conf",
-        "env",
-        "gitignore"
-      ].includes(e.toLowerCase())
-    );
-  }
-  isPathAllowed(i) {
-    let e = i.replace(/\\/g, "/");
-    return !this.settings.ignoredFolders.some((t) => {
-      let n = t.replace(/\/+$/, "");
-      return e === n || e.startsWith(`${n}/`);
-    });
-  }
-};
-function Ve(r) {
-  return r.length === 0 ? [] : r.split(/\r?\n/);
-}
-function xt(r, i) {
-  if (r.length * i.length > 25e4)
-    return [
-      ...r.map((e) => ({ kind: "delete", text: e })),
-      ...i.map((e) => ({ kind: "add", text: e }))
-    ];
-  let e = Tt(r, i),
-    t = [],
-    n = r.length,
-    s = i.length;
-  for (; n > 0 || s > 0; )
-    n > 0 && s > 0 && r[n - 1] === i[s - 1]
-      ? (t.push({ kind: "same", text: r[n - 1] }), n--, s--)
-      : s > 0 && (n === 0 || e[n][s - 1] >= e[n - 1][s])
-        ? (t.push({ kind: "add", text: i[s - 1] }), s--)
-        : n > 0 && (t.push({ kind: "delete", text: r[n - 1] }), n--);
-  return t.reverse();
-}
-function Tt(r, i) {
-  let e = Array.from({ length: r.length + 1 }, () => Array.from({ length: i.length + 1 }, () => 0));
-  for (let t = 1; t <= r.length; t++)
-    for (let n = 1; n <= i.length; n++)
-      e[t][n] = r[t - 1] === i[n - 1] ? e[t - 1][n - 1] + 1 : Math.max(e[t - 1][n], e[t][n - 1]);
-  return e;
-}
-function kt(r, i) {
-  return [
-    `--- a/${r}`,
-    `+++ b/${r}`,
-    "@@",
-    ...i.map((e) =>
-      e.kind === "add" ? `+${e.text}` : e.kind === "delete" ? `-${e.text}` : ` ${e.text}`
-    )
-  ].join(`
-`);
-}
-function St(r) {
-  return {
-    filesChanged: r.length,
-    additions: r.reduce((i, e) => i + e.additions, 0),
-    deletions: r.reduce((i, e) => i + e.deletions, 0)
-  };
-}
-var B = require("obsidian");
-function S(r) {
-  return r
-    .toLowerCase()
-    .split(/\s+/)
-    .map((i) => i.trim())
-    .filter((i) => i.length > 1);
-}
-function _e(r, i, e) {
-  var o, l;
-  let t = r.toLowerCase(),
-    n = i.toLowerCase(),
-    s =
-      (l = (o = r.split("/").pop()) == null ? void 0 : o.replace(/\.md$/i, "").toLowerCase()) !=
-      null
-        ? l
-        : r,
-    a = 0;
-  for (let d of e) {
-    (s.includes(d) && (a += 12), t.includes(d) && (a += 4));
-    let h = n.match(new RegExp(Et(d), "g"));
-    h && (a += Math.min(h.length, 10));
-  }
-  return a;
-}
-function E(r, i, e = 240) {
-  let t = r.replace(/\s+/g, " ").trim();
-  if (t.length <= e) return t;
-  let n = t.toLowerCase(),
-    s = i
-      .map((h) => n.indexOf(h))
-      .filter((h) => h >= 0)
-      .sort((h, u) => h - u)[0],
-    a = Math.max(0, (s != null ? s : 0) - Math.floor(e / 3)),
-    o = Math.min(t.length, a + e),
-    l = a > 0 ? "..." : "",
-    d = o < t.length ? "..." : "";
-  return `${l}${t.slice(a, o)}${d}`;
-}
-function me(r, i) {
-  return r
-    .filter((e) => e.score > 0)
-    .sort((e, t) => t.score - e.score || e.path.localeCompare(t.path))
-    .slice(0, i);
-}
-function Et(r) {
-  return r.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-var X = class {
-  constructor(i, e, t) {
-    this.app = i;
-    this.settings = e;
-    this.getCurrentContextFile = t;
-  }
-  getMarkdownFiles() {
-    return this.app.vault.getMarkdownFiles().filter((i) => this.isPathAllowed(i.path));
-  }
-  async searchNotes(i, e = {}) {
-    var o;
-    let t = S(i);
-    if (t.length === 0) return [];
-    let n = (o = e.limit) != null ? o : this.settings.maxSearchResults,
-      s = this.getMarkdownFiles()
-        .filter((l) => !e.folder || l.path.startsWith(e.folder))
-        .slice(0, this.settings.maxSearchFiles),
-      a = [];
-    for (let l of s) {
-      let d = await this.readFile(l, this.settings.maxFileChars),
-        h = _e(l.path, d, t),
-        u = this.app.metadataCache.getFileCache(l);
-      a.push({
-        path: l.path,
-        title: l.basename,
-        score: h,
-        excerpt: E(d, t),
-        tags: this.getTags(u)
-      });
-    }
-    return me(a, n);
-  }
-  async getActiveNoteContext(i = "") {
-    let e = this.getActiveFile();
-    if (!e) return;
-    let t = await this.readFile(e, this.settings.maxFileChars);
-    return { ...(await this.getNoteContext(e)), content: t, selection: i };
-  }
-  async getNoteContext(i) {
-    var s;
-    let e = typeof i == "string" ? this.app.vault.getAbstractFileByPath(i) : i;
-    if (!(e instanceof B.TFile)) throw new Error(`Note not found: ${String(i)}`);
-    let t = this.app.metadataCache.getFileCache(e),
-      n = await this.readFile(e, this.settings.maxFileChars);
-    return {
-      path: e.path,
-      title: e.basename,
-      frontmatter: (s = t == null ? void 0 : t.frontmatter) != null ? s : {},
-      tags: this.getTags(t),
-      aliases: this.getAliases(t),
-      headings: this.getHeadings(t),
-      backlinks: await this.getBacklinks(e.path),
-      outgoingLinks: this.getOutgoingLinks(e.path),
-      unresolvedLinks: this.getUnresolvedLinks(e.path),
-      excerpt: E(n, S(e.basename), 320)
-    };
-  }
-  async findReferences(i) {
-    let e = this.getMarkdownFiles()
-        .filter((n) => n.basename.toLowerCase().includes(i.toLowerCase()))
-        .map((n) => ({
-          path: n.path,
-          title: n.basename,
-          score: 20,
-          excerpt: "Title match",
-          tags: this.getTags(this.app.metadataCache.getFileCache(n))
-        })),
-      t = await this.searchNotes(i, { limit: this.settings.maxSearchResults });
-    return me([...e, ...t], this.settings.maxSearchResults);
-  }
-  async getFolderSummary(i) {
-    let e = i.replace(/^\/+|\/+$/g, ""),
-      t = this.getMarkdownFiles()
-        .filter((s) => s.path.startsWith(`${e}/`))
-        .slice(0, this.settings.maxSearchResults),
-      n = [];
-    for (let s of t) {
-      let a = await this.readFile(s, this.settings.maxFileChars);
-      n.push({
-        path: s.path,
-        title: s.basename,
-        score: 1,
-        excerpt: E(a, S(s.basename), 260),
-        tags: this.getTags(this.app.metadataCache.getFileCache(s))
-      });
-    }
-    return n;
-  }
-  async getNotesByTag(i) {
-    let e = i.startsWith("#") ? i : `#${i}`,
-      t = [];
-    for (let n of this.getMarkdownFiles()) {
-      let s = this.app.metadataCache.getFileCache(n),
-        a = this.getTags(s);
-      if (!a.includes(e) && !a.includes(e.slice(1))) continue;
-      let o = await this.readFile(n, this.settings.maxFileChars);
-      t.push({
-        path: n.path,
-        title: n.basename,
-        score: 1,
-        excerpt: E(o, S(e), 260),
-        tags: a
-      });
-    }
-    return t.slice(0, this.settings.maxSearchResults);
-  }
-  resolveNoteFile(i) {
-    let e = i.replace(/^\/+/, "").replace(/#.*$/, ""),
-      t = [e, e.endsWith(".md") ? e : `${e}.md`, e.replace(/\.md$/i, "")];
-    for (let n of t) {
-      let s = this.app.vault.getAbstractFileByPath(n);
-      if (s instanceof B.TFile && this.isPathAllowed(s.path)) return s;
-      let a = this.app.metadataCache.getFirstLinkpathDest(n.replace(/\.md$/i, ""), "");
-      if (a && this.isPathAllowed(a.path)) return a;
-    }
-  }
-  async getBacklinks(i) {
-    let e = this.app.metadataCache.resolvedLinks,
-      t = [];
-    for (let [n, s] of Object.entries(e)) {
-      if (n === i || !this.isPathAllowed(n)) continue;
-      let a = s[i];
-      if (!a) continue;
-      let o = this.app.vault.getAbstractFileByPath(n),
-        l = "";
-      if (o instanceof B.TFile) {
-        let d = await this.readFile(o, this.settings.maxFileChars);
-        l = E(d, S(i.replace(/\.md$/i, "")), 220);
-      }
-      t.push({
-        path: n,
-        display: n.replace(/\.md$/i, ""),
-        count: a,
-        excerpt: l
-      });
-    }
-    return t.sort((n, s) => s.count - n.count || n.path.localeCompare(s.path));
-  }
-  getOutgoingLinks(i) {
-    var t;
-    let e = (t = this.app.metadataCache.resolvedLinks[i]) != null ? t : {};
-    return Object.entries(e)
-      .filter(([n]) => this.isPathAllowed(n))
-      .map(([n, s]) => ({
-        path: n,
-        display: n.replace(/\.md$/i, ""),
-        count: s
-      }))
-      .sort((n, s) => s.count - n.count || n.path.localeCompare(s.path));
-  }
-  getUnresolvedLinks(i) {
-    var t;
-    let e = (t = this.app.metadataCache.unresolvedLinks[i]) != null ? t : {};
-    return Object.entries(e)
-      .map(([n, s]) => ({ path: n, display: n, count: s }))
-      .sort((n, s) => s.count - n.count || n.path.localeCompare(s.path));
-  }
-  async getLinkedNeighborhood(i, e = 1) {
-    let t = new Set([i]),
-      n = [i],
-      s = [];
-    for (let a = 0; a < e; a++) {
-      let o = new Set();
-      for (let l of n) {
-        let d = this.getOutgoingLinks(l),
-          h = await this.getBacklinks(l);
-        for (let u of [...d, ...h])
-          t.has(u.path) || !u.path.endsWith(".md") || (t.add(u.path), o.add(u.path));
-      }
-      for (let l of o)
-        try {
-          s.push(await this.getNoteContext(l));
-        } catch (d) {}
-      n = [...o].slice(0, this.settings.maxSearchResults);
-    }
-    return s.slice(0, this.settings.maxSearchResults);
-  }
-  getActiveFile() {
-    var e, t;
-    let i =
-      (t = (e = this.getCurrentContextFile) == null ? void 0 : e.call(this)) != null
-        ? t
-        : this.app.workspace.getActiveFile();
-    return i && this.isPathAllowed(i.path) ? i : void 0;
-  }
-  async readVaultFile(i) {
-    let e = this.app.vault.getAbstractFileByPath(i);
-    if (!(e instanceof B.TFile)) throw new Error(`File not found: ${i}`);
-    if (!this.isPathAllowed(e.path)) throw new Error(`Path is not allowed: ${i}`);
-    return this.readFile(e, this.settings.maxFileChars);
-  }
-  async readFile(i, e) {
-    let t = await this.app.vault.cachedRead(i);
-    return t.length > e
-      ? `${t.slice(0, e)}
-...[truncated]`
-      : t;
-  }
-  isPathAllowed(i) {
-    let e = i.replace(/\\/g, "/");
-    return !this.settings.ignoredFolders.some((t) => {
-      let n = t.replace(/\/+$/, "");
-      return e === n || e.startsWith(`${n}/`);
-    });
-  }
-  getTags(i) {
-    var n, s;
-    let e = new Set();
-    for (let a of (n = i == null ? void 0 : i.tags) != null ? n : []) e.add(a.tag);
-    let t = (s = i == null ? void 0 : i.frontmatter) == null ? void 0 : s.tags;
-    if (Array.isArray(t)) for (let a of t) e.add(String(a));
-    else typeof t == "string" && e.add(t);
-    return [...e].sort();
-  }
-  getAliases(i) {
-    var t;
-    let e = (t = i == null ? void 0 : i.frontmatter) == null ? void 0 : t.aliases;
-    return Array.isArray(e) ? e.map(String) : typeof e == "string" ? [e] : [];
-  }
-  getHeadings(i) {
-    var e;
-    return ((e = i == null ? void 0 : i.headings) != null ? e : [])
-      .map((t) => t.heading)
-      .filter(Boolean)
-      .slice(0, 20);
-  }
-};
-var A = require("obsidian"),
-  Q = class extends A.Modal {
-    constructor(e, t, n) {
-      super(e.app);
-      this.change = t;
-      this.onDone = n;
-      this.settled = !1;
-      this.plugin = e;
-    }
-    onOpen() {
-      let { contentEl: e } = this;
-      (e.empty(),
-        e.addClass("obsidian-pi-approval"),
-        e.createEl("h2", { text: "Approve Vault Change" }),
-        e.createEl("p", {
-          text: `${this.change.path} - ${this.change.reason}`
-        }));
-      let t = e.createEl("div", { cls: "obsidian-pi-diff" });
-      (t.createEl("h3", { text: "Before" }),
-        t.createEl("pre", { text: this.change.before || "(new file)" }),
-        t.createEl("h3", { text: "After" }),
-        t.createEl("pre", { text: this.change.after }));
-      let n = e.createDiv({ cls: "obsidian-pi-modal-actions" });
-      (n.createEl("button", { text: "Reject" }).addEventListener("click", () => {
-        (this.finish(), this.close());
-      }),
-        n
-          .createEl("button", { text: "Apply change", cls: "mod-cta" })
-          .addEventListener("click", async () => {
-            (await this.applyChange(), this.finish(), this.close());
-          }));
-    }
-    onClose() {
-      (this.finish(), this.contentEl.empty());
-    }
-    async applyChange() {
-      let e = this.app.vault.getAbstractFileByPath(this.change.path);
-      (e instanceof A.TFile
-        ? await this.app.vault.modify(e, this.change.after)
-        : await this.app.vault.create(this.change.path, this.change.after),
-        new A.Notice(`Applied Pi change to ${this.change.path}`));
-    }
-    finish() {
-      this.settled || ((this.settled = !0), this.onDone());
-    }
-  };
-var f = require("obsidian");
-function He(r) {
-  return (
-    (r.activeNote ? 1 : 0) +
-    r.linkedNeighborhood.count +
-    r.searchResults.count +
-    r.attachments.total
-  );
-}
-function We(r) {
-  let i = r.activeNote ? 1 : 0;
-  return [
-    `${i} active note${i === 1 ? "" : "s"}`,
-    `${r.linkedNeighborhood.count} linked note${r.linkedNeighborhood.count === 1 ? "" : "s"}`,
-    `${r.searchResults.count} search result${r.searchResults.count === 1 ? "" : "s"}`,
-    `${r.attachments.total} attachment${r.attachments.total === 1 ? "" : "s"}`
-  ].join(" | ");
-}
-var C = require("obsidian");
-function Ue(r) {
-  let i = [],
-    e,
-    t,
-    n = () => {
-      (e && t && e.hunks.push(t), (t = void 0));
-    },
-    s = () => {
-      (n(), e && i.push(e), (e = void 0));
-    };
-  for (let a of r.split(/\r?\n/)) {
-    if (a.startsWith("diff --git ")) {
-      s();
-      let o = Lt(a);
-      e = {
-        oldPath: o == null ? void 0 : o.oldPath,
-        newPath: o == null ? void 0 : o.newPath,
-        hunks: []
-      };
-      continue;
-    }
-    if (a.startsWith("--- ")) {
-      (e && (e.hunks.length > 0 || t) && s(),
-        e || (e = { hunks: [] }),
-        (e.oldPath = ze(a.slice(4))));
-      continue;
-    }
-    if (a.startsWith("+++ ")) {
-      (e || (e = { hunks: [] }), (e.newPath = ze(a.slice(4))));
-      continue;
-    }
-    if (a.startsWith("@@")) {
-      (e || (e = { hunks: [] }), n(), (t = []));
-      continue;
-    }
-    t && /^[ +\-]/.test(a) && t.push(a);
-  }
-  return (s(), i);
-}
-function je(r, i) {
-  var t;
-  let e = Rt(r);
-  for (let n of i.hunks) {
-    let s = qe(n),
-      a = At(n),
-      o = Mt(e, a);
-    if (o === -1)
-      throw new Error(
-        `Current file no longer matches diff for ${(t = i.newPath) != null ? t : i.oldPath}`
-      );
-    e = [...e.slice(0, o), ...s, ...e.slice(o + a.length)];
-  }
-  return e.join(`
-`);
-}
-function Ke(r) {
-  return r.hunks.flatMap(qe);
-}
-function qe(r) {
-  return r.filter((i) => i.startsWith(" ") || i.startsWith("-")).map((i) => i.slice(1));
-}
-function At(r) {
-  return r.filter((i) => i.startsWith(" ") || i.startsWith("+")).map((i) => i.slice(1));
-}
-function Mt(r, i) {
-  if (i.length === 0) return 0;
-  for (let e = 0; e <= r.length - i.length; e++) {
-    let t = !0;
-    for (let n = 0; n < i.length; n++)
-      if (r[e + n] !== i[n]) {
-        t = !1;
-        break;
-      }
-    if (t) return e;
-  }
-  return -1;
-}
-function Rt(r) {
-  return r.length === 0 ? [] : r.split(/\r?\n/);
-}
-function Lt(r) {
-  let e = r
-    .slice(11)
-    .trim()
-    .match(/^a\/(.+) b\/(.+)$/);
-  if (e) return { oldPath: ve(e[1]), newPath: ve(e[2]) };
-}
-function ze(r) {
-  let i = r.trim().split(/\t/)[0];
-  return i === "/dev/null" ? i : ve(i);
-}
-function ve(r) {
-  if (!r) return;
-  let i = r.trim();
-  return (
-    i.startsWith('"') && i.endsWith('"') && (i = i.slice(1, -1)),
-    (i.startsWith("a/") || i.startsWith("b/")) && (i = i.slice(2)),
-    i || void 0
-  );
-}
-var M = class extends C.Modal {
-  constructor(e, t) {
-    super(e.app);
-    this.message = t;
-    this.plugin = e;
-  }
-  onOpen() {
-    let { contentEl: e } = this;
-    (e.empty(),
-      this.modalEl.addClass("obsidian-pi-change-review-modal"),
-      e.addClass("obsidian-pi-change-review"),
-      e.createEl("h2", { text: "Pi Changes" }));
-    let t = this.getStats(),
-      n = e.createEl("p", { cls: "obsidian-pi-change-summary" });
-    (n.createSpan({ text: `${t.filesChanged} files changed, ` }),
-      n.createSpan({
-        cls: "obsidian-pi-diff-additions",
-        text: `+${t.additions}`
-      }),
-      n.createSpan({ text: " " }),
-      n.createSpan({
-        cls: "obsidian-pi-diff-deletions",
-        text: `-${t.deletions}`
-      }));
-    let s = this.getChangedFiles();
-    if (s.length > 0) {
-      let h = e.createEl("ul", { cls: "obsidian-pi-change-files" });
-      for (let u of s)
-        h.createEl("li", {
-          text: `${u.status} ${u.path} (+${u.additions} -${u.deletions})`
-        });
-    }
-    let a = this.getUnifiedDiffs();
-    if (a.length > 0) for (let h of a) this.renderDiff(e, h);
-    else
-      e.createEl("p", {
-        cls: "obsidian-pi-empty",
-        text: "Pi reported changed files, but did not emit a unified diff for this response."
-      });
-    let o = e.createDiv({ cls: "obsidian-pi-modal-actions" }),
-      l = this.getFileSnapshots();
-    o.createEl("button", { text: "Copy diff" }).addEventListener("click", () => {
-      this.copyDiff();
-    });
-    let d = o.createEl("button", { text: "Revert", cls: "mod-warning" });
-    ((d.disabled = l.length === 0),
-      d.addEventListener("click", () => {
-        this.revertDiff();
-      }),
-      o
-        .createEl("button", { text: "Close", cls: "mod-cta" })
-        .addEventListener("click", () => this.close()));
-  }
-  onClose() {
-    (this.modalEl.removeClass("obsidian-pi-change-review-modal"), this.contentEl.empty());
-  }
-  getStats() {
-    if (this.message.changeStats) return this.message.changeStats;
-    let e = this.getChangedFiles();
-    return {
-      filesChanged: e.length,
-      additions: e.reduce((t, n) => t + n.additions, 0),
-      deletions: e.reduce((t, n) => t + n.deletions, 0)
-    };
-  }
-  getChangedFiles() {
-    var t, n;
-    if ((t = this.message.changedFiles) != null && t.length) return this.message.changedFiles;
-    let e = new Map();
-    for (let s of (n = this.message.changeSummaries) != null ? n : [])
-      for (let a of s.files) e.set(a.path, a);
-    return [...e.values()];
-  }
-  getUnifiedDiffs() {
-    var e;
-    return ((e = this.message.changeSummaries) != null ? e : [])
-      .map((t) => {
-        var n, s;
-        return (s = (n = t.unifiedDiff) == null ? void 0 : n.trim()) != null ? s : "";
-      })
-      .filter(Boolean);
-  }
-  renderDiff(e, t) {
-    let n = e.createDiv({ cls: "obsidian-pi-change-diff" }),
-      s = t.split(/\r?\n/);
-    for (let a = 0; a < s.length; a++) {
-      let o = s[a],
-        l = n.createDiv({ cls: this.getDiffLineClass(o) });
-      (l.createSpan({
-        cls: "obsidian-pi-diff-line-number",
-        text: String(a + 1)
-      }),
-        l.createSpan({ cls: "obsidian-pi-diff-line-text", text: o || " " }));
-    }
-  }
-  getDiffLineClass(e) {
-    return e.startsWith("+++") || e.startsWith("---")
-      ? "obsidian-pi-diff-line obsidian-pi-diff-line-meta"
-      : e.startsWith("+")
-        ? "obsidian-pi-diff-line obsidian-pi-diff-line-add"
-        : e.startsWith("-")
-          ? "obsidian-pi-diff-line obsidian-pi-diff-line-delete"
-          : e.startsWith("@@")
-            ? "obsidian-pi-diff-line obsidian-pi-diff-line-hunk"
-            : "obsidian-pi-diff-line";
-  }
-  async copyDiff() {
-    let e = this.getUnifiedDiffs().join(`
-
-`);
-    if (!e) {
-      new C.Notice("No unified diff available for this response.");
-      return;
-    }
-    (await navigator.clipboard.writeText(e), new C.Notice("Copied Pi diff."));
-  }
-  async revertDiff() {
-    let e = this.getFileSnapshots(),
-      t = this.getUnifiedDiffs().join(`
-`);
-    if (e.length === 0) {
-      new C.Notice("No reversible file snapshot is available for this response.");
-      return;
-    }
-    try {
-      let n = await It(this.plugin, e);
-      if (n.length === 0) {
-        new C.Notice("No reversible changes found in this diff.");
-        return;
-      }
-      (new C.Notice(`Reverted ${n.length} file${n.length === 1 ? "" : "s"}.`), this.close());
-    } catch (n) {
-      let s = n instanceof Error ? n.message : String(n);
-      new C.Notice(`Could not revert diff: ${s}`);
-    }
-  }
-  getFileSnapshots() {
-    var e;
-    return ((e = this.message.changeSummaries) != null ? e : []).flatMap((t) => {
-      var n;
-      return (n = t.fileSnapshots) != null ? n : [];
-    });
-  }
-};
-async function It(r, i) {
-  let e = [];
-  for (let t of i) {
-    if (t.status === "added") {
-      (await Je(r, t.path), e.push(t.path));
-      continue;
-    }
-    t.before !== void 0 && (await Ge(r, t.path, t.before), e.push(t.path));
-  }
-  return e;
-}
-async function Ft(r, i, e) {
-  let t = [],
-    n = new Map(e.map((s) => [s.path, s.status]));
-  for (let s of Ue(i)) {
-    let a = s.oldPath,
-      o = s.newPath,
-      l = o && o !== "/dev/null" ? o : a;
-    if (!l || l === "/dev/null") continue;
-    let d = n.get(l);
-    if (a === "/dev/null" || d === "added") {
-      (await Je(r, l), t.push(l));
-      continue;
-    }
-    let h = Ke(s);
-    if (o === "/dev/null" || d === "deleted") {
-      (await Ge(
-        r,
-        l,
-        h.join(`
-`)
-      ),
-        t.push(l));
-      continue;
-    }
-    let u = r.app.vault.getAbstractFileByPath(l);
-    if (!(u instanceof C.TFile)) throw new Error(`File not found: ${l}`);
-    let g = await r.app.vault.cachedRead(u),
-      m = je(g, s);
-    (await r.app.vault.modify(u, m), t.push(l));
-  }
-  return t;
-}
-async function Ge(r, i, e) {
-  let t = r.app.vault.getAbstractFileByPath(i);
-  t instanceof C.TFile ? await r.app.vault.modify(t, e) : await r.app.vault.create(i, e);
-}
-async function Je(r, i) {
-  let e = r.app.vault.getAbstractFileByPath(i);
-  e instanceof C.TFile && (await r.app.vault.delete(e));
-}
-var Ye = require("obsidian");
-var ee = class {
-  constructor(i, e) {
-    this.plugin = i;
-    this.callbacks = e;
-  }
-  showMessageMenu(i, e, t) {
-    var s;
-    let n = new Ye.Menu();
-    (e.role === "user"
-      ? (n.addItem((a) =>
-          a
-            .setTitle("Edit and resend")
-            .setIcon("pencil")
-            .onClick(() => {
-              let o = this.callbacks.getInput();
-              o && ((o.value = e.content), o.focus());
-            })
-        ),
-        n.addItem((a) =>
-          a
-            .setTitle("Search vault for this")
-            .setIcon("search")
-            .onClick(() =>
-              this.callbacks.runPrompt(`Search the vault for notes related to:
-
-${e.content}`)
-            )
-        ))
-      : (this.messageHasChanges(e) &&
-          n.addItem((a) =>
-            a
-              .setTitle("Review changes")
-              .setIcon("git-compare")
-              .onClick(() => new M(this.plugin, e).open())
-          ),
-        (s = e.changedFiles) != null &&
-          s.length &&
-          (n.addItem((a) =>
-            a
-              .setTitle("Open changed files")
-              .setIcon("folder-open")
-              .onClick(() => {
-                var o;
-                this.callbacks.openChangedFiles((o = e.changedFiles) != null ? o : []);
+          this.addCommand({
+            id: "open-pi",
+            name: "Open agent chat",
+            callback: () => {
+              this.activateView();
+            }
+          }),
+          this.addCommand({
+            id: "check-pi-installation",
+            name: "Check Pi installation",
+            callback: () => {
+              this.checkPiInstallation(true);
+            }
+          }),
+          this.addCommand({
+            id: "ask-about-current-note",
+            name: "Ask about current note",
+            checkCallback: (e) =>
+              this.runWithActiveMarkdownNote(e, () => {
+                this.runCommandPrompt(
+                  "Use the active note as context. Summarize the key facts, assumptions, and useful follow-up questions."
+                );
               })
-          ),
-          n.addSeparator()),
-        n.addItem((a) =>
-          a
-            .setTitle("Insert into current note")
-            .setIcon("file-plus")
-            .onClick(() => this.callbacks.insertIntoCurrentNote(e.content))
-        ),
-        n.addItem((a) =>
-          a
-            .setTitle("Create note from response")
-            .setIcon("file-text")
-            .onClick(() => this.callbacks.createNoteFromResponse(e.content))
-        ),
-        n.addItem((a) =>
-          a
-            .setTitle("Open cited notes")
-            .setIcon("links-coming-in")
-            .setDisabled(this.callbacks.extractVaultLinks(e.content).length === 0)
-            .onClick(() => this.callbacks.openCitedNotes(e.content))
-        ),
-        n.addSeparator(),
-        n.addItem((a) =>
-          a
-            .setTitle("Regenerate")
-            .setIcon("refresh-cw")
-            .setDisabled(!this.callbacks.getPreviousUserPrompt(t))
-            .onClick(() => {
-              let o = this.callbacks.getPreviousUserPrompt(t);
-              o && this.callbacks.runPrompt(o);
-            })
-        )),
-      n.showAtMouseEvent(i));
-  }
-  getMessageChangeStats(i) {
-    if (i.changeStats) {
-      let { filesChanged: t, additions: n, deletions: s } = i.changeStats;
-      if (t > 0 || n > 0 || s > 0) return i.changeStats;
-    }
-    let e = this.getDiffStats(i.content);
-    return e ? { filesChanged: 0, additions: e.additions, deletions: e.deletions } : void 0;
-  }
-  messageHasChanges(i) {
-    var e, t;
-    return !!(
-      ((e = i.changeSummaries) != null && e.length) ||
-      ((t = i.changedFiles) != null && t.length) ||
-      (i.changeStats &&
-        (i.changeStats.filesChanged > 0 ||
-          i.changeStats.additions > 0 ||
-          i.changeStats.deletions > 0))
-    );
-  }
-  getDiffStats(i) {
-    let e = 0,
-      t = 0;
-    for (let n of i.matchAll(/```(?:diff|patch)?\s*\n([\s\S]*?)```/g))
-      for (let s of n[1].split(/\r?\n/))
-        s.startsWith("+++") ||
-          s.startsWith("---") ||
-          (s.startsWith("+") && e++, s.startsWith("-") && t++);
-    return e > 0 || t > 0 ? { additions: e, deletions: t } : void 0;
-  }
-};
-var R = require("obsidian");
-var te = class {
-  constructor(i, e) {
-    this.plugin = i;
-    this.callbacks = e;
-  }
-  async archiveCurrentChat() {
-    if (this.plugin.messages.length === 0) {
-      new R.Notice("No chat to archive.");
-      return;
-    }
-    let i = F(H.archiveFolder);
-    await this.ensureFolder(i);
-    let e = new Date().toISOString().replace(/[:.]/g, "-"),
-      t = await this.getAvailableNotePath(`Chat ${e}.md`, i),
-      n = await this.plugin.app.vault.create(t, this.formatTranscript());
-    (await this.plugin.app.workspace.getLeaf(!1).openFile(n), new R.Notice("Transcript saved."));
-  }
-  formatTranscript() {
-    let i = new Date().toISOString(),
-      e = this.plugin.messages.map(
-        (t) => `## ${t.role === "assistant" ? "Pi" : t.role === "user" ? "You" : "System"}
-
-${t.content.trim()}`
-      ).join(`
-
-`);
-    return `---
-type: pi-chat
-created: ${i}
----
-
-# Pi chat ${i}
-
-${e}
-`;
-  }
-  async copyText(i) {
-    (await navigator.clipboard.writeText(i), new R.Notice("Copied to clipboard."));
-  }
-  insertIntoCurrentNote(i) {
-    var t;
-    let e = (t = this.plugin.app.workspace.activeEditor) == null ? void 0 : t.editor;
-    if (!e) {
-      new R.Notice("Open a note first.");
-      return;
-    }
-    e.replaceSelection(i);
-  }
-  async createNoteFromResponse(i) {
-    let e = this.getResponseTitle(i),
-      t = await this.getAvailableNotePath(`${e}.md`);
-    await this.ensureFolder("Pi");
-    let n = await this.plugin.app.vault.create(t, i);
-    await this.plugin.app.workspace.getLeaf(!1).openFile(n);
-  }
-  async openCitedNotes(i) {
-    let e = this.extractVaultLinks(i);
-    if (e.length === 0) {
-      new R.Notice("No vault links found.");
-      return;
-    }
-    for (let t of e.slice(0, 5)) await this.callbacks.openVaultLink(t);
-  }
-  getPreviousUserPrompt(i) {
-    for (let e = i - 1; e >= 0; e--) {
-      let t = this.plugin.messages[e];
-      if ((t == null ? void 0 : t.role) === "user") return t.content;
-    }
-  }
-  extractVaultLinks(i) {
-    var t;
-    let e = new Set();
-    for (let n of i.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g)) e.add(n[1]);
-    for (let n of i.matchAll(/\[[^\]]+\]\(([^)]+\.md)(?:#[^)]+)?\)/g))
-      e.add(
-        this.callbacks.formatVaultLinkTarget(
-          (t = this.callbacks.parseVaultLinkTarget(n[1])) != null ? t : { path: n[1] }
-        )
-      );
-    for (let n of i.matchAll(/(?:\/?[A-Za-z0-9 _.-]+\/)+[A-Za-z0-9 _.-]+\.md(?::\d+)?/g)) {
-      let s = this.callbacks.parseVaultLinkTarget(n[0]);
-      e.add(s ? this.callbacks.formatVaultLinkTarget(s) : n[0]);
-    }
-    return [...e];
-  }
-  getResponseTitle(i) {
-    var n, s;
-    let e = (n = i.match(/^#\s+(.+)$/m)) == null ? void 0 : n[1];
-    return (
-      ((s = e != null ? e : i.split(/\r?\n/).find((a) => a.trim())) != null ? s : "Pi response")
-        .replace(/[\\/:*?"<>|#[\]]/g, "")
-        .trim()
-        .slice(0, 80) || "Pi response"
-    );
-  }
-  async ensureFolder(i) {
-    let e = F(i).split("/"),
-      t = "";
-    for (let n of e)
-      ((t = t ? `${t}/${n}` : n),
-        this.plugin.app.vault.getAbstractFileByPath(t) ||
-          (await this.plugin.app.vault.createFolder(t)));
-  }
-  async getAvailableNotePath(i, e = "Pi") {
-    let t = F(e),
-      n = `${t}/${i}`;
-    if (!this.plugin.app.vault.getAbstractFileByPath(n)) return n;
-    let s = i.replace(/\.md$/i, "");
-    for (let a = 2; a < 100; a++) {
-      let o = `${t}/${s} ${a}.md`;
-      if (!this.plugin.app.vault.getAbstractFileByPath(o)) return o;
-    }
-    return `${t}/${s} ${Date.now()}.md`;
-  }
-};
-var L = require("obsidian");
-var ie = class {
-  constructor(i) {
-    this.plugin = i;
-  }
-  render(i) {
-    ((this.row = i.createDiv({ cls: "obsidian-pi-run-settings" })), this.populate(this.row));
-  }
-  refresh() {
-    this.row && (this.row.empty(), this.populate(this.row));
-  }
-  populate(i) {
-    (this.addRunSetting(
-      i,
-      "Model",
-      "sparkles",
-      _(this.plugin.settings),
-      this.plugin.settings.model,
-      async (e) => {
-        ((this.plugin.settings.model = e),
-          (this.plugin.settings.reasoningEffort = ""),
-          e === b &&
-            !this.plugin.settings.customModel &&
-            new L.Notice("Set custom model ID in plugin settings."),
-          await this.plugin.saveSettings(),
-          this.refresh());
+          }),
+          this.addCommand({
+            id: "research-around-current-note",
+            name: "Research around current note",
+            checkCallback: (e) =>
+              this.runWithActiveMarkdownNote(e, () => {
+                this.runCommandPrompt(
+                  "Research around the active note using backlinks, outgoing links, unresolved links, tags, and search results. Return concise findings with vault references."
+                );
+              })
+          }),
+          this.addCommand({
+            id: "suggest-frontmatter",
+            name: "Suggest frontmatter for current note",
+            checkCallback: (e) =>
+              this.runWithActiveMarkdownNote(e, () => {
+                this.suggestFrontmatterForCurrentNote();
+              })
+          }),
+          this.addCommand({
+            id: "draft-base-from-current-note",
+            name: "Draft base from current note context",
+            checkCallback: (e) =>
+              this.runWithActiveMarkdownNote(e, () => {
+                this.runCommandPrompt(
+                  "Draft an Obsidian Base for notes related to the active note. Infer useful fields from frontmatter, tags, backlinks, and linked notes."
+                );
+              })
+          }),
+          this.addSettingTab(new PiAgentSettingTab(this.app, this)));
       }
-    ),
-      this.addRunSetting(
-        i,
-        "Think",
-        "brain",
-        de(this.plugin.settings),
-        this.plugin.settings.reasoningEffort,
-        async (e) => {
-          ((this.plugin.settings.reasoningEffort = e), await this.plugin.saveSettings());
+      onunload() {
+        this.cancelPiRun();
+      }
+      async loadSettings() {
+        let e = await this.loadData(),
+          { chatHistory: t, messages: n, threadId: s, sessionId: a, ...o } = e != null ? e : {};
+        ((this.settings = normalizeSettings(o)),
+          (this.settings.additionalSkillFolders = normalizeSkillFolderList(
+            this.settings.additionalSkillFolders
+          )),
+          (this.threadHistory = new ThreadStore(t, n, a != null ? a : s)));
+        let l = getEffectiveConfig(this.getVaultBasePath());
+        ((this.settings.effectiveModel = l.effectiveModel || ""),
+          (this.settings.effectiveReasoning = l.effectiveReasoning || ""),
+          this.syncCurrentThreadState(),
+          this.settings.model &&
+            isLegacyBareModelId(this.settings.model) &&
+            ((this.settings.customModel = `openai/${this.settings.model}`),
+            (this.settings.model = "__custom")));
+      }
+      async saveSettings() {
+        (await this.savePluginData(), this.rebuildServices());
+      }
+      showPiSetupIfNeeded() {
+        if (this.settings.dismissedPiSetup) return;
+        window.setTimeout(() => {
+          if (!this.settings.dismissedPiSetup) this.checkPiInstallation(false);
+        }, 800);
+      }
+      checkPiInstallation(showSuccess) {
+        let e = checkPiInstallation();
+        if (e.ok) {
+          showSuccess && new P.Notice(`Pi CLI is available: ${e.version || e.message}`);
+          return e;
         }
-      ),
-      this.addRunSetting(
-        i,
-        "Tools",
-        this.getRunSettingIcon("Tools", this.plugin.settings.sandboxMode),
-        ce(),
-        this.plugin.settings.sandboxMode,
-        async (e) => {
-          if (
-            (e === "edit" || e === "full-agent" || e === "workspace-write") &&
-            !this.plugin.settings.acknowledgedToolRisk &&
-            !window.confirm(
-              "Pi tool modes are not an OS-level sandbox. Edit and Full Agent can modify vault/project files, and Full Agent can run shell commands. Continue?"
-            )
-          ) {
-            this.refresh();
+        showSuccess ? new P.Notice(e.message) : new PiSetupModal(this, e).open();
+        return e;
+      }
+      async refreshModelCatalog(e) {
+        var t;
+        this.catalog || this.rebuildServices();
+        try {
+          let n = await ((t = this.catalog) == null ? void 0 : t.getAvailableModels()),
+            s = this.catalog ? this.catalog.getEffectiveConfig(this.getVaultBasePath()) : {};
+          if (!n || n.length === 0) {
+            e && new P.Notice("Pi returned no models.");
             return;
           }
-          ((this.plugin.settings.sandboxMode = e),
-            (e === "edit" || e === "full-agent" || e === "workspace-write") &&
-              (this.plugin.settings.acknowledgedToolRisk = !0),
-            await this.plugin.saveSettings());
+          ((this.settings.availableModels = n),
+            (this.settings.effectiveModel = s.effectiveModel || ""),
+            (this.settings.effectiveReasoning = s.effectiveReasoning || ""),
+            await this.saveSettings(),
+            e &&
+              new P.Notice(
+                `Loaded ${n.length} Pi models${this.settings.effectiveModel ? `; default ${this.settings.effectiveModel}` : ""}.`
+              ));
+        } catch (n) {
+          let s = n instanceof Error ? n.message : String(n);
+          (e && new P.Notice(s), console.warn("Pi Agent: failed to refresh model catalog", n));
         }
-      ));
-  }
-  addRunSetting(i, e, t, n, s, a) {
-    var u;
-    let o = Object.prototype.hasOwnProperty.call(n, s) ? s : "",
-      l = (u = n[o]) != null ? u : "Default",
-      d = this.formatRunSettingDisplayLabel(e, o, l),
-      h = i.createEl("button", {
-        cls: `clickable-icon obsidian-pi-run-setting ${this.getRunSettingClass(e, o)}`,
-        attr: { "aria-label": `${e}: ${l}`, title: `${e}: ${l}` }
-      });
-    ((0, L.setIcon)(h, t),
-      h.createSpan({ cls: "obsidian-pi-control-label", text: d }),
-      h.addEventListener("click", async (g) => {
-        g.preventDefault();
-        let m = new L.Menu();
-        for (let [c, p] of Object.entries(n))
-          m.addItem((v) => {
-            (v.setTitle(p).onClick(async () => {
-              (await a(c), this.refresh());
-            }),
-              c === o && v.setIcon("check"));
-          });
-        m.showAtMouseEvent(g);
-      }));
-  }
-  formatRunSettingDisplayLabel(i, e, t) {
-    return i === "Model"
-      ? e === b
-        ? this.plugin.settings.customModel.trim() || "Custom"
-        : e
-          ? t.split(" - ")[0].replace(/^GPT-/i, "GPT-")
-          : this.formatDefaultModelLabel()
-      : i === "Think"
-        ? e
-          ? t.split(" - ")[0].replace(/^XHigh$/i, "XHigh")
-          : this.formatDefaultReasoningLabel()
-        : i === "Tools"
-          ? e === "chat"
-            ? "Chat"
-            : e === "read-only"
-              ? "Review"
-              : e === "full-agent"
-                ? "Full"
-                : e === "edit" || e === "workspace-write"
-                  ? "Edit"
-                  : t
-          : t;
-  }
-  formatDefaultModelLabel() {
-    let i = this.plugin.settings.effectiveModel;
-    return i ? i.split("/").pop() || i : "Default";
-  }
-  formatDefaultReasoningLabel() {
-    let i = this.plugin.settings.effectiveReasoning;
-    return i ? this.formatReasoningLabel(i) : this.formatReasoningLabel(W(this.plugin.settings));
-  }
-  formatReasoningLabel(i) {
-    return i === "pi-default" || i === "cli-default"
-      ? "Pi default"
-      : i === "xhigh"
-        ? "XHigh"
-        : i.charAt(0).toUpperCase() + i.slice(1);
-  }
-  getRunSettingIcon(i, e) {
-    return i === "Tools"
-      ? e === "chat"
-        ? "message-square"
-        : e === "full-agent"
-          ? "terminal"
-          : e === "edit" || e === "workspace-write"
-            ? "pencil-line"
-            : "eye"
-      : "";
-  }
-  getRunSettingClass(i, e) {
-    return i === "Tools"
-      ? e === "full-agent"
-        ? "obsidian-pi-run-setting-mode-full"
-        : e === "edit" || e === "workspace-write"
-          ? "obsidian-pi-run-setting-mode-write"
-          : "obsidian-pi-run-setting-mode-read"
-      : "";
-  }
-};
-var ne = class {
-  constructor(i, e, t) {
-    this.inputEl = i;
-    this.plugin = e;
-    this.onApply = t;
-    this.suggestions = [];
-    this.selectedSuggestionIndex = 0;
-  }
-  update() {
-    let i = this.getActiveSuggestMatch();
-    if (!i) {
-      this.close();
-      return;
-    }
-    if (
-      ((this.activeSuggestRange = { start: i.start, end: i.end }),
-      (this.suggestions = this.getSuggestions(i.trigger, i.query).slice(0, 16)),
-      (this.selectedSuggestionIndex = 0),
-      this.suggestions.length === 0)
-    ) {
-      this.close();
-      return;
-    }
-    this.render();
-  }
-  handleKeydown(i) {
-    return !this.suggestEl || this.suggestions.length === 0
-      ? !1
-      : i.key === "ArrowDown"
-        ? (i.preventDefault(),
-          (this.selectedSuggestionIndex =
-            (this.selectedSuggestionIndex + 1) % this.suggestions.length),
-          this.render(),
-          !0)
-        : i.key === "ArrowUp"
-          ? (i.preventDefault(),
-            (this.selectedSuggestionIndex =
-              (this.selectedSuggestionIndex - 1 + this.suggestions.length) %
-              this.suggestions.length),
-            this.render(),
-            !0)
-          : i.key === "Enter" || i.key === "Tab"
-            ? (i.preventDefault(), this.apply(this.selectedSuggestionIndex), !0)
-            : i.key === "Escape"
-              ? (i.preventDefault(), this.close(), !0)
-              : !1;
-  }
-  close() {
-    var i;
-    ((i = this.suggestEl) == null || i.remove(),
-      (this.suggestEl = void 0),
-      (this.suggestions = []),
-      (this.activeSuggestRange = void 0),
-      (this.selectedSuggestionIndex = 0));
-  }
-  getActiveSuggestMatch() {
-    let i = this.inputEl.selectionStart,
-      e = this.inputEl.value.slice(0, i),
-      t = e.match(/(^|\s)([@#\/])([^\s]*)$/);
-    if (!t || t.index === void 0) return;
-    let n = t.index + t[1].length;
-    if (t[2] === "/" && e.slice(e.lastIndexOf("\n", n - 1) + 1, n).trim().length > 0) return;
-    return { trigger: t[2], query: t[3].toLowerCase(), start: n, end: i };
-  }
-  getSuggestions(i, e) {
-    return i === "@"
-      ? this.getNoteAndFolderSuggestions(e)
-      : i === "#"
-        ? this.getTagSuggestions(e)
-        : this.getCommandSuggestions(e);
-  }
-  formatAttachmentInsert(i) {
-    return /\s/.test(i) ? `@"${i.replace(/"/g, '\\"')}" ` : `@${i} `;
-  }
-  getNoteAndFolderSuggestions(i) {
-    let e = this.plugin.app.vault.getMarkdownFiles(),
-      t = new Set();
-    for (let a of e) {
-      let o = a.path.split("/");
-      for (let l = 1; l < o.length; l++) t.add(o.slice(0, l).join("/"));
-    }
-    let n = [...t].map((a) => ({
-        label: `${a}/`,
-        detail: "Folder",
-        insertText: this.formatAttachmentInsert(`${a}/`)
-      })),
-      s = e.map((a) => {
-        let o = a.path.replace(/\.md$/i, "");
-        return {
-          label: o,
-          detail: "Note",
-          insertText: this.formatAttachmentInsert(o)
-        };
-      });
-    return [...n, ...s]
-      .filter((a) => a.label.toLowerCase().includes(i))
-      .sort((a, o) => a.label.localeCompare(o.label));
-  }
-  getTagSuggestions(i) {
-    var t, n;
-    let e = new Set();
-    for (let s of this.plugin.app.vault.getMarkdownFiles()) {
-      let a = this.plugin.app.metadataCache.getFileCache(s);
-      for (let l of (t = a == null ? void 0 : a.tags) != null ? t : []) e.add(l.tag);
-      let o = (n = a == null ? void 0 : a.frontmatter) == null ? void 0 : n.tags;
-      if (Array.isArray(o)) for (let l of o) e.add(String(l).startsWith("#") ? String(l) : `#${l}`);
-      else typeof o == "string" && e.add(o.startsWith("#") ? o : `#${o}`);
-    }
-    return [...e]
-      .filter((s) => s.toLowerCase().includes(i))
-      .sort()
-      .map((s) => ({ label: s, detail: "Tag", insertText: `${s} ` }));
-  }
-  getCommandSuggestions(i) {
-    return G(this.plugin.settings, this.plugin.getVaultBasePath())
-      .map((e) => ({
-        label: e.command,
-        detail: e.command.startsWith("/skill:") ? `Skill — ${e.detail}` : e.detail,
-        insertText: e.insertText
-      }))
-      .filter((e) => `${e.label} ${e.detail} ${e.insertText}`.toLowerCase().includes(i));
-  }
-  render() {
-    var e;
-    (e = this.suggestEl) == null || e.remove();
-    let i = this.inputEl.parentElement;
-    if (i) {
-      this.suggestEl = i.createDiv({
-        cls: "obsidian-pi-suggest",
-        attr: { role: "listbox" }
-      });
-      for (let t = 0; t < this.suggestions.length; t++) {
-        let n = this.suggestions[t],
-          s = this.suggestEl.createDiv({
-            cls: `obsidian-pi-suggest-item${t === this.selectedSuggestionIndex ? " is-selected" : ""}`,
-            attr: {
-              role: "option",
-              "aria-selected": t === this.selectedSuggestionIndex ? "true" : "false"
-            }
-          });
-        (s.createSpan({ cls: "obsidian-pi-suggest-label", text: n.label }),
-          s.createSpan({ cls: "obsidian-pi-suggest-detail", text: n.detail }),
-          s.addEventListener("mousedown", (a) => {
-            (a.preventDefault(), this.apply(t));
-          }));
       }
-    }
-  }
-  apply(i) {
-    if (!this.activeSuggestRange) return;
-    let e = this.suggestions[i];
-    if (!e) return;
-    let t = this.inputEl.value;
-    this.inputEl.value =
-      t.slice(0, this.activeSuggestRange.start) +
-      e.insertText +
-      t.slice(this.activeSuggestRange.end);
-    let n = this.activeSuggestRange.start + e.insertText.length;
-    (this.inputEl.setSelectionRange(n, n), this.close(), this.onApply(), this.inputEl.focus());
-  }
-};
-var re = require("obsidian"),
-  se = class {
-    constructor(i, e) {
-      this.plugin = i;
-      this.callbacks = e;
-    }
-    showThreadMenu(i) {
-      let e = new re.Menu(),
-        t = this.plugin.messages.length > 0,
-        n = this.plugin.getCurrentThread(),
-        s = this.plugin.listThreads({ includeArchived: !0 }).filter((a) => a.archived);
-      (e.addItem((a) =>
-        a
-          .setTitle("New chat")
-          .setIcon("plus")
-          .onClick(() => this.startNewArchivedChat())
-      ),
-        e.addItem((a) =>
-          a
-            .setTitle("Save transcript as note...")
-            .setIcon("file-output")
-            .setDisabled(!t)
-            .onClick(() => {
-              this.callbacks.archiveCurrentChat();
-            })
-        ),
-        e.addItem((a) =>
-          a
-            .setTitle("Copy transcript")
-            .setIcon("copy")
-            .setDisabled(!t)
-            .onClick(() => {
-              this.callbacks.copyTranscript();
-            })
-        ),
-        e.addSeparator(),
-        s.length === 0 &&
-          e.addItem((a) => a.setTitle("No archived chats").setIcon("archive").setDisabled(!0)));
-      for (let a of s.slice(0, 16))
-        e.addItem((o) =>
-          o
-            .setTitle(a.title)
-            .setIcon(a.id === n.id ? "check" : "archive")
-            .onClick(() => {
-              (this.plugin.switchThread(a.id),
-                this.callbacks.renderThreadTitle(),
-                this.callbacks.renderMessages());
-            })
+      addMessage(e) {
+        return this.addMessageToThread(this.threadHistory.currentThreadId, e);
+      }
+      addMessageToThread(e, t) {
+        let n = this.threadHistory.addMessageToThread(e, t);
+        return n ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true) : false;
+      }
+      startNewThread(e) {
+        let t = this.threadHistory.startNewThread(e);
+        return (this.syncCurrentThreadState(), this.saveThreadHistory(), t);
+      }
+      forkCurrentThread() {
+        var t;
+        let e = this.getCurrentThread(),
+          n = e.piSessionId
+            ? (t = this.pi) == null
+              ? void 0
+              : t.createForkSessionFile(e.piSessionId)
+            : void 0,
+          s = this.threadHistory.forkCurrentThread(n);
+        return s ? (this.syncCurrentThreadState(), this.saveThreadHistory(), s) : void 0;
+      }
+      getCurrentThread() {
+        return this.threadHistory.getCurrentThread();
+      }
+      listThreads(e) {
+        return this.threadHistory.listThreads(e);
+      }
+      getThreadDisplayMessageCount(e) {
+        let t = Array.isArray(e == null ? void 0 : e.messages) ? e.messages.length : 0,
+          n = this.countPiSessionChatMessages(e == null ? void 0 : e.piSessionId);
+        return Math.max(t, n);
+      }
+      countPiSessionChatMessages(e) {
+        if (!e || !import_node_fs4.default.existsSync(e)) return 0;
+        try {
+          return import_node_fs4.default
+            .readFileSync(e, "utf8")
+            .split(/\r?\n/)
+            .reduce((t, n) => {
+              if (!n.trim()) return t;
+              try {
+                let s = JSON.parse(n),
+                  a = s == null ? void 0 : s.message;
+                return s.type === "message" && (a?.role === "user" || a?.role === "assistant")
+                  ? t + 1
+                  : t;
+              } catch {
+                return t;
+              }
+            }, 0);
+        } catch {
+          return 0;
+        }
+      }
+      switchThread(e) {
+        return this.threadHistory.switchThread(e)
+          ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
+          : false;
+      }
+      archiveThread(e = this.threadHistory.currentThreadId) {
+        return this.threadHistory.archiveThread(e)
+          ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
+          : false;
+      }
+      unarchiveThread(e) {
+        return this.threadHistory.unarchiveThread(e)
+          ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
+          : false;
+      }
+      deleteThread(e) {
+        return this.threadHistory.deleteThread(e)
+          ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
+          : false;
+      }
+      clearArchivedThreads() {
+        let e = this.threadHistory.clearArchivedThreads();
+        return e === 0 ? 0 : (this.syncCurrentThreadState(), this.saveThreadHistory(), e);
+      }
+      renameThread(e, t) {
+        return this.threadHistory.renameThread(e, t)
+          ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
+          : false;
+      }
+      async activateView() {
+        var n;
+        let t = (n = this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE)[0]) != null ? n : null;
+        if (!t) {
+          if (((t = this.app.workspace.getRightLeaf(false)), !t)) {
+            new P.Notice("Could not open Pi view.");
+            return;
+          }
+          await t.setViewState({ type: PI_AGENT_VIEW_TYPE, active: true });
+        }
+        this.app.workspace.revealLeaf(t);
+      }
+      async runPiPrompt(e, t, n, i = this.pi) {
+        var p;
+        if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
+        if (
+          ((!this.graph || !this.contextBuilder || !this.pi || !this.changeTracker) &&
+            this.rebuildServices(),
+          !this.graph || !this.contextBuilder || !this.pi || !this.changeTracker)
+        )
+          throw new Error("Pi services are not available.");
+        let s = this.getEditorSelection(),
+          a = getCompactInstructions(e) === void 0 ? await this.contextBuilder.build(e, s) : void 0;
+        if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
+        let o = n ? this.threadHistory.getThread(n) : this.threadHistory.getCurrentThread();
+        if (!o) throw new Error("Chat thread no longer exists.");
+        if (!i) throw new Error("Pi runner is not available.");
+        let l = getPriorThreadHistory(o.messages, e),
+          d = this.shouldTrackPiChanges() ? await this.changeTracker.snapshot() : void 0;
+        if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
+        a &&
+          ((p = t == null ? void 0 : t.onEvent) == null ||
+            p.call(t, {
+              type: "context_ready",
+              raw: {
+                searchResults: a.searchResults.length,
+                linkedNeighborhood: a.linkedNeighborhood.length
+              }
+            }));
+        if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
+        let h = await i.run(e, a, o.piSessionId, l, t),
+          u;
+        if (d)
+          try {
+            u = await this.changeTracker.diff(d);
+          } catch (m2) {
+            let c = m2 instanceof Error ? m2.message : String(m2);
+            h = {
+              ...h,
+              finalResponse: `${h.finalResponse}
+
+Warning: Pi Agent could not summarize vault changes after this run: ${c}`.trim()
+            };
+            console.warn("Pi Agent: failed to summarize post-run vault changes", m2);
+          }
+        let m = u ? mergeRunChanges(h, u) : h;
+        return (
+          h.sessionId &&
+            (this.threadHistory.setThreadPiSessionId(o.id, h.sessionId),
+            this.syncCurrentThreadState(),
+            this.saveThreadHistory()),
+          m
         );
-      (e.addSeparator(),
-        e.addItem((a) =>
-          a
-            .setTitle("Clear archived chats")
-            .setIcon("trash-2")
-            .setDisabled(s.length === 0)
-            .onClick(() => {
-              if (
-                !window.confirm(
-                  `Delete ${s.length} archived chat${s.length === 1 ? "" : "s"} from plugin history?`
-                )
-              )
-                return;
-              let l = this.plugin.clearArchivedThreads();
-              (new re.Notice(`Cleared ${l} archived chat${l === 1 ? "" : "s"}.`),
-                this.callbacks.renderMessages());
-            })
-        ),
-        e.addItem((a) =>
-          a
-            .setTitle("Archive and start new chat")
-            .setIcon("archive")
-            .setDisabled(!t)
-            .onClick(() => {
-              (this.plugin.archiveThread(n.id),
-                this.plugin.startNewThread(),
-                this.callbacks.renderThreadTitle(),
-                this.callbacks.renderMessages());
-            })
-        ),
-        e.showAtMouseEvent(i));
-    }
-    startNewArchivedChat() {
-      let i = this.plugin.getCurrentThread();
-      (this.plugin.messages.length > 0 && !i.archived && this.plugin.archiveThread(i.id),
-        this.plugin.startNewThread(),
-        this.callbacks.renderThreadTitle(),
-        this.callbacks.renderMessages());
-    }
-  };
-function Xe(r, i) {
-  var o;
-  let e = [],
-    t = (l, d, h, u) => {
-      u &&
-        (e.some((g) => l < g.end && d > g.start) ||
-          e.push({ start: l, end: d, text: h, target: u }));
-    },
-    n = (l, d, h, u) => {
-      t(l, d, h, i.parseVaultLinkTarget(u));
-    };
-  for (let l of r.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g))
-    l.index !== void 0 && n(l.index, l.index + l[0].length, (o = l[2]) != null ? o : l[1], l[1]);
-  for (let l of r.matchAll(/\[([^\]]+)\]\(([^)]+?\.md(?::\d+)?)(?:#[^)]+)?\)/g))
-    l.index !== void 0 && n(l.index, l.index + l[0].length, l[1], l[2]);
-  for (let l of r.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g))
-    l.index !== void 0 && t(l.index, l.index + l[0].length, l[1], { url: Ze(l[2]) });
-  for (let l of r.matchAll(/https?:\/\/[^\s<>()]+/g)) {
-    if (l.index === void 0) continue;
-    let d = Ze(l[0]);
-    t(l.index, l.index + d.length, d, { url: d });
-  }
-  for (let l of r.matchAll(/(?:\/?[A-Za-z0-9 _.-]+\/)+[A-Za-z0-9 _.-]+\.md(?::\d+)?/g))
-    l.index !== void 0 && n(l.index, l.index + l[0].length, i.getLinkLabel(l[0]), l[0]);
-  e.sort((l, d) => l.start - d.start);
-  let s = [],
-    a = 0;
-  for (let l of e)
-    (l.start > a && s.push({ text: r.slice(a, l.start) }),
-      s.push({ text: l.text, target: l.target }),
-      (a = l.end));
-  return (a < r.length && s.push({ text: r.slice(a) }), s);
-}
-function Ze(r) {
-  return r.replace(/[.,;:!?]+$/g, "");
-}
-var ae = class extends f.ItemView {
-  constructor(e, t) {
-    super(e);
-    this.plugin = t;
-    this.running = !1;
-    this.canceling = !1;
-    this.composerBarExpanded = !1;
-    this.activityText = "Thinking";
-    this.activityKind = "thinking";
-    this.activityLog = [];
-    this.streamingAssistantContent = "";
-    this.stickToBottom = !0;
-  }
-  getViewType() {
-    return T;
-  }
-  getDisplayText() {
-    return Ce;
-  }
-  getIcon() {
-    return I;
-  }
-  async onOpen() {
-    let e = this.containerEl.children[1];
-    (e.empty(),
-      e.addClass("obsidian-pi-view"),
-      (this.noteActions = new te(this.plugin, {
-        parseVaultLinkTarget: (c) => this.parseVaultLinkTarget(c),
-        formatVaultLinkTarget: (c) => this.formatVaultLinkTarget(c),
-        openVaultLink: (c) => this.openVaultLink(c)
-      })),
-      (this.messageActions = new ee(this.plugin, {
-        getInput: () => this.inputEl,
-        runPrompt: (c) => {
-          this.runPrompt(c);
-        },
-        openChangedFiles: (c) => this.openChangedFiles(c),
-        insertIntoCurrentNote: (c) => {
-          var p;
-          return (p = this.noteActions) == null ? void 0 : p.insertIntoCurrentNote(c);
-        },
-        createNoteFromResponse: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.createNoteFromResponse(c)) != null
-            ? v
-            : Promise.resolve();
-        },
-        openCitedNotes: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.openCitedNotes(c)) != null
-            ? v
-            : Promise.resolve();
-        },
-        extractVaultLinks: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.extractVaultLinks(c)) != null
-            ? v
-            : [];
-        },
-        getPreviousUserPrompt: (c) => {
-          var p;
-          return (p = this.noteActions) == null ? void 0 : p.getPreviousUserPrompt(c);
-        }
-      })),
-      (this.threadMenu = new se(this.plugin, {
-        renderThreadTitle: () => this.renderThreadTitle(),
-        renderMessages: () => this.renderMessages(),
-        archiveCurrentChat: () => {
-          var c, p;
-          return (p = (c = this.noteActions) == null ? void 0 : c.archiveCurrentChat()) != null
-            ? p
-            : Promise.resolve();
-        },
-        copyTranscript: () =>
-          this.noteActions
-            ? this.noteActions.copyText(this.noteActions.formatTranscript())
-            : Promise.resolve()
-      })));
-    let t = e.createDiv({ cls: "obsidian-pi-header" }),
-      n = t.createDiv({ cls: "obsidian-pi-brand" }),
-      s = n.createSpan({
-        cls: "obsidian-pi-brand-icon",
-        attr: { title: "Obsidian Pi" }
-      });
-    (this.renderPiIcon(s),
-      (this.threadTitleEl = n.createSpan({
-        cls: "obsidian-pi-thread-title",
-        attr: { role: "button", tabindex: "0", title: "Rename chat" }
-      })),
-      this.threadTitleEl.addEventListener("click", () => this.startThreadTitleRename()),
-      this.threadTitleEl.addEventListener("keydown", (c) => {
-        (c.key === "Enter" || c.key === " ") && (c.preventDefault(), this.startThreadTitleRename());
-      }),
-      this.renderThreadTitle());
-    let a = t.createDiv({ cls: "obsidian-pi-header-actions" }),
-      o = a.createEl("button", {
-        cls: "clickable-icon obsidian-pi-header-action",
-        attr: { "aria-label": "New chat", title: "New chat" }
-      });
-    ((0, f.setIcon)(o, "plus"),
-      o.addEventListener("click", (c) => {
-        var p;
-        (c.preventDefault(), (p = this.threadMenu) == null || p.startNewArchivedChat());
-      }));
-    let l = a.createEl("button", {
-      cls: "clickable-icon obsidian-pi-thread-menu",
-      attr: {
-        "aria-label": "Chat threads and archive",
-        title: "Chat threads and archive"
       }
-    });
-    ((0, f.setIcon)(l, "archive"),
-      l.addEventListener("click", (c) => {
-        var p;
-        (c.preventDefault(), (p = this.threadMenu) == null || p.showThreadMenu(c));
-      }),
-      this.registerDomEvent(document, "keydown", (c) => {
-        c.key !== "Escape" || !this.running || (c.preventDefault(), this.cancelCurrentRun());
-      }),
-      (this.messagesEl = e.createDiv({ cls: "obsidian-pi-messages" })),
-      this.messagesEl.addEventListener("scroll", () => {
-        if (!this.messagesEl) return;
-        let c =
-          this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
-        this.stickToBottom = c < 40;
-      }));
-    let d = e.createDiv({ cls: "obsidian-pi-composer" });
-    ((this.toolBadgesEl = d.createDiv({ cls: "obsidian-pi-tool-badges" })),
-      this.renderToolBadges(),
-      this.registerEvent(
-        this.plugin.app.workspace.on("file-open", () => {
-          this.renderToolBadges();
-        })
-      ),
-      this.registerEvent(
-        this.plugin.app.workspace.on("active-leaf-change", () => {
-          this.renderToolBadges();
-        })
-      ),
-      (this.inputEl = d.createEl("textarea", {
-        placeholder: "Ask Pi about your vault... Enter sends, Shift+Enter adds a line."
-      })),
-      this.inputEl.addEventListener("keydown", (c) => {
-        var p;
-        ((p = this.suggestions) != null && p.handleKeydown(c)) ||
-          (c.key === "Enter" &&
-            !c.shiftKey &&
-            !c.isComposing &&
-            (c.preventDefault(), this.submitInput()),
-          c.key === "Escape" && this.running && (c.preventDefault(), this.cancelCurrentRun()));
-      }),
-      this.inputEl.addEventListener("input", () => {
-        var c;
-        (this.resizeInput(), (c = this.suggestions) == null || c.update());
-      }),
-      this.inputEl.addEventListener("click", () => {
-        var c;
-        return (c = this.suggestions) == null ? void 0 : c.update();
-      }),
-      this.inputEl.addEventListener("blur", () => {
-        window.setTimeout(() => {
-          var c;
-          return (c = this.suggestions) == null ? void 0 : c.close();
-        }, 120);
-      }),
-      (this.suggestions = new ne(this.inputEl, this.plugin, () => this.resizeInput())),
-      this.resizeInput());
-    let h = d.createDiv({ cls: "obsidian-pi-composer-bar" });
-    ((this.composerBarEl = h),
-      (this.runSettings = new ie(this.plugin)),
-      this.runSettings.render(h));
-    let m = h.createEl("button", {
-      cls: "clickable-icon obsidian-pi-send-button",
-      attr: { "aria-label": "Send message", title: "Send message" }
-    });
-    ((0, f.setIcon)(m, "send"),
-      m.createSpan({ cls: "obsidian-pi-control-label", text: "Send" }),
-      (this.sendButtonEl = m),
-      m.addEventListener("click", () => this.handleSendButtonClick()),
-      this.observeComposerBar(h),
-      this.renderMessages());
-  }
-  async onClose() {
-    var e;
-    ((this.messagesEl = void 0),
-      (this.inputEl = void 0),
-      (this.sendButtonEl = void 0),
-      (this.composerBarEl = void 0),
-      (this.composerBarExpandEl = void 0),
-      (this.runSettings = void 0),
-      (this.toolBadgesEl = void 0),
-      (this.threadTitleEl = void 0),
-      (this.messageActions = void 0),
-      (this.noteActions = void 0),
-      (this.threadMenu = void 0),
-      (e = this.suggestions) == null || e.close(),
-      (this.suggestions = void 0));
-  }
-  renderToolBadges() {
-    let e = this.toolBadgesEl;
-    if (!e) return;
-    e.empty();
-    let t = this.plugin.getCurrentContextFile(),
-      n = t
-        ? { label: `Current: ${t.basename}`, enabled: !0, title: t.path }
-        : {
-            label: "No current note",
-            enabled: !1,
-            title: "Open a markdown note to attach it automatically"
-          };
-    e.createSpan({
-      cls: `obsidian-pi-tool-badge${n.enabled ? " is-enabled" : ""}`,
-      text: n.label,
-      attr: { title: n.title }
-    });
-  }
-  renderThreadTitle() {
-    if (!this.threadTitleEl) return;
-    let e = this.plugin.getCurrentThread();
-    (this.threadTitleEl.empty(),
-      this.threadTitleEl.createSpan({ text: e.title }),
-      e.archived &&
-        this.threadTitleEl.createSpan({
-          cls: "obsidian-pi-thread-archived",
-          text: "Archived"
-        }));
-  }
-  startThreadTitleRename() {
-    var a;
-    if (!((a = this.threadTitleEl) != null && a.isConnected)) return;
-    let e = this.plugin.getCurrentThread();
-    (this.threadTitleEl.empty(), this.threadTitleEl.addClass("is-editing"));
-    let t = this.threadTitleEl.createEl("input", {
-        cls: "obsidian-pi-thread-title-input",
-        attr: { type: "text", value: e.title, "aria-label": "Chat title" }
-      }),
-      n = (o) => {
-        var d;
-        let l = t.value.trim();
-        ((d = this.threadTitleEl) == null || d.removeClass("is-editing"),
-          o && l && l !== e.title && this.plugin.renameThread(e.id, l),
-          this.renderThreadTitle());
-      },
-      s = (o) => {
-        o.stopPropagation();
-      };
-    (t.addEventListener(
-      "keydown",
-      (o) => {
-        (s(o), o.key === "Enter" && n(!0), o.key === "Escape" && n(!1));
-      },
-      { capture: !0 }
-    ),
-      t.addEventListener("keypress", s, { capture: !0 }),
-      t.addEventListener("keyup", s, { capture: !0 }),
-      t.addEventListener("click", (o) => o.stopPropagation()),
-      t.addEventListener("blur", () => n(!0)),
-      t.focus(),
-      t.select());
-  }
-  submitInput() {
-    var t, n;
-    if (this.running) {
-      this.cancelCurrentRun();
-      return;
-    }
-    let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
-    e &&
-      (this.inputEl && (this.inputEl.value = ""),
-      (n = this.suggestions) == null || n.close(),
-      this.resizeInput(),
-      this.runPrompt(e));
-  }
-  handleSendButtonClick() {
-    if (this.running) {
-      this.cancelCurrentRun();
-      return;
-    }
-    this.submitInput();
-  }
-  cancelCurrentRun() {
-    this.canceling ||
-      ((this.canceling = !0),
-      this.setActivity("Canceling", "finishing"),
-      this.plugin.cancelPiRun(),
-      this.setRunningState(!0));
-  }
-  observeComposerBar(e) {
-    let t = () => this.updateComposerBarMode(e.clientWidth);
-    if ((t(), typeof ResizeObserver == "undefined")) {
-      this.registerDomEvent(window, "resize", t);
-      return;
-    }
-    let n = new ResizeObserver((s) => {
-      var o, l;
-      let a = (l = (o = s[0]) == null ? void 0 : o.contentRect.width) != null ? l : e.clientWidth;
-      this.updateComposerBarMode(a);
-    });
-    (n.observe(e), this.register(() => n.disconnect()));
-  }
-  updateComposerBarMode(e) {
-    let t = this.composerBarEl;
-    if (!t) return;
-    let n = e < 560,
-      s = e < 390;
-    (!n && this.composerBarExpanded && (this.composerBarExpanded = !1),
-      t.toggleClass("is-compact", n),
-      t.toggleClass("is-narrow", s),
-      this.updateComposerBarExpansion());
-  }
-  updateComposerBarExpansion() {
-    let e = this.composerBarEl,
-      t = this.composerBarExpandEl;
-    if (!e || !t) return;
-    let n = this.composerBarExpanded && e.hasClass("is-compact");
-    (e.toggleClass("is-expanded", n),
-      t.setAttr("aria-label", n ? "Collapse run options" : "Expand run options"),
-      t.setAttr("title", n ? "Collapse run options" : "Expand run options"),
-      (0, f.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
-  }
-  resizeInput() {
-    this.inputEl &&
-      ((this.inputEl.style.height = "auto"),
-      (this.inputEl.style.height = `${Math.min(this.inputEl.scrollHeight, 160)}px`));
-  }
-  async runPrompt(e) {
-    if (this.running) {
-      new f.Notice("Pi is already running.");
-      return;
-    }
-    ((this.running = !0),
-      (this.canceling = !1),
-      (this.activityText = "Preparing context"),
-      (this.activityKind = "context"),
-      (this.activityLog = ["Preparing Obsidian context"]),
-      (this.streamingAssistantContent = ""),
-      (this.stickToBottom = !0),
-      this.setRunningState(!0),
-      this.plugin.addMessage({
-        role: "user",
-        content: e,
-        createdAt: Date.now()
-      }),
-      this.renderThreadTitle(),
-      this.renderMessages());
-    try {
-      let t = await this.plugin.runPiPrompt(e, {
-        onEvent: (n) => this.handleRunEvent(n),
-        onTextDelta: (n) => this.appendStreamingDelta(n)
-      });
-      ((this.streamingAssistantContent = ""),
-        (this.streamingItemEl = void 0),
-        (this.streamingTextEl = void 0),
-        this.plugin.addMessage({
-          role: "assistant",
-          content: t.finalResponse,
-          createdAt: Date.now(),
-          changeSummaries: t.changes,
-          changedFiles: t.changedFiles,
-          changeStats: t.changeStats
-        }),
-        this.renderThreadTitle(),
-        this.renderMessages());
-    } catch (t) {
-      let n = t instanceof Error ? t.message : String(t);
-      if (n === "Pi run canceled.") {
-        (new f.Notice("Pi run canceled."), this.renderMessages());
-        return;
+      shouldTrackPiChanges() {
+        let e =
+          this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
+        return e === "edit" || e === "full-agent";
       }
-      (this.plugin.addMessage({
-        role: "assistant",
-        content: `Pi run failed: ${n}`,
-        createdAt: Date.now()
-      }),
-        this.renderThreadTitle(),
-        this.renderMessages(),
-        new f.Notice(n));
-    } finally {
-      ((this.running = !1),
-        (this.canceling = !1),
-        (this.streamingAssistantContent = ""),
-        this.setRunningState(!1));
-    }
-  }
-  renderMessages() {
-    if (!this.messagesEl) return;
-    this.messagesEl.empty();
-    let e = this.plugin.messages;
-    if (e.length === 0) {
-      this.renderEmptyState();
-      return;
-    }
-    for (let t = 0; t < e.length; t++) this.renderMessage(e[t], t);
-    (this.running && this.streamingAssistantContent
-      ? this.renderStreamingAssistantMessage()
-      : this.running && this.activityText && this.renderActivityMessage(),
-      this.stickToBottom && (this.messagesEl.scrollTop = this.messagesEl.scrollHeight));
-  }
-  renderEmptyState() {
-    if (!this.messagesEl) return;
-    let t = this.messagesEl
-      .createDiv({ cls: "obsidian-pi-empty-state" })
-      .createSpan({ cls: "obsidian-pi-empty-icon" });
-    (0, f.setIcon)(t, "messages-square");
-  }
-  renderMessage(e, t) {
-    if (!this.messagesEl) return;
-    let n = this.messagesEl.createDiv({
-      cls: `obsidian-pi-message obsidian-pi-message-${e.role}`
-    });
-    this.renderRoleLabel(n, e.role === "user" ? "user" : "pi", e, t);
-    let s = n.createDiv({ cls: "obsidian-pi-message-content" });
-    e.role === "assistant"
-      ? this.renderMarkdownMessageContent(s, e.content)
-      : this.renderPlainMessageContent(s, e.content);
-  }
-  async renderMarkdownMessageContent(e, t) {
-    var n, s;
-    e.addClass("obsidian-pi-message-content-markdown");
-    try {
-      (await f.MarkdownRenderer.render(
-        this.app,
-        t,
-        e,
-        (s = (n = this.plugin.getCurrentContextFile()) == null ? void 0 : n.path) != null ? s : "",
-        this
-      ),
-        this.enhanceRenderedLinks(e),
-        this.messagesEl &&
-          this.stickToBottom &&
-          (this.messagesEl.scrollTop = this.messagesEl.scrollHeight));
-    } catch (a) {
-      (console.warn("Obsidian Pi: markdown rendering failed", a),
-        this.renderPlainMessageContent(e, t),
-        this.messagesEl &&
-          this.stickToBottom &&
-          (this.messagesEl.scrollTop = this.messagesEl.scrollHeight));
-    }
-  }
-  enhanceRenderedLinks(e) {
-    for (let t of Array.from(e.querySelectorAll("a.internal-link")))
-      t.addEventListener("click", (n) => {
-        (n.preventDefault(), n.stopPropagation());
-        let s = n,
-          a = t.getAttribute("href") || t.getAttribute("data-href") || t.textContent || "";
-        this.openVaultPath(a, s.metaKey || s.ctrlKey ? "tab" : !1);
-      });
-  }
-  renderPlainMessageContent(e, t) {
-    let n = document.createDocumentFragment();
-    for (let s of Xe(t, {
-      parseVaultLinkTarget: (a) => this.parseVaultLinkTarget(a),
-      getLinkLabel: (a) => this.getLinkLabel(a)
-    }))
-      s.target
-        ? n.appendChild(this.createChatLink(s.text, s.target))
-        : n.appendChild(document.createTextNode(s.text));
-    e.appendChild(n);
-  }
-  createChatLink(e, t) {
-    let n = document.createElement("a");
-    return (
-      n.addClass("obsidian-pi-vault-link"),
-      n.setText(e),
-      this.isExternalLinkTarget(t)
-        ? (n.setAttr("href", t.url), n.setAttr("title", t.url))
-        : (n.setAttr("href", "#"), n.setAttr("title", this.formatVaultLinkTarget(t))),
-      n.addEventListener("click", (s) => {
-        if ((s.preventDefault(), s.stopPropagation(), this.isExternalLinkTarget(t))) {
-          this.openExternalUrl(t.url);
-          return;
-        }
-        let a = s.metaKey || s.ctrlKey ? "tab" : !1;
-        this.openVaultLink(t, a);
-      }),
-      n.addEventListener("contextmenu", (s) => {
-        if ((s.preventDefault(), s.stopPropagation(), this.isExternalLinkTarget(t))) {
-          this.showExternalLinkMenu(s, t.url);
-          return;
-        }
-        this.showVaultLinkMenu(s, t);
-      }),
-      n
-    );
-  }
-  isExternalLinkTarget(e) {
-    return "url" in e;
-  }
-  showExternalLinkMenu(e, t) {
-    let n = new f.Menu();
-    (n.addItem((s) =>
-      s
-        .setTitle("Open link")
-        .setIcon("external-link")
-        .onClick(() => this.openExternalUrl(t))
-    ),
-      n.addItem((s) =>
-        s
-          .setTitle("Copy link")
-          .setIcon("copy")
-          .onClick(() => {
-            var a;
-            (a = this.noteActions) == null ? void 0 : a.copyText(t);
-          })
-      ),
-      n.showAtMouseEvent(e));
-  }
-  openExternalUrl(e) {
-    var s, a, o;
-    let t = window,
-      n =
-        (o =
-          (a = (s = t.require) == null ? void 0 : s.call(t, "electron")) == null
-            ? void 0
-            : a.shell) == null
-          ? void 0
-          : o.openExternal;
-    if (n) {
-      n(e);
-      return;
-    }
-    window.open(e, "_blank", "noopener");
-  }
-  showVaultLinkMenu(e, t) {
-    let n = new f.Menu();
-    (n.addItem((s) =>
-      s
-        .setTitle("Open")
-        .setIcon("file")
-        .onClick(() => {
-          this.openVaultLink(t, !1);
-        })
-    ),
-      n.addItem((s) =>
-        s
-          .setTitle("Open in new tab")
-          .setIcon("lucide-panel-top-open")
-          .onClick(() => {
-            this.openVaultLink(t, "tab");
-          })
-      ),
-      n.addItem((s) =>
-        s
-          .setTitle("Open in split")
-          .setIcon("separator-vertical")
-          .onClick(() => {
-            this.openVaultLink(t, "split");
-          })
-      ),
-      n.addItem((s) =>
-        s
-          .setTitle("Open in new window")
-          .setIcon("picture-in-picture-2")
-          .onClick(() => {
-            this.openVaultLink(t, "window");
-          })
-      ),
-      n.showAtMouseEvent(e));
-  }
-  async openVaultLink(e, t = !1) {
-    var h, u, g;
-    let n = typeof e == "string" ? this.parseVaultLinkTarget(e) : e;
-    if (!n) {
-      new f.Notice(`Note not found: ${String(e)}`);
-      return;
-    }
-    let s = n.path,
-      a = s.replace(/\.md$/i, ""),
-      o = this.getLinkSourcePath(),
-      l =
-        (g =
-          (u = (h = this.resolveDirectVaultFile(s)) != null ? h : this.resolveDirectVaultFile(a)) !=
-          null
-            ? u
-            : this.plugin.app.metadataCache.getFirstLinkpathDest(a, o)) != null
-          ? g
-          : this.plugin.app.metadataCache.getFirstLinkpathDest(s, o);
-    if (!l) {
-      new f.Notice(`Note not found: ${this.formatVaultLinkTarget(n)}`);
-      return;
-    }
-    let d = this.plugin.app.workspace.getLeaf(t);
-    (await d.openFile(l, { active: !0 }), this.revealLine(d, n.line));
-  }
-  parseVaultLinkTarget(e) {
-    let t = e
-        .trim()
-        .replace(/^obsidian:\/\//, "")
-        .replace(/\|.*$/, "")
-        .replace(/#.*$/, ""),
-      n = t.match(/:(\d+)$/),
-      s = n ? Number.parseInt(n[1], 10) : void 0,
-      a = n ? t.slice(0, -n[0].length) : t,
-      o = this.normalizeVaultPath(a);
-    return o ? { path: o, line: s } : void 0;
-  }
-  normalizeVaultPath(e) {
-    let t = e.replace(/\\/g, "/"),
-      n = this.getVaultBasePath();
-    return (n && t.startsWith(`${n}/`) ? t.slice(n.length + 1) : t)
-      .replace(/^\/+/, "")
-      .replace(/\.md$/i, ".md");
-  }
-  formatVaultLinkTarget(e) {
-    return e.line ? `${e.path}:${e.line}` : e.path;
-  }
-  getLinkLabel(e) {
-    var s, a;
-    let t = this.parseVaultLinkTarget(e),
-      n = (s = t == null ? void 0 : t.path) != null ? s : e;
-    return (a = n.split("/").pop()) != null ? a : n;
-  }
-  getLinkSourcePath() {
-    var e, t, n, s;
-    return (s =
-      (n = (e = this.plugin.getCurrentContextFile()) == null ? void 0 : e.path) != null
-        ? n
-        : (t = this.plugin.app.workspace.getActiveFile()) == null
-          ? void 0
-          : t.path) != null
-      ? s
-      : "";
-  }
-  getVaultBasePath() {
-    var t, n;
-    let e = this.plugin.app.vault.adapter;
-    return (n = (t = e.getBasePath) == null ? void 0 : t.call(e)) == null
-      ? void 0
-      : n.replace(/\\/g, "/").replace(/\/+$/, "");
-  }
-  resolveDirectVaultFile(e) {
-    let t = [e, e.endsWith(".md") ? e : `${e}.md`];
-    for (let n of t) {
-      let s = this.plugin.app.vault.getAbstractFileByPath(n);
-      if (s instanceof f.TFile) return s;
-    }
-  }
-  revealLine(e, t) {
-    !t ||
-      t < 1 ||
-      window.setTimeout(() => {
-        var o, l, d;
-        let s = e.view.editor;
-        if (!s) return;
-        let a = { line: t - 1, ch: 0 };
-        ((o = s.setCursor) == null || o.call(s, a),
-          (l = s.scrollIntoView) == null || l.call(s, { from: a, to: a }, !0),
-          (d = s.focus) == null || d.call(s));
-      }, 50);
-  }
-  appendStreamingDelta(e) {
-    if (e) {
-      if (
-        ((this.activityText = ""), (this.streamingAssistantContent += e), !this.streamingTextEl)
-      ) {
-        this.renderMessages();
-        return;
+      getSelectedModelInfo() {
+        let e =
+          this.settings.model === CUSTOM_MODEL_VALUE
+            ? this.settings.customModel
+            : this.settings.model;
+        e || (e = this.settings.effectiveModel);
+        return e ? this.settings.availableModels.find((t) => t.slug === e) : void 0;
       }
-      (this.streamingTextEl.appendText(e),
-        this.messagesEl &&
-          this.stickToBottom &&
-          (this.messagesEl.scrollTop = this.messagesEl.scrollHeight));
-    }
-  }
-  setActivity(e, t, n) {
-    ((this.activityText = e),
-      (this.activityKind = t),
-      this.addActivityLog(n != null ? n : e),
-      this.renderMessages());
-  }
-  addActivityLog(e) {
-    e &&
-      this.activityLog[this.activityLog.length - 1] !== e &&
-      (this.activityLog = [...this.activityLog, e].slice(-5));
-  }
-  handleRunEvent(e) {
-    var t;
-    if (e.type === "context_ready") {
-      this.setActivity("Starting Pi", "context", "Preparing Obsidian context");
-      return;
-    }
-    if (
-      e.type === "pi_start" ||
-      e.type === "agent_start" ||
-      e.type === "turn_start" ||
-      e.type === "message_start"
-    ) {
-      this.setActivity("Thinking", "thinking");
-      return;
-    }
-    if (e.type !== "text_delta") {
-      if (e.type === "tool_start" || e.type === "tool_update") {
-        let n = (t = e.message) != null ? t : "tool";
-        this.setActivity($t(n), Nt(n), Yt(n, e.raw));
-        return;
+      async inspectPiContext(e) {
+        if (((!this.graph || !this.contextBuilder) && this.rebuildServices(), !this.contextBuilder))
+          throw new Error("Pi context builder is not available.");
+        return this.contextBuilder.inspectContext(e, this.getEditorSelection());
       }
-      if (e.type === "tool_end") {
-        this.streamingAssistantContent || this.setActivity("Thinking", "thinking");
-        return;
+      getCurrentContextFile() {
+        return (this.refreshCurrentContextFile(), this.currentContextFile);
       }
-      e.type === "agent_end" && ((this.activityText = ""), this.renderMessages());
-    }
-  }
-  setRunningState(e) {
-    var n;
-    ((n = this.inputEl) == null || n.toggleAttribute("disabled", e),
-      this.sendButtonEl &&
-        (this.sendButtonEl.empty(),
-        (0, f.setIcon)(this.sendButtonEl, e ? (this.canceling ? "loader" : "x") : "send"),
-        this.sendButtonEl.createSpan({
-          cls: "obsidian-pi-control-label",
-          text: e ? (this.canceling ? "Canceling" : "Cancel") : "Send"
-        }),
-        this.sendButtonEl.toggleAttribute("disabled", e && this.canceling),
-        this.sendButtonEl.setAttr("aria-label", e ? "Cancel Pi run" : "Send message"),
-        this.sendButtonEl.setAttr("title", e ? "Cancel Pi run" : "Send message")),
-      this.renderMessages());
-  }
-  renderStreamingAssistantMessage() {
-    if (!this.messagesEl) return;
-    let e = this.messagesEl.createDiv({
-      cls: "obsidian-pi-message obsidian-pi-message-assistant obsidian-pi-message-streaming"
-    });
-    ((this.streamingItemEl = e), this.renderRoleLabel(e, "pi"));
-    let t = e.createDiv({
-      cls: "obsidian-pi-message-content obsidian-pi-message-content-streaming"
-    });
-    ((this.streamingTextEl = t.createSpan({
-      cls: "obsidian-pi-streaming-text"
-    })),
-      this.streamingTextEl.setText(this.streamingAssistantContent),
-      t.createSpan({ cls: "obsidian-pi-typing-cursor", text: "\u258C" }));
-  }
-  renderActivityMessage() {
-    if (!this.messagesEl) return;
-    let e = this.messagesEl.createDiv({
-      cls: "obsidian-pi-message obsidian-pi-message-assistant obsidian-pi-message-activity"
-    });
-    (this.renderRoleLabel(e, "pi"), this.activityLog.length > 0 && this.renderActivityLog(e));
-  }
-  renderActivityLog(e) {
-    let t = e.createDiv({ cls: "obsidian-pi-activity-log" });
-    for (let n of this.activityLog.slice(-5).reverse())
-      t.createDiv({ cls: "obsidian-pi-activity-log-item", text: n });
-  }
-  renderRoleLabel(e, t, n, s) {
-    var d;
-    let a = e.createDiv({ cls: "obsidian-pi-message-role" }),
-      o = a.createSpan({ cls: "obsidian-pi-message-role-title" }),
-      l = o.createSpan({
-        cls: `obsidian-pi-role-icon obsidian-pi-role-icon-${t}`
-      });
-    if (t === "user") ((0, f.setIcon)(l, "user"), o.createSpan({ text: "You" }));
-    else if (
-      (this.renderPiIcon(l), o.createSpan({ text: "Pi" }), !n && this.running && this.activityText)
-    ) {
-      let h = o.createSpan({
-        cls: `obsidian-pi-inline-activity obsidian-pi-activity-${this.activityKind}`
-      });
-      h.createSpan({
-        cls: "obsidian-pi-inline-activity-text",
-        text: this.activityText
-      });
-    }
-    if (n && s !== void 0) {
-      let h =
-        n.role === "assistant"
-          ? (d = this.messageActions) == null
-            ? void 0
-            : d.getMessageChangeStats(n)
-          : void 0;
-      if (h) {
-        let g = a.createEl("button", {
-          cls: "obsidian-pi-message-diff-stat",
-          attr: { title: "Review changed files and diff lines" }
+      cancelPiRun(e) {
+        var t;
+        (e != null ? e : (t = this.pi) != null ? t : void 0)?.cancelCurrentRun();
+      }
+      createPiRunner() {
+        (!this.graph || !this.contextBuilder) && this.rebuildServices();
+        if (!this.contextBuilder) throw new Error("Pi context builder is not available.");
+        return new PiRunner(
+          this.settings,
+          this.contextBuilder,
+          this.getVaultBasePath(),
+          this.getPluginDirectory()
+        );
+      }
+      rebuildServices() {
+        ((this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile())),
+          (this.contextBuilder = new ContextBuilder(
+            this.graph,
+            this.settings,
+            be,
+            this.getVaultBasePath()
+          )),
+          (this.catalog = new PiModelCatalog(this.getPluginDirectory())),
+          (this.changeTracker = new ChangeTracker(this.app, this.settings)),
+          (this.pi = new PiRunner(
+            this.settings,
+            this.contextBuilder,
+            this.getVaultBasePath(),
+            this.getPluginDirectory()
+          )));
+      }
+      syncCurrentThreadState() {
+        this.messages = this.threadHistory.getCurrentMessages();
+      }
+      saveThreadHistory() {
+        this.savePluginData().catch((e) => {
+          console.warn("Pi Agent: failed to save thread history", e);
         });
-        (h.filesChanged &&
-          g.createSpan({
-            cls: "obsidian-pi-diff-files",
-            text: `${h.filesChanged} files`
-          }),
-          g.createSpan({
-            cls: "obsidian-pi-diff-additions",
-            text: `+${h.additions}`
-          }),
-          g.createSpan({
-            cls: "obsidian-pi-diff-deletions",
-            text: `-${h.deletions}`
-          }),
-          g.addEventListener("click", (m) => {
-            (m.preventDefault(), m.stopPropagation(), new M(this.plugin, n).open());
-          }));
       }
-      let u = a.createEl("button", {
-        cls: "clickable-icon obsidian-pi-message-actions",
-        attr: { "aria-label": "Message actions" }
-      });
-      ((0, f.setIcon)(u, "ellipsis"),
-        u.addEventListener("click", (g) => {
-          var m;
-          (g.preventDefault(),
-            g.stopPropagation(),
-            (m = this.messageActions) == null || m.showMessageMenu(g, n, s));
-        }));
-    }
-  }
-  renderPiIcon(e) {
-    e.innerHTML = O;
-  }
-  async openChangedFiles(e) {
-    if (e.length !== 0) for (let t of e.slice(0, 5)) await this.openVaultPath(t.path);
-  }
-  async openVaultPath(e, t = "tab") {
-    let n = this.parseVaultLinkTarget(e);
-    if (!n) {
-      new f.Notice(`Note not found: ${e}`);
-      return;
-    }
-    let s = n.path,
-      a = this.plugin.app.vault.getAbstractFileByPath(s);
-    if (a instanceof f.TFile) {
-      let o = this.plugin.app.workspace.getLeaf(t);
-      (await o.openFile(a, { active: !0 }), this.revealLine(o, n.line));
-      return;
-    }
-    await this.openVaultLink(n, t);
-  }
-};
-function Dt(r) {
-  return r === "write"
-    ? "pencil-line"
-    : r === "shell"
-      ? "terminal"
-      : r === "search"
-        ? "search"
-        : "file-text";
-}
-function Nt(r) {
-  return r === "bash"
-    ? "shell"
-    : r === "edit" || r === "write"
-      ? "edit"
-      : r === "grep" || r === "find" || r === "ls"
-        ? "search"
-        : r === "read"
-          ? "read"
-          : "thinking";
-}
-function $t(r) {
-  return r === "bash"
-    ? "Running command"
-    : r === "edit" || r === "write"
-      ? "Editing files"
-      : r === "grep" || r === "find" || r === "ls"
-        ? "Searching files"
-        : r === "read"
-          ? "Reading files"
-          : "Using tool";
-}
-function Yt(r, i) {
-  let e = $t(r),
-    t = Kt(i, r);
-  return t ? `${e}: ${t}` : e;
-}
-function Kt(r, i) {
-  let e = qt(r, i);
-  return e ? String(e).replace(/\s+/g, " ").trim().slice(0, 140) : "";
-}
-function qt(r, i) {
-  let e = String(i || "").toLowerCase(),
-    t =
-      e === "bash"
-        ? ["command", "cmd"]
-        : e === "grep" || e === "find" || e === "ls"
-          ? ["pattern", "query", "path", "glob", "directory", "dir"]
-          : ["path", "filePath", "file", "target", "command", "cmd", "pattern", "query"],
-    n = Zt(r, t);
-  if (n) return n;
-  if (r && typeof r === "object") {
-    let s = JSON.stringify(r).match(
-      /(?:\"path\"|\"filePath\"|\"file\"|\"command\"|\"cmd\"|\"pattern\"|\"query\")\s*:\s*\"([^\"]+)\"/
-    );
-    return s == null ? void 0 : s[1];
-  }
-}
-function Zt(r, i, e = new Set()) {
-  if (!r || typeof r !== "object" || e.has(r)) return;
-  e.add(r);
-  for (let t of i) if (typeof r[t] === "string") return r[t];
-  for (let t of ["input", "args", "arguments", "parameters", "params", "toolInput", "data"])
-    if (r[t]) {
-      let n = Zt(r[t], i, e);
-      if (n) return n;
-    }
-  for (let t of Object.values(r)) {
-    let n = Zt(t, i, e);
-    if (n) return n;
-  }
-}
-function Bt(r) {
-  return r === "context"
-    ? "paperclip"
-    : r === "answer"
-      ? "message-square"
-      : r === "shell"
-        ? "terminal"
-        : r === "edit"
-          ? "pencil-line"
-          : r === "search"
-            ? "search"
-            : r === "read"
-              ? "file-text"
-              : r === "done" || r === "finishing"
-                ? "check-circle"
-                : "brain";
-}
-function Ot(r) {
-  if (
-    !r.startsWith(`---
-`)
-  )
-    return { frontmatter: {}, body: r, raw: "" };
-  let i = r.indexOf(
-    `
----`,
-    4
-  );
-  if (i < 0) return { frontmatter: {}, body: r, raw: "" };
-  let e = r.slice(4, i).trim(),
-    t = r.slice(i + 4).replace(/^\n/, "");
-  return { frontmatter: Vt(e), body: t, raw: e };
-}
-function tt(r, i) {
-  let e = Ot(r);
-  if (!e.raw)
-    return `---
-${_t(i)}
----
-${r}`;
-  let t = e.raw.split(/\r?\n/),
-    n = Object.fromEntries(
-      Object.entries(i)
-        .filter(([, o]) => o !== void 0)
-        .map(([o, l]) => [o, Ht(o, l).split(/\r?\n/)])
-    ),
-    s = [],
-    a = 0;
-  for (; a < t.length; ) {
-    let o = t[a].match(/^([A-Za-z0-9_-]+):\s*/);
-    if (o && n[o[1]]) {
-      (s.push(...n[o[1]]), delete n[o[1]], a++);
-      for (; a < t.length && !/^[A-Za-z0-9_-]+:\s*/.test(t[a]); a++);
-      continue;
-    }
-    (s.push(t[a]), a++);
-  }
-  for (let o of Object.values(n)) s.push(...o);
-  return `---
-${s.join(`
-`)}
----
-${e.body}`;
-}
-function Vt(r) {
-  let i = {},
-    e = r.split(/\r?\n/),
-    t = null;
-  for (let n of e) {
-    let s = n.trim();
-    if (!s || s.startsWith("#")) continue;
-    let a = n.match(/^\s+-\s+(.+)$/);
-    if (a && t) {
-      let d = i[t],
-        h = Array.isArray(d) ? d : [];
-      (h.push(Qe(a[1])), (i[t] = h));
-      continue;
-    }
-    let o = n.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (!o) continue;
-    t = o[1];
-    let l = o[2];
-    l === "" ? (i[t] = []) : (i[t] = Qe(l));
-  }
-  return i;
-}
-function _t(r) {
-  return Object.entries(r)
-    .filter(([, i]) => i !== void 0)
-    .map(([i, e]) => Ht(i, e)).join(`
-`);
-}
-function Ht(r, i) {
-  return Array.isArray(i)
-    ? i.length === 0
-      ? `${r}: []`
-      : `${r}:
-${i.map((e) => `  - ${et(e)}`).join(`
-`)}`
-    : `${r}: ${et(i)}`;
-}
-function Qe(r) {
-  let i = r.trim();
-  return i === "true"
-    ? !0
-    : i === "false"
-      ? !1
-      : /^-?\d+(\.\d+)?$/.test(i)
-        ? Number(i)
-        : i.startsWith("[") && i.endsWith("]")
-          ? i
-              .slice(1, -1)
-              .split(",")
-              .map((e) => e.trim())
-              .filter(Boolean)
-              .map((e) => e.replace(/^["']|["']$/g, ""))
-          : i.replace(/^["']|["']$/g, "");
-}
-function et(r) {
-  return typeof r == "string" ? (/[:#\n\r]/.test(r) ? JSON.stringify(r) : r) : String(r);
-}
-var oe = class extends P.Plugin {
-  constructor() {
-    super(...arguments);
-    this.settings = H;
-    this.messages = [];
-    this.threadHistory = new N();
-    this.dataSaveChain = Promise.resolve();
-  }
-  async onload() {
-    if ((await this.loadSettings(), !P.Platform.isDesktopApp)) {
-      new P.Notice("Obsidian Pi is desktop-only.");
-      return;
-    }
-    ((0, P.addIcon)(I, O),
-      this.rebuildServices(),
-      this.refreshCurrentContextFile(),
-      this.registerEvent(
-        this.app.workspace.on("file-open", (e) => {
-          this.setCurrentContextFile(e);
-        })
-      ),
-      this.registerEvent(
-        this.app.workspace.on("active-leaf-change", () => {
-          this.refreshCurrentContextFile();
-        })
-      ),
-      this.refreshModelCatalog(!1),
-      this.registerView(T, (e) => new ae(e, this)),
-      this.addRibbonIcon(I, "Open Pi", () => {
-        this.activateView();
-      }),
-      this.addCommand({
-        id: "open-pi",
-        name: "Open Pi chat",
-        callback: () => {
-          this.activateView();
-        }
-      }),
-      this.addCommand({
-        id: "ask-about-current-note",
-        name: "Ask about current note",
-        callback: () => {
-          this.runCommandPrompt(
-            "Use the active note as context. Summarize the key facts, assumptions, and useful follow-up questions."
-          );
-        }
-      }),
-      this.addCommand({
-        id: "research-around-current-note",
-        name: "Research around current note",
-        callback: () => {
-          this.runCommandPrompt(
-            "Research around the active note using backlinks, outgoing links, unresolved links, tags, and search results. Return concise findings with vault references."
-          );
-        }
-      }),
-      this.addCommand({
-        id: "suggest-frontmatter",
-        name: "Suggest frontmatter for current note",
-        callback: () => {
-          this.suggestFrontmatterForCurrentNote();
-        }
-      }),
-      this.addCommand({
-        id: "draft-base-from-current-note",
-        name: "Draft Base from current note context",
-        callback: () => {
-          this.runCommandPrompt(
-            "Draft an Obsidian Base for notes related to the active note. Infer useful fields from frontmatter, tags, backlinks, and linked notes."
-          );
-        }
-      }),
-      this.addSettingTab(new V(this.app, this)));
-  }
-  onunload() {
-    this.app.workspace.detachLeavesOfType(T);
-  }
-  async loadSettings() {
-    let e = await this.loadData(),
-      { chatHistory: t, messages: n, threadId: s, sessionId: a, ...o } = e != null ? e : {};
-    ((this.settings = Object.assign({}, H, o)),
-      (this.settings.additionalSkillFolders = normalizeSkillFolderList(
-        this.settings.additionalSkillFolders
-      )),
-      (this.settings.includeDefaultSkills = this.settings.includeDefaultSkills !== !1),
-      (this.settings.dryRun = !1),
-      (this.settings.sandboxMode === "danger-full-access" ||
-        this.settings.sandboxMode === "workspace-write") &&
-        (this.settings.sandboxMode = "edit"),
-      (this.threadHistory = new N(t, n, a != null ? a : s)));
-    let l = rn(this.getVaultBasePath());
-    ((this.settings.effectiveModel = l.effectiveModel || ""),
-      (this.settings.effectiveReasoning = l.effectiveReasoning || ""),
-      this.syncCurrentThreadState(),
-      this.settings.model &&
-        Wt(this.settings.model) &&
-        ((this.settings.customModel = `openai/${this.settings.model}`),
-        (this.settings.model = "__custom")));
-  }
-  async saveSettings() {
-    (await this.savePluginData(), this.rebuildServices());
-  }
-  async refreshModelCatalog(e) {
-    var t;
-    this.catalog || this.rebuildServices();
-    try {
-      let n = await ((t = this.catalog) == null ? void 0 : t.getAvailableModels()),
-        s = this.catalog ? this.catalog.getEffectiveConfig(this.getVaultBasePath()) : {};
-      if (!n || n.length === 0) {
-        e && new P.Notice("Pi returned no models.");
-        return;
+      savePluginData() {
+        let e = {
+          ...this.settings,
+          availableModels: [],
+          chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON())
+        };
+        return (
+          (this.dataSaveChain = this.dataSaveChain.catch(() => {}).then(() => this.saveData(e))),
+          this.dataSaveChain
+        );
       }
-      ((this.settings.availableModels = n),
-        (this.settings.effectiveModel = s.effectiveModel || ""),
-        (this.settings.effectiveReasoning = s.effectiveReasoning || ""),
-        await this.saveSettings(),
-        e &&
-          new P.Notice(
-            `Loaded ${n.length} Pi models${this.settings.effectiveModel ? `; default ${this.settings.effectiveModel}` : ""}.`
-          ));
-    } catch (n) {
-      let s = n instanceof Error ? n.message : String(n);
-      (e && new P.Notice(s), console.warn("Obsidian Pi: failed to refresh model catalog", n));
-    }
-  }
-  addMessage(e) {
-    (e.role === "user" &&
-      this.threadHistory.getCurrentThread().archived &&
-      this.threadHistory.unarchiveThread(this.threadHistory.currentThreadId),
-      this.threadHistory.addMessage(e),
-      this.syncCurrentThreadState(),
-      this.saveThreadHistory());
-  }
-  startNewThread(e) {
-    let t = this.threadHistory.startNewThread(e);
-    return (this.syncCurrentThreadState(), this.saveThreadHistory(), t);
-  }
-  getCurrentThread() {
-    return this.threadHistory.getCurrentThread();
-  }
-  listThreads(e) {
-    return this.threadHistory.listThreads(e);
-  }
-  switchThread(e) {
-    return this.threadHistory.switchThread(e)
-      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
-      : !1;
-  }
-  archiveThread(e = this.threadHistory.currentThreadId) {
-    return this.threadHistory.archiveThread(e)
-      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
-      : !1;
-  }
-  unarchiveThread(e) {
-    return this.threadHistory.unarchiveThread(e)
-      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
-      : !1;
-  }
-  deleteThread(e) {
-    return this.threadHistory.deleteThread(e)
-      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
-      : !1;
-  }
-  clearArchivedThreads() {
-    let e = this.threadHistory.clearArchivedThreads();
-    return e === 0 ? 0 : (this.syncCurrentThreadState(), this.saveThreadHistory(), e);
-  }
-  renameThread(e, t) {
-    return this.threadHistory.renameThread(e, t)
-      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
-      : !1;
-  }
-  async activateView() {
-    var n;
-    let t = (n = this.app.workspace.getLeavesOfType(T)[0]) != null ? n : null;
-    if (!t) {
-      if (((t = this.app.workspace.getRightLeaf(!1)), !t)) {
+      refreshCurrentContextFile() {
+        this.setCurrentContextFile(this.app.workspace.getActiveFile());
+      }
+      setCurrentContextFile(e) {
+        this.currentContextFile = e && e.extension === "md" ? e : void 0;
+      }
+      runWithActiveMarkdownNote(e, t) {
+        let n = this.app.workspace.getActiveFile(),
+          s = !!n && n.extension === "md";
+        if (e) return s;
+        if (!s) {
+          new P.Notice("Open a markdown note first.");
+          return false;
+        }
+        t();
+        return true;
+      }
+      async runCommandPrompt(e) {
+        await this.activateView();
+        let t = this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE)[0],
+          n = t == null ? void 0 : t.view;
+        if (n instanceof PiAgentView) {
+          n.runPrompt(e);
+          return;
+        }
         new P.Notice("Could not open Pi view.");
-        return;
       }
-      await t.setViewState({ type: T, active: !0 });
-    }
-    this.app.workspace.revealLeaf(t);
-  }
-  async runPiPrompt(e, t) {
-    var g;
-    if (
-      ((!this.graph || !this.contextBuilder || !this.pi || !this.changeTracker) &&
-        this.rebuildServices(),
-      !this.graph || !this.contextBuilder || !this.pi || !this.changeTracker)
-    )
-      throw new Error("Pi services are not available.");
-    let n = this.getEditorSelection(),
-      s = await this.contextBuilder.build(e, n),
-      a = this.threadHistory.getCurrentThread(),
-      o = Ut(a.messages, e),
-      l = this.shouldTrackPiChanges() ? await this.changeTracker.snapshot() : void 0;
-    (g = t == null ? void 0 : t.onEvent) == null ||
-      g.call(t, {
-        type: "context_ready",
-        raw: {
-          searchResults: s.searchResults.length,
-          linkedNeighborhood: s.linkedNeighborhood.length
+      async suggestFrontmatterForCurrentNote() {
+        var o;
+        this.graph || this.rebuildServices();
+        let e = (o = this.graph) == null ? void 0 : o.getActiveFile();
+        if (!e) {
+          new P.Notice("Open a markdown note first.");
+          return;
         }
-      });
-    let d = await this.pi.run(e, s, a.piSessionId, o, t),
-      h = l ? await this.changeTracker.diff(l) : void 0,
-      u = h ? zt(d, h) : d;
-    return (
-      d.sessionId &&
-        (this.threadHistory.setCurrentPiSessionId(d.sessionId),
-        this.syncCurrentThreadState(),
-        this.saveThreadHistory()),
-      u
-    );
-  }
-  shouldTrackPiChanges() {
-    let e = this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
-    return e === "edit" || e === "full-agent";
-  }
-  async inspectPiContext(e) {
-    if (((!this.graph || !this.contextBuilder) && this.rebuildServices(), !this.contextBuilder))
-      throw new Error("Pi context builder is not available.");
-    return this.contextBuilder.inspectContext(e, this.getEditorSelection());
-  }
-  getCurrentContextFile() {
-    return (this.refreshCurrentContextFile(), this.currentContextFile);
-  }
-  cancelPiRun() {
-    var e;
-    (e = this.pi) == null || e.cancelCurrentRun();
-  }
-  rebuildServices() {
-    ((this.graph = new X(this.app, this.settings, () => this.getCurrentContextFile())),
-      (this.contextBuilder = new J(this.graph, this.settings, be, this.getVaultBasePath())),
-      (this.catalog = new q(this.getPluginDirectory())),
-      (this.changeTracker = new Z(this.app, this.settings)),
-      (this.pi = new K(
-        this.settings,
-        this.contextBuilder,
-        this.getVaultBasePath(),
-        this.getPluginDirectory()
-      )));
-  }
-  syncCurrentThreadState() {
-    this.messages = this.threadHistory.getCurrentMessages();
-  }
-  saveThreadHistory() {
-    this.savePluginData().catch((e) => {
-      console.warn("Obsidian Pi: failed to save thread history", e);
-    });
-  }
-  savePluginData() {
-    let e = {
-      ...this.settings,
-      availableModels: [],
-      chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON())
+        let t = await this.app.vault.cachedRead(e),
+          n = /* @__PURE__ */ new Date().toISOString().slice(0, 10),
+          s = previewSuggestedFrontmatter(t, {
+            type: "note",
+            status: "draft",
+            updated: n,
+            tags: this.inferTags(e, t)
+          }),
+          a = {
+            id: `${Date.now()}-${e.path}`,
+            path: e.path,
+            before: t,
+            after: s,
+            reason: "Add baseline Pi-suggested frontmatter",
+            frontmatterPatch: {
+              type: "note",
+              status: "draft",
+              updated: n,
+              tags: this.inferTags(e, t)
+            }
+          };
+        new ApprovalModal(this, a, () => {}).open();
+      }
+      inferTags(e, t) {
+        var a, o, l;
+        let n = /* @__PURE__ */ new Set(),
+          s = (a = e.parent) == null ? void 0 : a.path;
+        s &&
+          s !== "/" &&
+          n.add(
+            (l =
+              (o = s.split("/").pop()) == null ? void 0 : o.toLowerCase().replace(/\s+/g, "-")) !=
+              null
+              ? l
+              : ""
+          );
+        for (let d of t.matchAll(/#([A-Za-z0-9/_-]+)/g)) n.add(d[1]);
+        return [...n].filter(Boolean).slice(0, 6);
+      }
+      getEditorSelection() {
+        var n;
+        let e = this.app.workspace.activeEditor,
+          t = e == null ? void 0 : e.editor;
+        return (n = t == null ? void 0 : t.getSelection()) != null ? n : "";
+      }
+      getVaultBasePath() {
+        var t;
+        let e = this.app.vault.adapter;
+        return (t = e.getBasePath) == null ? void 0 : t.call(e);
+      }
+      getPluginDirectory() {
+        var a;
+        let e = this.getVaultBasePath();
+        if (!e) return;
+        let t = (a = this.manifest.dir) != null ? a : `plugins/${this.manifest.id}`,
+          n = e.replace(/\/+$/, ""),
+          s = t.replace(/^\/+/, "");
+        return s.startsWith(".obsidian/")
+          ? `${n}/${s}`
+          : n.endsWith("/.obsidian")
+            ? `${n}/${s}`
+            : `${n}/.obsidian/${s}`;
+      }
     };
-    return (
-      (this.dataSaveChain = this.dataSaveChain.catch(() => {}).then(() => this.saveData(e))),
-      this.dataSaveChain
-    );
   }
-  refreshCurrentContextFile() {
-    this.setCurrentContextFile(this.app.workspace.getActiveFile());
-  }
-  setCurrentContextFile(e) {
-    this.currentContextFile = e && e.extension === "md" ? e : void 0;
-  }
-  async runCommandPrompt(e) {
-    if (this.pi && this.pi.activeChild) {
-      new P.Notice("Pi is already running.");
-      return;
-    }
-    (await this.activateView(),
-      this.addMessage({ role: "user", content: e, createdAt: Date.now() }));
-    try {
-      let t = await this.runPiPrompt(e);
-      (this.addMessage({
-        role: "assistant",
-        content: t.finalResponse,
-        createdAt: Date.now(),
-        changeSummaries: t.changes,
-        changedFiles: t.changedFiles,
-        changeStats: t.changeStats
-      }),
-        new P.Notice("Pi response added to the chat view."));
-    } catch (t) {
-      let n = t instanceof Error ? t.message : String(t);
-      new P.Notice(n);
-    }
-  }
-  async suggestFrontmatterForCurrentNote() {
-    var o;
-    this.graph || this.rebuildServices();
-    let e = (o = this.graph) == null ? void 0 : o.getActiveFile();
-    if (!e) {
-      new P.Notice("Open a markdown note first.");
-      return;
-    }
-    let t = await this.app.vault.cachedRead(e),
-      n = new Date().toISOString().slice(0, 10),
-      s = tt(t, {
-        type: "note",
-        status: "draft",
-        updated: n,
-        tags: this.inferTags(e, t)
-      }),
-      a = {
-        id: `${Date.now()}-${e.path}`,
-        path: e.path,
-        before: t,
-        after: s,
-        reason: "Add baseline Pi-suggested frontmatter"
-      };
-    new Q(this, a, () => {}).open();
-  }
-  inferTags(e, t) {
-    var a, o, l;
-    let n = new Set(),
-      s = (a = e.parent) == null ? void 0 : a.path;
-    s &&
-      s !== "/" &&
-      n.add(
-        (l = (o = s.split("/").pop()) == null ? void 0 : o.toLowerCase().replace(/\s+/g, "-")) !=
-          null
-          ? l
-          : ""
-      );
-    for (let d of t.matchAll(/#([A-Za-z0-9/_-]+)/g)) n.add(d[1]);
-    return [...n].filter(Boolean).slice(0, 6);
-  }
-  getEditorSelection() {
-    var n;
-    let e = this.app.workspace.activeEditor,
-      t = e == null ? void 0 : e.editor;
-    return (n = t == null ? void 0 : t.getSelection()) != null ? n : "";
-  }
-  getVaultBasePath() {
-    var t;
-    let e = this.app.vault.adapter;
-    return (t = e.getBasePath) == null ? void 0 : t.call(e);
-  }
-  getPluginDirectory() {
-    var a;
-    let e = this.getVaultBasePath();
-    if (!e) return;
-    let t = (a = this.manifest.dir) != null ? a : `plugins/${this.manifest.id}`,
-      n = e.replace(/\/+$/, ""),
-      s = t.replace(/^\/+/, "");
-    return s.startsWith(".obsidian/")
-      ? `${n}/${s}`
-      : n.endsWith("/.obsidian")
-        ? `${n}/${s}`
-        : `${n}/.obsidian/${s}`;
-  }
-};
-function sanitizeThreadHistory(r) {
-  return {
-    currentThreadId: r.currentThreadId,
-    threads: [...(r.threads || [])]
-      .sort((i, e) => e.updatedAt - i.updatedAt)
-      .slice(0, 40)
-      .map((i) => ({
-        ...i,
-        messages: (i.messages || []).map((e) => {
-          let { changeSummaries: t, changedFiles: n, changeStats: s, ...a } = e;
-          return a;
-        })
-      }))
-  };
-}
-function Wt(r) {
-  return !r.includes("/") && r !== "__custom";
-}
-function zt(r, i) {
-  var n, s;
-  let e = [...((n = r.changes) != null ? n : []), i],
-    t = jt([...((s = r.changedFiles) != null ? s : []), ...i.files]);
-  return {
-    ...r,
-    changes: e,
-    changedFiles: t,
-    changeStats: {
-      filesChanged: t.length,
-      additions: t.reduce((a, o) => a + o.additions, 0),
-      deletions: t.reduce((a, o) => a + o.deletions, 0)
-    }
-  };
-}
-function Ut(r, i) {
-  let e = r[r.length - 1];
-  return (e == null ? void 0 : e.role) === "user" && e.content === i ? r.slice(0, -1) : r;
-}
-function jt(r) {
-  let i = new Map();
-  for (let e of r) {
-    let t = i.get(e.path);
-    if (!t) {
-      i.set(e.path, { ...e });
-      continue;
-    }
-    ((t.additions = Math.max(t.additions, e.additions)),
-      (t.deletions = Math.max(t.deletions, e.deletions)),
-      t.status === "unknown" && (t.status = e.status),
-      e.previousPath && (t.previousPath = e.previousPath));
-  }
-  return [...i.values()];
-}
+});
+
+// src/main.js
+var { PiAgentPlugin: PiAgentPlugin2 } = (init_PiAgentPlugin(), __toCommonJS(PiAgentPlugin_exports));
+module.exports = PiAgentPlugin2;

@@ -3,7 +3,9 @@ import fs from "node:fs";
 const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const versions = JSON.parse(fs.readFileSync("versions.json", "utf8"));
-const tag = process.env.GITHUB_REF_NAME;
+const isTagRef =
+  process.env.GITHUB_REF_TYPE === "tag" || process.env.GITHUB_REF?.startsWith("refs/tags/");
+const tag = isTagRef ? process.env.GITHUB_REF_NAME : undefined;
 
 function fail(message) {
   console.error(`Version check failed: ${message}`);

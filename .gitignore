@@ -2,9 +2,12 @@
 data.json
 pi-sessions/
 
+# Local planning notes
+TODO.md
+
 # Dependencies, generated release files, and local tooling
 node_modules/
-package-lock.json
+pi-agent-*.zip
 obsidian-pi-*.zip
 
 # OS/editor files

@@ -1,52 +1,60 @@
-# Obsidian Pi
+# Pi Agent
 
-Chat with Pi inside Obsidian using context from your notes, links, backlinks, tags, and search results.
+Chat with Pi in Obsidian using context from your notes, links, backlinks, tags, search results, and selected text.
 
-> Huge thanks to Mario Zechner, the developer of Pi, for building the agent this plugin runs on top of.
+> Thanks to Mario Zechner, the developer of Pi, for building the agent this plugin runs on top of.
 
 ## Requirements
 
-Obsidian Pi is a desktop-only Obsidian plugin and requires the Pi coding agent to be installed separately.
-
-Install Pi globally before using this plugin:
+Pi Agent is desktop-only and requires the Pi coding agent to be installed separately. The upstream Pi coding agent package is [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), from [`earendil-works/pi-mono`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent):
 
 ```bash
-npm install -g @mariozechner/pi-coding-agent
-```
-
-Verify that Pi is available on your PATH:
-
-```bash
+npm install -g @earendil-works/pi-coding-agent
 pi --version
 ```
 
 If Obsidian cannot find `pi`, restart Obsidian after installation so it picks up your updated PATH.
 
+First run checklist:
+
+1. Install and authenticate Pi from a terminal.
+2. Open a dedicated test vault before enabling Edit or Full agent mode.
+3. Start in Chat or Review mode until you understand what context is sent.
+4. Enable Edit or Full agent only for vaults/projects you are comfortable letting Pi modify.
+
+Tool modes, briefly:
+
+- Chat attaches Obsidian context only; Pi CLI tools are disabled.
+- Review lets Pi read/search/list files.
+- Edit lets Pi edit/write files.
+- Full agent also lets Pi run shell commands.
+
+Privacy reminder: prompts, selected text, note content, search excerpts, attachments, and local chat history can be sent to the Pi CLI and then to your configured model provider.
+
 ## Features
 
 - Chat with Pi from an Obsidian sidebar.
-- Automatically attach current-note context.
+- Attach current-note context automatically.
 - Include linked notes, backlinks, tags, search results, frontmatter, headings, and selected text.
-- Configurable tool modes: Chat, Review, Edit, and Full Agent.
-- Configurable Pi skills: include default Pi skills and add trusted custom skill folders.
-- `/` autocomplete for built-in Obsidian context commands and available `/skill:name` commands.
-- Review mode: inspect/search only.
-- Edit mode: allow Pi to edit/write files without shell commands.
-- Full Agent mode: allow Pi to edit/write files and run shell commands.
-- Keep chat history and Pi sessions.
+- Choose tool modes: Chat, Review, Edit, and Full agent.
+- Enable default Pi skills and add trusted custom skill folders.
+- Use `/` autocomplete for Obsidian context commands and `/skill:name` commands.
 - Review detected vault changes and diffs after edit/full-agent runs.
 - Copy responses, create notes from answers, and open cited vault notes.
 
-> Tool modes enable or disable Pi CLI tools; they are not an OS-level sandbox.
+> Tool modes control which Pi CLI tools are enabled. They are not an operating-system sandbox.
 
-## Skills
+## Privacy and safety
 
-Obsidian Pi can load Pi skills from Pi's normal skill discovery locations, including vault-local `.pi/skills/` and `.agents/skills/` folders. In plugin settings you can:
+Pi Agent can send note content and selected text to the local Pi CLI, which may forward prompts to configured model providers. See [PRIVACY.md](PRIVACY.md) for details before publishing or using the plugin with sensitive vaults.
 
-- toggle whether default Pi skills are included
-- add extra trusted skill files or folders, one per line
+Short version:
 
-Configured skills appear in `/` autocomplete as `/skill:name`. Skills may contain instructions or scripts, so only enable skill folders you trust.
+- Chat history and Pi sessions are stored locally by the plugin and Pi.
+- Network access depends on your Pi/model-provider configuration.
+- Edit and Full agent modes can modify files in your vault/project.
+- Full agent mode can run shell commands through Pi.
+- Skills can contain instructions or scripts; only enable skill folders you trust.
 
 ## Installation
 
@@ -59,7 +67,7 @@ After approval, install from Obsidian's Community Plugins browser.
 Download the latest release and copy these files into:
 
 ```text
-<vault>/.obsidian/plugins/obsidian-pi/
+<vault>/.obsidian/plugins/pi-agent/
 ```
 
 Required files:
@@ -70,48 +78,45 @@ manifest.json
 styles.css
 ```
 
-Then enable **Obsidian Pi** in Obsidian settings.
+Then enable **Pi Agent** in Obsidian settings.
 
-## Development and release process
+## Development
 
-Development happens on `main`.
-
-Test the current repository version in your local vault:
+Use a dedicated test vault. Do not develop or test plugin changes in your main vault.
 
 ```bash
-npm run dev:install -- /path/to/vault/.obsidian/plugins/obsidian-pi
+npm ci
+npm run build
+npm run build:check
+npm run ci
+npm run dev:install -- /path/to/vault/.obsidian/plugins/pi-agent
 ```
 
 Then reload Obsidian, or disable and re-enable the plugin.
 
-To release a new version:
+See [docs/development.md](docs/development.md) and [docs/architecture.md](docs/architecture.md).
 
-1. Collect features and fixes on `main`.
-2. Update the version in:
-   - `manifest.json`
-   - `package.json`
-   - `versions.json`
-   - `CHANGELOG.md`
-3. Run:
+## Release
+
+1. Update `manifest.json`, `package.json`, `versions.json`, and `CHANGELOG.md`.
+2. Run:
 
 ```bash
-npm run version:check
+npm run ci
 npm run release:zip
 ```
 
-4. Commit the release prep.
-5. Create and push a matching version tag:
+3. Commit the release prep.
+4. Create and push a matching SemVer tag, for example:
 
 ```bash
 git tag 0.0.1
 git push origin 0.0.1
 ```
 
-The GitHub Actions release workflow validates the version and publishes the release assets required by Obsidian:
+The release workflow publishes:
 
 - `main.js`
 - `manifest.json`
 - `styles.css`
-- `obsidian-pi-<version>.zip`
-
-Once the plugin is accepted into Obsidian Community Plugins, new tagged GitHub releases become available through Obsidian's plugin update system.
+- `pi-agent-<version>.zip`

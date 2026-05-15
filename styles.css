@@ -1,4 +1,4 @@
-.obsidian-pi-view {
+.pi-agent-view {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -6,7 +6,7 @@
   padding: 12px;
 }
 
-.obsidian-pi-header {
+.pi-agent-header {
   align-items: center;
   display: flex;
   gap: 8px;
@@ -14,14 +14,14 @@
   min-height: 30px;
 }
 
-.obsidian-pi-brand {
+.pi-agent-brand {
   align-items: center;
   display: inline-flex;
   gap: 7px;
   min-width: 0;
 }
 
-.obsidian-pi-brand-icon {
+.pi-agent-brand-icon {
   align-items: center;
   color: var(--text-muted);
   display: inline-flex;
@@ -31,60 +31,44 @@
   width: 18px;
 }
 
-.obsidian-pi-brand-icon svg {
+.pi-agent-brand-icon svg {
   height: 18px;
   width: 18px;
 }
 
-.obsidian-pi-thread-title {
-  align-items: center;
-  background: transparent;
+.pi-agent-thread-title {
+  appearance: none;
+  background: none;
   border: 0;
-  border-radius: 6px;
   box-shadow: none;
-  color: var(--text-muted);
-  cursor: text;
-  display: inline-flex;
+  color: var(--text-normal);
+  cursor: default;
+  display: inline;
   font-size: var(--font-ui-small);
-  gap: 6px;
-  height: 24px;
   min-width: 0;
   overflow: hidden;
-  padding: 0 4px;
+  padding: 0;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.obsidian-pi-thread-title:hover,
-.obsidian-pi-thread-title:focus {
-  background: transparent;
+.pi-agent-thread-title:hover,
+.pi-agent-thread-title:focus,
+.pi-agent-thread-title.is-editing {
+  background: none;
+  box-shadow: none;
   color: var(--text-normal);
   outline: none;
 }
 
-.obsidian-pi-thread-title.is-editing {
-  box-shadow: inset 0 -1px 0 var(--background-modifier-border-hover);
-  color: var(--text-normal);
-  cursor: text;
-}
-
-.obsidian-pi-thread-title > span:first-child {
+.pi-agent-thread-title > span:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.obsidian-pi-thread-archived {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
-  color: var(--text-faint);
-  flex: 0 0 auto;
-  font-size: var(--font-ui-smaller);
-  padding: 0 5px;
-}
-
-.obsidian-pi-thread-title-input {
+.pi-agent-thread-title-input {
   background: transparent;
   border: 0;
   box-shadow: none;
@@ -97,36 +81,36 @@
   width: min(220px, 34vw);
 }
 
-.obsidian-pi-header-actions {
+.pi-agent-header-actions {
   align-items: center;
   display: inline-flex;
   flex: 0 0 auto;
   gap: 2px;
 }
 
-.obsidian-pi-header-action,
-.obsidian-pi-thread-menu {
+.pi-agent-header-action,
+.pi-agent-thread-menu {
   background: transparent;
   color: var(--text-muted);
   height: 30px;
   width: 30px;
 }
 
-.obsidian-pi-header-action svg,
-.obsidian-pi-thread-menu svg {
+.pi-agent-header-action svg,
+.pi-agent-thread-menu svg {
   height: 16px;
   width: 16px;
 }
 
-.obsidian-pi-header-action:hover,
-.obsidian-pi-header-action:focus,
-.obsidian-pi-thread-menu:hover,
-.obsidian-pi-thread-menu:focus {
+.pi-agent-header-action:hover,
+.pi-agent-header-action:focus,
+.pi-agent-thread-menu:hover,
+.pi-agent-thread-menu:focus {
   background: transparent;
   color: var(--text-normal);
 }
 
-.obsidian-pi-run-settings {
+.pi-agent-run-settings {
   align-items: center;
   display: flex;
   flex: 1 1 auto;
@@ -135,13 +119,13 @@
   overflow: hidden;
 }
 
-.obsidian-pi-run-setting {
+.pi-agent-run-setting {
   align-items: center;
   background: transparent;
   border: 0;
   border-radius: 6px;
   box-shadow: none;
-  color: var(--text-muted);
+  color: var(--text-normal);
   gap: 4px;
   display: inline-flex !important;
   flex: 0 0 auto;
@@ -151,35 +135,33 @@
   width: auto;
 }
 
-.obsidian-pi-run-setting:hover,
-.obsidian-pi-run-setting:focus {
+.pi-agent-run-setting:hover,
+.pi-agent-run-setting:focus {
   background: transparent;
   color: var(--text-normal);
 }
 
-.obsidian-pi-run-setting svg {
+.pi-agent-run-setting svg {
   height: 15px;
   width: 15px;
 }
 
-.obsidian-pi-run-setting-speed-fast {
-  color: var(--color-yellow);
+.pi-agent-run-setting-speed-fast,
+.pi-agent-run-setting-speed-default,
+.pi-agent-run-setting-mode-read {
+  color: var(--text-normal);
 }
 
-.obsidian-pi-run-setting-speed-default,
-.obsidian-pi-run-setting-mode-read {
-  color: var(--text-muted);
+.pi-agent-run-setting-mode-write {
+  color: var(--text-warning);
 }
 
-.obsidian-pi-run-setting-mode-write {
-  color: var(--color-yellow);
-}
-
-.obsidian-pi-run-setting-mode-full {
+.pi-agent-run-setting-mode-full {
   color: var(--text-error);
+  font-weight: 700;
 }
 
-.obsidian-pi-control-label {
+.pi-agent-control-label {
   color: currentColor;
   font-size: var(--font-ui-smaller);
   line-height: 1;
@@ -189,7 +171,7 @@
   white-space: nowrap;
 }
 
-.obsidian-pi-messages {
+.pi-agent-messages {
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   flex: 1;
@@ -198,35 +180,35 @@
   padding: 10px;
 }
 
-.obsidian-pi-empty {
+.pi-agent-empty {
   color: var(--text-muted);
   margin: 0;
 }
 
-.obsidian-pi-empty-state {
+.pi-agent-empty-state {
   align-items: center;
   display: flex;
   justify-content: center;
   min-height: 100%;
 }
 
-.obsidian-pi-empty-icon {
+.pi-agent-empty-icon {
   color: color-mix(in srgb, var(--text-muted) 35%, transparent);
   display: inline-flex;
 }
 
-.obsidian-pi-empty-icon svg {
+.pi-agent-empty-icon svg {
   height: 34px;
   width: 34px;
 }
 
-.obsidian-pi-message {
+.pi-agent-message {
   margin-bottom: 12px;
   -webkit-user-select: text;
   user-select: text;
 }
 
-.obsidian-pi-message-role {
+.pi-agent-message-role {
   align-items: center;
   color: var(--text-muted);
   display: flex;
@@ -237,7 +219,7 @@
   text-transform: uppercase;
 }
 
-.obsidian-pi-message-role-title {
+.pi-agent-message-role-title {
   align-items: center;
   display: inline-flex;
   flex: 1;
@@ -245,7 +227,7 @@
   min-width: 0;
 }
 
-.obsidian-pi-message-actions {
+.pi-agent-message-actions {
   background: transparent;
   border-radius: 6px;
   color: var(--text-muted);
@@ -254,47 +236,58 @@
   width: 28px;
 }
 
-.obsidian-pi-message-actions:hover,
-.obsidian-pi-message-actions:focus {
+.pi-agent-message-actions:hover,
+.pi-agent-message-actions:focus {
   background: transparent;
   color: var(--text-normal);
 }
 
-.obsidian-pi-message-diff-stat {
+.pi-agent-message-diff-stat {
   align-items: center;
+  appearance: none;
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  box-shadow: none;
   color: var(--text-muted);
   cursor: pointer;
-  display: inline-flex;
-  font-size: var(--font-ui-smaller);
+  display: inline-flex !important;
+  font: inherit;
   font-variant-numeric: tabular-nums;
   gap: 4px;
-  height: 22px;
+  height: auto;
+  line-height: inherit;
   margin-right: 4px;
-  padding: 0 4px;
+  min-width: max-content;
+  opacity: 1;
+  padding: 0;
   white-space: nowrap;
 }
 
-.obsidian-pi-message-diff-stat:hover,
-.obsidian-pi-message-diff-stat:focus {
-  background: var(--background-modifier-hover);
-}
-
-.obsidian-pi-diff-files {
+.pi-agent-message-diff-stat:hover,
+.pi-agent-message-diff-stat:focus {
+  background: transparent;
   color: var(--text-muted);
 }
 
-.obsidian-pi-diff-additions {
+.pi-agent-diff-files {
+  color: var(--text-muted);
+}
+
+.pi-agent-diff-additions {
   color: var(--text-success);
 }
 
-.obsidian-pi-diff-deletions {
+.pi-agent-diff-deletions {
   color: var(--text-error);
 }
 
-.obsidian-pi-role-icon {
+.pi-agent-setting-error {
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+  margin: -8px 0 10px;
+}
+
+.pi-agent-role-icon {
   align-items: center;
   color: var(--text-faint);
   display: inline-flex;
@@ -303,12 +296,12 @@
   width: 14px;
 }
 
-.obsidian-pi-role-icon svg {
+.pi-agent-role-icon svg {
   height: 14px;
   width: 14px;
 }
 
-.obsidian-pi-message-content {
+.pi-agent-message-content {
   background: var(--background-secondary);
   border-radius: 8px;
   color: var(--text-normal);
@@ -324,42 +317,24 @@
   user-select: text;
 }
 
-.obsidian-pi-message-content-markdown {
-  white-space: normal;
-}
-
-.obsidian-pi-message-content-markdown > :first-child {
-  margin-top: 0;
-}
-
-.obsidian-pi-message-content-markdown > :last-child {
-  margin-bottom: 0;
-}
-
-.obsidian-pi-message-content-markdown pre {
-  white-space: pre;
-}
-
-.obsidian-pi-message-content-markdown code {
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-.obsidian-pi-message-content-streaming {
+.pi-agent-message-content-streaming {
+  contain: paint;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.obsidian-pi-streaming-text {
+.pi-agent-streaming-text {
   white-space: pre-wrap;
 }
 
-.obsidian-pi-typing-cursor {
-  animation: obsidian-pi-typing-cursor-blink 0.9s steps(2, start) infinite;
+.pi-agent-typing-cursor {
+  animation: pi-agent-typing-cursor-blink 0.9s steps(2, start) infinite;
   color: var(--interactive-accent);
   margin-left: 2px;
 }
 
-@keyframes obsidian-pi-typing-cursor-blink {
+@keyframes pi-agent-typing-cursor-blink {
   0%,
   45% {
     opacity: 1;
@@ -370,42 +345,42 @@
   }
 }
 
-.obsidian-pi-message-content,
-.obsidian-pi-message-content * {
+.pi-agent-message-content,
+.pi-agent-message-content * {
   -webkit-user-select: text;
   user-select: text;
 }
 
-.obsidian-pi-message-user .obsidian-pi-message-content {
+.pi-agent-message-user .pi-agent-message-content {
   background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary-alt));
 }
 
-.obsidian-pi-message-user .obsidian-pi-message-role {
+.pi-agent-message-user .pi-agent-message-role {
   color: color-mix(in srgb, var(--interactive-accent) 82%, var(--text-muted));
 }
 
-.obsidian-pi-message-user .obsidian-pi-role-icon {
+.pi-agent-message-user .pi-agent-role-icon {
   color: color-mix(in srgb, var(--interactive-accent) 82%, var(--text-muted));
 }
 
-.obsidian-pi-vault-link {
+.pi-agent-vault-link {
   color: var(--link-color);
   cursor: pointer;
   text-decoration: none;
 }
 
-.obsidian-pi-vault-link:hover {
+.pi-agent-vault-link:hover {
   color: var(--link-color-hover);
   text-decoration: underline;
 }
 
-.obsidian-pi-composer {
+.pi-agent-composer {
   display: grid;
   gap: 8px;
   position: relative;
 }
 
-.obsidian-pi-tool-badges {
+.pi-agent-tool-badges {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
@@ -413,57 +388,57 @@
   min-height: 18px;
 }
 
-.obsidian-pi-tool-badge {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
+.pi-agent-tool-badge {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   line-height: 1.4;
-  max-width: 160px;
-  overflow: hidden;
-  padding: 0 6px;
-  text-overflow: ellipsis;
+  padding: 0;
   white-space: nowrap;
 }
 
-.obsidian-pi-tool-badge.is-enabled {
-  border-color: var(--text-muted);
-  color: var(--text-normal);
+.pi-agent-tool-badge.is-enabled {
+  color: var(--text-muted);
 }
 
-.obsidian-pi-composer-bar {
+.pi-agent-tool-badge-context {
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  max-width: none;
+}
+
+.pi-agent-composer-bar {
   align-items: center;
   display: flex;
   gap: 6px;
   min-width: 0;
 }
 
-.obsidian-pi-composer-bar.is-compact {
+.pi-agent-composer-bar.is-compact {
   gap: 3px;
 }
 
-.obsidian-pi-composer-bar.is-compact .obsidian-pi-run-setting {
+.pi-agent-composer-bar.is-compact .pi-agent-run-setting {
   gap: 0;
   padding: 0;
   width: 28px;
 }
 
-.obsidian-pi-composer-bar.is-compact .obsidian-pi-run-setting .obsidian-pi-control-label {
+.pi-agent-composer-bar.is-compact .pi-agent-run-setting .pi-agent-control-label {
   display: none;
 }
 
-.obsidian-pi-composer-bar.is-compact.is-expanded {
+.pi-agent-composer-bar.is-compact.is-expanded {
   align-items: flex-start;
   flex-wrap: wrap;
 }
 
-.obsidian-pi-composer-bar.is-compact.is-expanded .obsidian-pi-run-settings {
+.pi-agent-composer-bar.is-compact.is-expanded .pi-agent-run-settings {
   display: flex;
   flex: 1 0 100%;
   order: 10;
 }
 
-.obsidian-pi-composer-bar.is-compact.is-expanded .obsidian-pi-run-setting {
+.pi-agent-composer-bar.is-compact.is-expanded .pi-agent-run-setting {
   flex: 1 1 0;
   gap: 4px;
   min-width: 0;
@@ -471,21 +446,80 @@
   width: auto;
 }
 
-.obsidian-pi-composer-bar.is-compact.is-expanded
-  .obsidian-pi-run-setting
-  .obsidian-pi-control-label {
+.pi-agent-composer-bar.is-compact.is-expanded .pi-agent-run-setting .pi-agent-control-label {
   display: inline;
 }
 
-.obsidian-pi-composer-bar.is-narrow:not(.is-expanded) .obsidian-pi-run-settings {
+.pi-agent-composer-bar.is-narrow:not(.is-expanded) .pi-agent-run-settings {
   display: flex;
 }
 
-.obsidian-pi-composer-bar.is-narrow .obsidian-pi-send-button {
+.pi-agent-composer-bar.is-narrow .pi-agent-send-button {
   margin-left: auto;
 }
 
-.obsidian-pi-composer textarea {
+.pi-agent-prompt-queue {
+  display: grid;
+  gap: 6px;
+}
+
+.pi-agent-prompt-queue.is-empty {
+  display: none;
+}
+
+.pi-agent-prompt-queue-heading {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: var(--font-ui-smaller);
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.pi-agent-prompt-queue-hint {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.pi-agent-prompt-queue-item {
+  align-items: center;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 6px 8px;
+}
+
+.pi-agent-prompt-queue-text {
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  line-height: 1.35;
+  max-height: 3.9em;
+  overflow: hidden;
+}
+
+.pi-agent-prompt-queue-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.pi-agent-prompt-queue-action {
+  background: transparent;
+  color: var(--text-muted);
+  height: 24px;
+  width: 24px;
+}
+
+.pi-agent-prompt-queue-action:hover,
+.pi-agent-prompt-queue-action:focus {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.pi-agent-composer textarea {
   background: var(--background-primary);
   color: var(--text-normal);
   line-height: var(--line-height-normal);
@@ -497,16 +531,16 @@
   -webkit-text-fill-color: var(--text-normal);
 }
 
-.obsidian-pi-composer textarea::placeholder {
+.pi-agent-composer textarea::placeholder {
   color: var(--text-muted);
   -webkit-text-fill-color: var(--text-muted);
 }
 
-.obsidian-pi-composer textarea:disabled {
+.pi-agent-composer textarea:disabled {
   opacity: 0.75;
 }
 
-.obsidian-pi-send-button {
+.pi-agent-send-button {
   align-items: center;
   background: var(--interactive-accent);
   border: 0;
@@ -522,19 +556,19 @@
   width: auto;
 }
 
-.obsidian-pi-send-button:hover,
-.obsidian-pi-send-button:focus {
+.pi-agent-send-button:hover,
+.pi-agent-send-button:focus {
   background: var(--interactive-accent-hover);
   color: var(--text-on-accent);
 }
 
-.obsidian-pi-send-button:disabled {
+.pi-agent-send-button:disabled {
   background: var(--background-modifier-border);
   color: var(--text-muted);
   opacity: 1;
 }
 
-.obsidian-pi-suggest {
+.pi-agent-suggest {
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
@@ -550,7 +584,7 @@
   z-index: 20;
 }
 
-.obsidian-pi-suggest-item {
+.pi-agent-suggest-item {
   align-items: center;
   border-radius: 6px;
   cursor: pointer;
@@ -560,12 +594,12 @@
   padding: 7px 8px;
 }
 
-.obsidian-pi-suggest-item.is-selected,
-.obsidian-pi-suggest-item:hover {
+.pi-agent-suggest-item.is-selected,
+.pi-agent-suggest-item:hover {
   background: var(--background-modifier-hover);
 }
 
-.obsidian-pi-suggest-label {
+.pi-agent-suggest-label {
   color: var(--text-normal);
   font-size: var(--font-ui-small);
   overflow: hidden;
@@ -573,7 +607,7 @@
   white-space: nowrap;
 }
 
-.obsidian-pi-suggest-detail {
+.pi-agent-suggest-detail {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   overflow: hidden;
@@ -581,30 +615,98 @@
   white-space: nowrap;
 }
 
-.obsidian-pi-inline-activity {
+.pi-agent-message-activity {
+  margin-bottom: 8px;
+}
+
+.pi-agent-inline-activity {
   align-items: center;
   color: var(--text-muted);
   display: inline-flex;
   font: inherit;
   margin-left: 7px;
   min-width: 0;
+  overflow: visible;
 }
 
-.obsidian-pi-inline-activity::before {
-  color: var(--text-faint);
-  content: "·";
-  margin-right: 6px;
+.pi-agent-activity-thinking,
+.pi-agent-activity-read,
+.pi-agent-activity-search,
+.pi-agent-activity-context,
+.pi-agent-activity-edit,
+.pi-agent-activity-shell,
+.pi-agent-activity-error,
+.pi-agent-activity-answer,
+.pi-agent-activity-finishing {
+  color: var(--text-muted);
 }
 
-.obsidian-pi-inline-activity-text {
+.pi-agent-inline-activity-text {
+  animation: pi-agent-activity-flow 1.2s linear infinite;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 28%,
+      color-mix(in srgb, var(--interactive-accent) 25%, transparent) 36%,
+      color-mix(in srgb, var(--interactive-accent) 70%, transparent) 45%,
+      var(--interactive-accent) 50%,
+      color-mix(in srgb, var(--interactive-accent) 70%, transparent) 55%,
+      color-mix(in srgb, var(--interactive-accent) 25%, transparent) 64%,
+      transparent 72%,
+      transparent 100%
+    ),
+    linear-gradient(var(--text-muted), var(--text-muted));
+  background-clip: text;
+  background-position:
+    140% 50%,
+    0 0;
+  background-repeat: no-repeat;
+  background-size:
+    220% 100%,
+    100% 100%;
+  color: var(--text-muted);
+  display: inline-block;
   font: inherit;
   font-size: var(--font-ui-smaller);
   font-weight: 500;
   line-height: inherit;
+  overflow: visible;
+  padding: 0 4px;
+  position: relative;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   white-space: nowrap;
 }
 
-.obsidian-pi-activity-log {
+@keyframes pi-agent-activity-flow {
+  0% {
+    background-position:
+      140% 50%,
+      0 0;
+  }
+  48%,
+  100% {
+    background-position:
+      -30% 50%,
+      0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pi-agent-inline-activity-text,
+  .pi-agent-typing-cursor {
+    animation: none;
+  }
+
+  .pi-agent-inline-activity-text {
+    background: none;
+    filter: none;
+    -webkit-text-fill-color: var(--text-muted);
+  }
+}
+
+.pi-agent-activity-details {
   border-left: 1px solid var(--background-modifier-border);
   color: var(--text-muted);
   display: grid;
@@ -614,29 +716,29 @@
   padding-left: 10px;
 }
 
-.obsidian-pi-activity-log-item {
+.pi-agent-activity-detail {
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.obsidian-pi-approval {
+.pi-agent-approval {
   display: grid;
   gap: 12px;
 }
 
-.obsidian-pi-diff {
+.pi-agent-diff {
   display: grid;
   gap: 8px;
 }
 
-.obsidian-pi-diff h3 {
+.pi-agent-diff h3 {
   font-size: 13px;
   margin: 0;
 }
 
-.obsidian-pi-diff pre {
+.pi-agent-diff pre {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
@@ -646,7 +748,7 @@
   white-space: pre-wrap;
 }
 
-.modal.obsidian-pi-change-review-modal {
+.modal.pi-agent-change-review-modal {
   height: min(860px, 86vh);
   max-height: 86vh;
   max-width: 92vw;
@@ -656,7 +758,7 @@
   width: min(1040px, 92vw);
 }
 
-.modal.obsidian-pi-change-review-modal .modal-content {
+.modal.pi-agent-change-review-modal .modal-content {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -664,7 +766,7 @@
   overflow: hidden;
 }
 
-.obsidian-pi-change-review {
+.pi-agent-change-review {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -673,21 +775,21 @@
   overflow: hidden;
 }
 
-.obsidian-pi-change-review h2,
-.obsidian-pi-change-review p,
-.obsidian-pi-change-files {
+.pi-agent-change-review h2,
+.pi-agent-change-review p,
+.pi-agent-change-files {
   margin: 0;
 }
 
-.obsidian-pi-change-files {
+.pi-agent-change-files {
   padding-inline-start: 1.4em;
 }
 
-.obsidian-pi-change-summary {
+.pi-agent-change-summary {
   font-variant-numeric: tabular-nums;
 }
 
-.obsidian-pi-change-diff {
+.pi-agent-change-diff {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
@@ -699,7 +801,7 @@
   padding: 10px;
 }
 
-.obsidian-pi-diff-line {
+.pi-agent-diff-line {
   display: grid;
   grid-template-columns: 4ch minmax(0, 1fr);
   gap: 10px;
@@ -709,35 +811,188 @@
   white-space: normal;
 }
 
-.obsidian-pi-diff-line-number {
+.pi-agent-diff-line-number {
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
   text-align: right;
   user-select: none;
 }
 
-.obsidian-pi-diff-line-text {
+.pi-agent-diff-line-text {
   min-width: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.obsidian-pi-diff-line-add {
+.pi-agent-diff-line-add {
   background: color-mix(in srgb, var(--text-success) 14%, transparent);
   color: var(--text-success);
 }
 
-.obsidian-pi-diff-line-delete {
+.pi-agent-diff-line-delete {
   background: color-mix(in srgb, var(--text-error) 14%, transparent);
   color: var(--text-error);
 }
 
-.obsidian-pi-diff-line-hunk,
-.obsidian-pi-diff-line-meta {
+.pi-agent-diff-line-hunk,
+.pi-agent-diff-line-meta {
   color: var(--text-muted);
 }
 
-.obsidian-pi-modal-actions {
+.pi-agent-thread-list-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.pi-agent-thread-list-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pi-agent-thread-list-title-heading {
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+  line-height: 1.2;
+}
+
+.pi-agent-thread-list-subtitle {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.2;
+}
+
+.pi-agent-thread-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.pi-agent-thread-list-row {
+  align-items: center;
+  border-bottom: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 7px 0;
+}
+
+.pi-agent-thread-list-row:hover,
+.pi-agent-thread-list-row:focus-within {
+  background: color-mix(in srgb, var(--background-modifier-hover) 70%, transparent);
+}
+
+.pi-agent-thread-list-row.is-current {
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+  padding-left: 8px;
+}
+
+.pi-agent-thread-list-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pi-agent-thread-list-title {
+  align-items: center;
+  color: var(--text-normal);
+  cursor: pointer;
+  display: flex;
+  gap: 5px;
+  font-size: var(--font-ui-small);
+  line-height: 1.25;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-agent-thread-list-title > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pi-agent-thread-list-running {
+  align-items: center;
+  animation: pi-agent-thread-running-spin 1s linear infinite;
+  color: var(--interactive-accent);
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.pi-agent-thread-list-running svg {
+  height: 13px;
+  width: 13px;
+}
+
+@keyframes pi-agent-thread-running-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pi-agent-thread-list-title:hover,
+.pi-agent-thread-list-title:focus {
+  color: var(--text-normal);
+  outline: none;
+}
+
+.pi-agent-thread-list-title-input {
+  background: transparent;
+  border: 0;
+  box-shadow: inset 0 -1px 0 var(--interactive-accent);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  line-height: 1.25;
+  max-width: 100%;
+  min-width: 0;
+  outline: none;
+  padding: 0;
+  width: 100%;
+}
+
+.pi-agent-thread-list-meta {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.25;
+  margin-top: 2px;
+}
+
+.pi-agent-thread-list-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+
+.pi-agent-thread-list-row:hover .pi-agent-thread-list-actions,
+.pi-agent-thread-list-row:focus-within .pi-agent-thread-list-actions,
+.pi-agent-thread-list-row.is-current .pi-agent-thread-list-actions {
+  opacity: 1;
+}
+
+.pi-agent-thread-list-action {
+  background: transparent;
+  color: var(--text-muted);
+  height: 26px;
+  width: 26px;
+}
+
+.pi-agent-thread-list-action:hover,
+.pi-agent-thread-list-action:focus {
+  background: transparent;
+  color: var(--text-normal);
+}
+
+.pi-agent-modal-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;

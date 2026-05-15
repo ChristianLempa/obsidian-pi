@@ -1,31 +1,25 @@
 # Release process
 
-Keep releases simple:
+Pi Agent keeps release assets simple: `main.js`, `manifest.json`, and `styles.css`.
 
-## Test a dev version locally
+## Test locally
 
-This repository contains the built Obsidian plugin files directly: `main.js`, `manifest.json`, and `styles.css`.
-
-To copy the current repo version into an Obsidian vault plugin folder, run:
+Use a dedicated Obsidian test vault, never your main vault.
 
 ```bash
-npm run dev:install -- /path/to/vault/.obsidian/plugins/obsidian-pi
+npm ci
+npm run ci
+npm run dev:install -- /path/to/vault/.obsidian/plugins/pi-agent
 ```
 
 Or set a reusable target:
 
 ```bash
-export OBSIDIAN_PI_DEV_DIR=/path/to/vault/.obsidian/plugins/obsidian-pi
+export PI_AGENT_DEV_DIR=/path/to/vault/.obsidian/plugins/pi-agent
 npm run dev:install
 ```
 
 Then reload Obsidian, or disable and re-enable the plugin.
-
-## Normal development
-
-- Collect all feature and fix work on `main`.
-- Test locally with `npm run dev:install`.
-- Do not tag until the next release is ready.
 
 ## Prepare a release
 
@@ -38,7 +32,7 @@ Then reload Obsidian, or disable and re-enable the plugin.
 3. Run:
 
 ```bash
-npm run version:check
+npm run ci
 npm run release:zip
 ```
 
@@ -59,11 +53,11 @@ git tag 0.0.2
 git push origin 0.0.2
 ```
 
-The `release.yml` workflow creates a GitHub release and uploads:
+The GitHub Actions release workflow creates a GitHub release and uploads:
 
 - `main.js`
 - `manifest.json`
 - `styles.css`
-- `obsidian-pi-<version>.zip`
+- `pi-agent-<version>.zip`
 
 For Obsidian Community Plugins, GitHub release assets are what users receive when they install or update the plugin.

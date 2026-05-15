@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "eslint.config.mjs",
+    "scripts/**/*.mjs",
+    "src/**/*.js",
+    "src/**/*.mjs",
+    "tests/**/*.mjs"
+  ],
+  "exclude": ["main.js", "node_modules"]
+}

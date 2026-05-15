@@ -1,9 +1,9 @@
 {
-  "id": "obsidian-pi",
-  "name": "Obsidian Pi",
+  "id": "pi-agent",
+  "name": "Pi Agent",
   "version": "0.0.1",
-  "minAppVersion": "1.5.0",
-  "description": "Chat with Pi inside Obsidian using context from your notes, links, backlinks, tags, and search results.",
+  "minAppVersion": "1.12.3",
+  "description": "Chat with Pi using context from your notes, links, backlinks, tags, and search results.",
   "author": "Christian Lempa",
   "authorUrl": "https://github.com/ChristianLempa",
   "isDesktopOnly": true

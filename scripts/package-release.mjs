@@ -10,7 +10,7 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-const zipName = `obsidian-pi-${manifest.version}.zip`;
+const zipName = `pi-agent-${manifest.version}.zip`;
 if (fs.existsSync(zipName)) fs.rmSync(zipName);
 
 const result = spawnSync("zip", ["-r", zipName, ...requiredFiles], {

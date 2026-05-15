@@ -1,11 +1,17 @@
 {
-  "name": "obsidian-pi",
+  "name": "pi-agent",
   "version": "0.0.1",
-  "description": "Chat with Pi inside Obsidian using context from your notes, links, backlinks, tags, and search results.",
+  "description": "Chat with Pi using context from your notes, links, backlinks, tags, and search results.",
   "private": true,
   "scripts": {
-    "format": "prettier --write main.js styles.css scripts/*.mjs *.md *.json",
-    "format:check": "prettier --check main.js styles.css scripts/*.mjs *.md *.json",
+    "build": "node scripts/build.mjs",
+    "build:check": "node scripts/build.mjs --check",
+    "format": "prettier --write AGENTS.md main.js styles.css src/**/*.js src/**/*.mjs tests/**/*.mjs scripts/*.mjs docs/*.md *.md *.json .github/workflows/*.yml",
+    "format:check": "prettier --check AGENTS.md main.js styles.css src/**/*.js src/**/*.mjs tests/**/*.mjs scripts/*.mjs docs/*.md *.md *.json .github/workflows/*.yml",
+    "lint": "eslint src scripts tests",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run build && npm run build:check && npm run format:check && npm run lint && npm run typecheck && npm test && npm run version:check",
     "dev:install": "node scripts/install-dev.mjs",
     "version:check": "node scripts/check-version.mjs",
     "release:zip": "node scripts/package-release.mjs"
@@ -14,11 +20,19 @@
     "obsidian",
     "obsidian-plugin",
     "pi",
-    "ai"
+    "ai",
+    "agent"
   ],
   "author": "Christian Lempa",
   "license": "MIT",
   "devDependencies": {
-    "prettier": "^3.8.3"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.3.0",
+    "obsidian": "^1.12.3",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
   }
 }
