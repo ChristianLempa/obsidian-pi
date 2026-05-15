@@ -1,0 +1,61 @@
+src/main.js
+  s_2b2163e3132d76::t_0e85bcea30beec 1,3
+PRIVACY.md
+  s_2b2163e3132d76::t_965b6799db2ac5 28
+src/pi/health.mjs
+  s_2b2163e3132d76::t_e10ff7b261501d 2,5
+scripts/extract-release-notes.mjs
+  s_2b2163e3132d76::t_959e54d21059c7 1-29
+package.json
+  s_2b2163e3132d76::t_7c9441dad742d0 3
+  s_2b2163e3132d76::t_f38a12b2a127a8 17-18
+styles.css
+  s_2b2163e3132d76::t_dce35b8e12bf98 122,130,245,253,543,549
+.gitignore
+  s_2b2163e3132d76::t_a5d2e1d186fb55 10
+tests/skills.test.mjs
+  s_2b2163e3132d76::t_6868c04d3c228a 38
+package-lock.json
+  ai_agent 3,9
+src/context/skills.mjs
+  s_2b2163e3132d76::t_925f15d8b83645 102
+CHANGELOG.md
+  s_2b2163e3132d76::t_aa71c3c3477ce8 3-13
+RELEASE.md
+  s_2b2163e3132d76::t_45577d40e14b82 55
+README.md
+  s_2b2163e3132d76::t_b807238299e9aa 118
+src/pi/model-catalog.mjs
+  s_2b2163e3132d76::t_1d507633f518a6 4,16,26,101
+  s_2b2163e3132d76::t_1356bae1eb9728 27-33,35-37
+src/pi/environment.mjs
+  s_2b2163e3132d76::t_44733932123a95 3-4,6-7,9-10,13
+.github/workflows/release.yml
+  s_2b2163e3132d76::t_e79036db9b4e34 32-34,46
+manifest.json
+  s_2b2163e3132d76::t_88df05c8355937 4
+versions.json
+  s_2b2163e3132d76::t_32f3ade992b97d 2-3
+src/plugin/settings-tab.mjs
+  s_2b2163e3132d76::t_09901c51d2b209 151,155
+src/pi/runner.mjs
+  s_2b2163e3132d76::t_12b17f4d0d3f55 7,89,219
+eslint.config.mjs
+  s_2b2163e3132d76::t_0924fdf0b94b24 28-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "97125faada8fce4fa630a48084c06f718a8de951",
+  "prompts": {},
+  "sessions": {
+    "s_2b2163e3132d76": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e2a82-86c5-70cf-b34e-7dabf5616363",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
