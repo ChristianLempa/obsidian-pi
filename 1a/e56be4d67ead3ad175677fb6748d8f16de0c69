@@ -1,0 +1,21 @@
+README.md
+  s_2b2163e3132d76::t_2017b9a3007f5d 53,55-56
+PRIVACY.md
+  s_2b2163e3132d76::t_2824f86eeb95a2 20,28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "1ae56be4d67ead3ad175677fb6748d8f16de0c69",
+  "prompts": {},
+  "sessions": {
+    "s_2b2163e3132d76": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e2a82-86c5-70cf-b34e-7dabf5616363",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
