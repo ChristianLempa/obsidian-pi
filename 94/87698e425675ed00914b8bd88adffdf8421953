@@ -1,0 +1,23 @@
+RELEASE.md
+  s_2b2163e3132d76::t_033f722a92721a 55,61
+.github/workflows/release.yml
+  s_2b2163e3132d76::t_4e80851e1a37be 9,11,32-38,43
+README.md
+  s_2b2163e3132d76::t_8dba73f1b60fc5 118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "9487698e425675ed00914b8bd88adffdf8421953",
+  "prompts": {},
+  "sessions": {
+    "s_2b2163e3132d76": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e2a82-86c5-70cf-b34e-7dabf5616363",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
