@@ -53,7 +53,7 @@ Short version:
 - The plugin does not include ads, telemetry, or an auto-updater.
 - Chat history and Pi sessions are stored locally by the plugin and Pi.
 - Network access happens through the separately installed Pi CLI and depends on your Pi/model-provider configuration.
-- The plugin reads Pi configuration and skill files from Pi's global and vault/project locations, including `~/.pi/agent`, `~/.agents/skills`, `.pi/`, `.agents/`, and any additional skill folders you configure.
+- The plugin reads Pi configuration and skill files from vault/project `.pi/` and `.agents/` folders, plus any absolute or vault-relative skill folders you configure.
 - Edit and Full agent modes can modify files in your vault/project.
 - Full agent mode can run shell commands through Pi.
 - Skills can contain instructions or scripts; only enable skill folders you trust.
@@ -115,7 +115,7 @@ git tag 0.0.1
 git push origin 0.0.1
 ```
 
-The release workflow publishes the Obsidian-supported assets and generates artifact attestations:
+The release workflow uses the current `CHANGELOG.md` entry as release notes, publishes the Obsidian-supported assets, and generates artifact attestations:
 
 - `main.js`
 - `manifest.json`

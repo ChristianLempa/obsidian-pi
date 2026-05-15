@@ -35,6 +35,7 @@ describe("skill helpers", () => {
     expect(resolveSkillPath("relative/skill", "/vault")).toBe(
       path.join("/vault", "relative/skill")
     );
+    expect(resolveSkillPath("~/skills", "/vault")).toBe("");
     expect(getConfiguredSkillPaths({ additionalSkillFolders: [".pi/skills"] }, "/vault")).toEqual([
       path.join("/vault", ".pi/skills")
     ]);

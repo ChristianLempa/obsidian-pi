@@ -64,19 +64,6 @@ export function discoverSkills(settings, basePath) {
   }
 
   if (!settings || settings.includeDefaultSkills !== false) {
-    const home = process.env.HOME || process.env.USERPROFILE || "";
-    const piAgentDir = process.env.PI_CODING_AGENT_DIR;
-
-    addRoot(
-      piAgentDir
-        ? joinHomePath(piAgentDir, "skills")
-        : home
-          ? path.join(home, ".pi", "agent", "skills")
-          : "",
-      1
-    );
-    addRoot(home ? path.join(home, ".agents", "skills") : "", 1);
-
     if (basePath) {
       addRoot(path.join(basePath, ".pi", "skills"), 1);
       addRoot(path.join(basePath, ".agents", "skills"), 1);
@@ -112,9 +99,7 @@ export function resolveSkillPath(skillPath, basePath) {
   let resolved = String(skillPath || "").trim();
   if (!resolved) return "";
 
-  if (resolved.startsWith("~")) {
-    resolved = (process.env.HOME || process.env.USERPROFILE || "") + resolved.slice(1);
-  }
+  if (resolved.startsWith("~")) return "";
 
   return path.isAbsolute(resolved) ? resolved : path.join(basePath || "", resolved);
 }
@@ -252,20 +237,9 @@ function getSettingsSkillPaths(basePath) {
     }
   };
 
-  const globalSettingsPath = getGlobalSettingsPath();
-  if (globalSettingsPath)
-    collect(readJsonFile(globalSettingsPath), path.dirname(globalSettingsPath));
   if (basePath) collect(readJsonFile(path.join(basePath, ".pi", "settings.json")), basePath);
 
   return skillPaths.filter(Boolean);
-}
-
-function getGlobalSettingsPath() {
-  const piAgentDir = process.env.PI_CODING_AGENT_DIR;
-  if (piAgentDir) return joinHomePath(piAgentDir, "settings.json");
-
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  return home ? path.join(home, ".pi", "agent", "settings.json") : "";
 }
 
 function readJsonFile(filePath) {
@@ -274,12 +248,6 @@ function readJsonFile(filePath) {
   } catch {
     return {};
   }
-}
-
-function joinHomePath(root, ...parts) {
-  let resolved = root;
-  if (resolved.startsWith("~")) resolved = (process.env.HOME || "") + resolved.slice(1);
-  return path.join(resolved, ...parts);
 }
 
 function cleanSkillYamlValue(value) {

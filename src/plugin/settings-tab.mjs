@@ -148,11 +148,11 @@ export class PiAgentSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Additional skill folders")
       .setDesc(
-        "One skill file or folder per line. Supports absolute paths, ~, and vault-relative paths. Only add trusted skills."
+        "One trusted skill file or folder per line. Supports absolute and vault-relative paths."
       )
       .addTextArea((text) =>
         text
-          .setPlaceholder(".pi/skills\n~/my-skills")
+          .setPlaceholder(".pi/skills\n/path/to/my-skills")
           .setValue(
             normalizeSkillFolderList(this.plugin.settings.additionalSkillFolders).join("\n")
           )

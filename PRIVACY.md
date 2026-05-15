@@ -25,7 +25,7 @@ The plugin stores settings and trimmed chat history in Obsidian plugin data. Pi 
 
 ## File and shell access
 
-The plugin can read Pi configuration and skill files outside the vault from Pi's global and project locations, including `~/.pi/agent`, `~/.agents/skills`, vault/project `.pi/` and `.agents/` folders, and any additional skill folders you configure. This is used to discover Pi defaults, available skills, and model settings.
+The plugin can read Pi configuration and skill files from vault/project `.pi/` and `.agents/` folders, plus any absolute or vault-relative skill folders you configure. This is used to discover vault/project Pi defaults, available skills, and model settings.
 
 Tool modes control which Pi CLI tools are enabled:
 

@@ -1,38 +1,14 @@
 import fs from "node:fs";
-import path from "node:path";
 
-const NODE_CANDIDATES = ["/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"];
-const POSIX_PATH_FALLBACKS = [
-  "/opt/homebrew/bin",
-  "/usr/local/bin",
-  "/usr/bin",
-  "/bin",
-  "/usr/sbin",
-  "/sbin"
-];
+const POSIX_PI_CANDIDATES = ["/opt/homebrew/bin/pi", "/usr/local/bin/pi", "/usr/bin/pi"];
+const WINDOWS_PI_CANDIDATES = ["pi.cmd", "pi.exe", "pi"];
 
-export function findNodeExecutable() {
-  for (const candidate of NODE_CANDIDATES) {
+export function findPiExecutable() {
+  if (process.platform === "win32") return WINDOWS_PI_CANDIDATES[0];
+
+  for (const candidate of POSIX_PI_CANDIDATES) {
     if (fs.existsSync(candidate)) return candidate;
   }
 
-  return path.basename(process.execPath).startsWith("node") ? process.execPath : "node";
-}
-
-export function createPiEnvironment() {
-  const pathKey = getPathEnvironmentKey();
-  const delimiter = path.delimiter;
-  const pathEntries = (process.env[pathKey] ?? "").split(delimiter).filter(Boolean);
-
-  if (process.platform !== "win32") {
-    for (const fallbackPath of POSIX_PATH_FALLBACKS) {
-      if (!pathEntries.includes(fallbackPath)) pathEntries.push(fallbackPath);
-    }
-  }
-
-  return { ...process.env, [pathKey]: pathEntries.join(delimiter) };
-}
-
-function getPathEnvironmentKey() {
-  return Object.keys(process.env).find((key) => key.toLowerCase() === "path") ?? "PATH";
+  return "pi";
 }

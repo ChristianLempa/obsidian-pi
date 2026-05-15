@@ -1,6 +1,6 @@
 {
   "name": "pi-agent",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Chat with Pi using context from your notes, links, backlinks, tags, and search results.",
   "private": true,
   "scripts": {
@@ -14,7 +14,8 @@
     "ci": "npm run build && npm run build:check && npm run format:check && npm run lint && npm run typecheck && npm test && npm run version:check",
     "dev:install": "node scripts/install-dev.mjs",
     "version:check": "node scripts/check-version.mjs",
-    "release:zip": "node scripts/package-release.mjs"
+    "release:zip": "node scripts/package-release.mjs",
+    "release:notes": "node scripts/extract-release-notes.mjs"
   },
   "keywords": [
     "obsidian",

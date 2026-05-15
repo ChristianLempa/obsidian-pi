@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.2
+
+Automated review fixes for Obsidian Community Plugins:
+
+- Added GitHub release notes generated from the current changelog entry.
+- Added artifact attestations for supported release assets.
+- Removed unsupported release zip uploads from the GitHub release workflow.
+- Removed environment-variable reads from plugin source.
+- Replaced the source entrypoint's `require()` import with an ES module export.
+- Removed CSS `!important` declarations.
+
 ## 0.0.1
 
 Initial Pi Agent release:

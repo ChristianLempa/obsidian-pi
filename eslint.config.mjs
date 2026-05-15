@@ -25,11 +25,8 @@ export default [
     files: ["src/main.js"],
     languageOptions: {
       ecmaVersion: "latest",
-      sourceType: "script",
-      globals: {
-        ...globals,
-        module: "readonly"
-      }
+      sourceType: "module",
+      globals
     },
     rules: {
       "no-unused-vars": "off",

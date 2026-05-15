@@ -4,7 +4,7 @@ import path from "node:path";
 import { getConfiguredSkillPaths } from "../context/skills.mjs";
 import { CUSTOM_MODEL_VALUE } from "../plugin/settings.mjs";
 import { calculateContextTokens } from "./token-usage.mjs";
-import { createPiEnvironment } from "./environment.mjs";
+import { findPiExecutable } from "./environment.mjs";
 import { handlePiJsonEventLine } from "./events.mjs";
 
 export function isPiCliCommandPrompt(prompt) {
@@ -86,9 +86,8 @@ export class PiRunner {
 
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const child = spawn("pi", args, {
+      const child = spawn(findPiExecutable(), args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
-        env: createPiEnvironment(),
         detached: process.platform !== "win32"
       });
       this.activeChild = child;
@@ -217,9 +216,8 @@ export class PiRunner {
 
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const child = spawn("pi", args, {
+      const child = spawn(findPiExecutable(), args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
-        env: createPiEnvironment(),
         detached: process.platform !== "win32"
       });
       this.activeChild = child;

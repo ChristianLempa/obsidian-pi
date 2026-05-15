@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { createPiEnvironment } from "./environment.mjs";
+import { findPiExecutable } from "./environment.mjs";
 
 const REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 const ESCAPE_CHARACTER = String.fromCharCode(27);
@@ -13,7 +13,7 @@ export class PiModelCatalog {
   }
 
   async getAvailableModels() {
-    const output = await this.execPi("pi", ["--list-models"]);
+    const output = await this.execPi(findPiExecutable(), ["--list-models"]);
     return parseModelCatalog(output);
   }
 
@@ -23,23 +23,18 @@ export class PiModelCatalog {
 
   execPi(command, args) {
     return new Promise((resolve, reject) => {
-      execFile(
-        command,
-        args,
-        { env: createPiEnvironment(), timeout: 20_000 },
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(
-              new Error(
-                `Could not query Pi model registry: ${error.message}${stderr ? `\n${stderr}` : ""}`
-              )
-            );
-            return;
-          }
-
-          resolve(stdout || stderr);
+      execFile(command, args, { timeout: 20_000 }, (error, stdout, stderr) => {
+        if (error) {
+          reject(
+            new Error(
+              `Could not query Pi model registry: ${error.message}${stderr ? `\n${stderr}` : ""}`
+            )
+          );
+          return;
         }
-      );
+
+        resolve(stdout || stderr);
+      });
     });
   }
 }
@@ -102,12 +97,8 @@ export function normalizeReasoningLevels(value) {
 }
 
 export function getEffectiveConfig(vaultBasePath) {
-  const globalSettingsPath = getGlobalSettingsPath();
   const vaultSettingsPath = vaultBasePath ? path.join(vaultBasePath, ".pi", "settings.json") : "";
-  const settings = mergeConfigObjects(
-    readJsonFile(globalSettingsPath),
-    readJsonFile(vaultSettingsPath)
-  );
+  const settings = readJsonFile(vaultSettingsPath);
   const defaultModel = settings.defaultModel ? String(settings.defaultModel) : "";
   const defaultProvider = settings.defaultProvider ? String(settings.defaultProvider) : "";
   const effectiveModel = defaultModel
@@ -124,41 +115,10 @@ export function getEffectiveConfig(vaultBasePath) {
   return { effectiveModel, effectiveReasoning };
 }
 
-function getGlobalSettingsPath() {
-  const piAgentDir = process.env.PI_CODING_AGENT_DIR;
-  if (piAgentDir) return joinHomePath(piAgentDir, "settings.json");
-
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  return home ? path.join(home, ".pi", "agent", "settings.json") : "";
-}
-
 function readJsonFile(filePath) {
   try {
     return filePath && fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, "utf8")) : {};
   } catch {
     return {};
   }
-}
-
-function mergeConfigObjects(left, right) {
-  const result = { ...left };
-
-  for (const [key, value] of Object.entries(right || {})) {
-    result[key] =
-      value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      typeof result[key] === "object" &&
-      !Array.isArray(result[key])
-        ? mergeConfigObjects(result[key], value)
-        : value;
-  }
-
-  return result;
-}
-
-function joinHomePath(root, ...parts) {
-  let resolved = root;
-  if (resolved.startsWith("~")) resolved = (process.env.HOME || "") + resolved.slice(1);
-  return path.join(resolved, ...parts);
 }

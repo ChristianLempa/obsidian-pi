@@ -7,6 +7,7 @@ TODO.md
 
 # Dependencies, generated release files, and local tooling
 node_modules/
+release-notes.md
 pi-agent-*.zip
 obsidian-pi-*.zip
 

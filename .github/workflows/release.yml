@@ -29,6 +29,9 @@ jobs:
       - name: Run quality gates
         run: npm run ci
 
+      - name: Generate release notes
+        run: npm run release:notes
+
       - name: Generate artifact attestations
         uses: actions/attest-build-provenance@v2
         with:
@@ -40,7 +43,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          body_path: CHANGELOG.md
+          body_path: release-notes.md
           files: |
             main.js
             manifest.json

@@ -1,10 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { createPiEnvironment } from "./environment.mjs";
+import { findPiExecutable } from "./environment.mjs";
 
 export function checkPiInstallation() {
-  const result = spawnSync("pi", ["--version"], {
+  const result = spawnSync(findPiExecutable(), ["--version"], {
     encoding: "utf8",
-    env: createPiEnvironment(),
     timeout: 5000
   });
 

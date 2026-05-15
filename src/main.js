@@ -1,3 +1,3 @@
-var { PiAgentPlugin } = require("./plugin/PiAgentPlugin.mjs");
+import { PiAgentPlugin } from "./plugin/PiAgentPlugin.mjs";
 
-module.exports = PiAgentPlugin;
+export default PiAgentPlugin;

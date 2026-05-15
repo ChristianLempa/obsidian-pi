@@ -119,7 +119,7 @@
   overflow: hidden;
 }
 
-.pi-agent-run-setting {
+.pi-agent-view button.pi-agent-run-setting {
   align-items: center;
   background: transparent;
   border: 0;
@@ -127,7 +127,7 @@
   box-shadow: none;
   color: var(--text-normal);
   gap: 4px;
-  display: inline-flex !important;
+  display: inline-flex;
   flex: 0 0 auto;
   height: 28px;
   justify-content: center;
@@ -242,7 +242,7 @@
   color: var(--text-normal);
 }
 
-.pi-agent-message-diff-stat {
+.pi-agent-view .pi-agent-message-diff-stat {
   align-items: center;
   appearance: none;
   background: transparent;
@@ -250,7 +250,7 @@
   box-shadow: none;
   color: var(--text-muted);
   cursor: pointer;
-  display: inline-flex !important;
+  display: inline-flex;
   font: inherit;
   font-variant-numeric: tabular-nums;
   gap: 4px;
@@ -540,13 +540,13 @@
   opacity: 0.75;
 }
 
-.pi-agent-send-button {
+.pi-agent-view button.pi-agent-send-button {
   align-items: center;
   background: var(--interactive-accent);
   border: 0;
   box-shadow: none;
   color: var(--text-on-accent);
-  display: inline-flex !important;
+  display: inline-flex;
   flex: 0 0 auto;
   gap: 4px;
   height: 30px;

@@ -52,7 +52,7 @@ git tag 0.0.2
 git push origin 0.0.2
 ```
 
-The GitHub Actions release workflow creates a GitHub release, uploads the Obsidian-supported assets, and generates artifact attestations:
+The GitHub Actions release workflow extracts the current version's notes from `CHANGELOG.md`, creates a GitHub release, uploads the Obsidian-supported assets, and generates artifact attestations:
 
 - `main.js`
 - `manifest.json`
