@@ -1,6 +1,6 @@
 # Pi Agent
 
-Chat with Pi in Obsidian using context from your notes, links, backlinks, tags, search results, and selected text.
+Chat with Pi in Obsidian using context from your current note, links, backlinks, tags, explicit search results, and selected text.
 
 > Thanks to Mario Zechner, the developer of Pi, for building the agent this plugin runs on top of.
 
@@ -35,7 +35,7 @@ Privacy reminder: prompts, selected text, note content, search excerpts, attachm
 
 - Chat with Pi from an Obsidian sidebar.
 - Attach current-note context automatically.
-- Include linked notes, backlinks, tags, search results, frontmatter, headings, and selected text.
+- Include linked notes, backlinks, tags, frontmatter, headings, selected text, and explicit search attachments.
 - Choose tool modes: Chat, Review, Edit, and Full agent.
 - Enable default Pi skills and add trusted custom skill folders.
 - Use `/` autocomplete for Obsidian context commands and `/skill:name` commands.
@@ -100,15 +100,16 @@ See [docs/development.md](docs/development.md) and [docs/architecture.md](docs/a
 
 ## Release
 
-1. Update `manifest.json`, `package.json`, `versions.json`, and `CHANGELOG.md`.
-2. Run:
+1. Create a release-prep branch from `main`.
+2. Update `manifest.json`, `package.json`, and `versions.json`; promote `CHANGELOG.md` `Unreleased` entries into the new version section.
+3. Run:
 
 ```bash
 npm run ci
 ```
 
-3. Commit the release prep.
-4. Create and push a matching SemVer tag, for example:
+4. Commit and merge the release prep into `main`.
+5. Create and push a matching SemVer tag from `main`, for example:
 
 ```bash
 git tag 0.0.1

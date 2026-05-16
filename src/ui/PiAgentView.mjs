@@ -509,7 +509,7 @@ export class PiAgentView extends f.ItemView {
       (this.activityText = "Preparing context"),
       (this.activityKind = "context"),
       (this.activityDetail =
-        "Collecting current note, links, backlinks, search results, and attachments."),
+        "Collecting current note, links, backlinks, and explicit attachments."),
       (this.activityStickyUntil = 0),
       (this.pendingActivity = void 0),
       this.clearPendingActivityTimer(),

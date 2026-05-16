@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Simplified context settings by removing user-facing numeric context/change tracking limits and keeping ignored folders/directories as the visible context/file-access control (#3).
+- Changed pre-attached context to avoid automatic broad prompt searches; Pi now starts from current-note, link/backlink, and explicit attachment context while tool-enabled modes can explore further with Pi read/search/list tools (#3).
+- Documented the issue, branch, changelog, and manual release-prep process for future changes (#3).
+
 ## 0.0.2
 
 Automated review fixes for Obsidian Community Plugins:

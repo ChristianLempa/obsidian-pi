@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ChangeTracker } from "../src/changes/change-tracker.mjs";
+import { CHANGE_SNAPSHOT_FILE_LIMIT, ChangeTracker } from "../src/changes/change-tracker.mjs";
 
 function createApp(files, contents) {
   return {
@@ -18,7 +18,7 @@ describe("ChangeTracker", () => {
         [{ path: "a.md" }, { path: "node_modules/pkg/index.js" }, { path: "image.png" }],
         {}
       ),
-      { ignoredFolders: ["node_modules"], maxChangeSnapshotFiles: 500 }
+      { ignoredFolders: ["node_modules"] }
     );
 
     expect(tracker.getTrackedFiles().map((file) => file.path)).toEqual(["a.md"]);
@@ -28,7 +28,7 @@ describe("ChangeTracker", () => {
     const files = [{ path: "a.md" }];
     const contents = { "a.md": "before" };
     const app = createApp(files, contents);
-    const tracker = new ChangeTracker(app, { ignoredFolders: [], maxChangeSnapshotFiles: 500 });
+    const tracker = new ChangeTracker(app, { ignoredFolders: [] });
     const before = await tracker.snapshot();
 
     contents["a.md"] = "after";
@@ -40,12 +40,14 @@ describe("ChangeTracker", () => {
     });
   });
 
-  it("enforces the configured file snapshot limit", async () => {
-    const tracker = new ChangeTracker(createApp([{ path: "a.md" }, { path: "b.md" }], {}), {
-      ignoredFolders: [],
-      maxChangeSnapshotFiles: 1
-    });
+  it("enforces the internal file snapshot safety limit", async () => {
+    const files = Array.from({ length: CHANGE_SNAPSHOT_FILE_LIMIT + 1 }, (_, index) => ({
+      path: `${index}.md`
+    }));
+    const tracker = new ChangeTracker(createApp(files, {}), { ignoredFolders: [] });
 
-    await expect(tracker.snapshot()).rejects.toThrow("exceeds the configured limit of 1");
+    await expect(tracker.snapshot()).rejects.toThrow(
+      `exceeds the internal safety limit of ${CHANGE_SNAPSHOT_FILE_LIMIT}`
+    );
   });
 });

@@ -58,27 +58,27 @@ describe("plugin settings helpers", () => {
   });
 
   it("normalizes loaded settings", () => {
-    expect(
-      normalizeSettings({
-        sandboxMode: "danger-full-access",
-        maxSearchResults: "999",
-        maxSearchFiles: "bad",
-        maxFileChars: 10,
-        maxChangeSnapshotFiles: 0,
-        ignoredFolders: ["", ".git"],
-        includeDefaultSkills: undefined,
-        dismissedPiSetup: true
-      })
-    ).toMatchObject({
+    const settings = normalizeSettings({
+      sandboxMode: "danger-full-access",
+      maxSearchResults: "999",
+      maxSearchFiles: "bad",
+      maxFileChars: 10,
+      maxChangeSnapshotFiles: 0,
+      ignoredFolders: ["", ".git"],
+      includeDefaultSkills: undefined,
+      dismissedPiSetup: true
+    });
+
+    expect(settings).toMatchObject({
       sandboxMode: "edit",
-      maxSearchResults: 25,
-      maxSearchFiles: DEFAULT_SETTINGS.maxSearchFiles,
-      maxFileChars: 501,
-      maxChangeSnapshotFiles: 1,
       ignoredFolders: [".git"],
       includeDefaultSkills: true,
       dismissedPiSetup: true
     });
+    expect(settings).not.toHaveProperty("maxSearchResults");
+    expect(settings).not.toHaveProperty("maxSearchFiles");
+    expect(settings).not.toHaveProperty("maxFileChars");
+    expect(settings).not.toHaveProperty("maxChangeSnapshotFiles");
   });
 
   it("finds custom selected model info and exposes tool modes", () => {

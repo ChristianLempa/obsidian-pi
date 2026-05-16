@@ -6,7 +6,7 @@ Guidance for AI coding agents working in this repository.
 
 Project name: Pi Agent
 
-Pi Agent is a desktop-only Obsidian plugin that shells out to the separately installed Pi coding agent CLI and uses vault context from Markdown notes, links, backlinks, tags, search results, selected text, and explicit prompt attachments.
+Pi Agent is a desktop-only Obsidian plugin that shells out to the separately installed Pi coding agent CLI and uses vault context from Markdown notes, links, backlinks, tags, explicit search attachments, selected text, and explicit prompt attachments.
 
 ## Scope and precedence
 
@@ -73,6 +73,13 @@ Run the relevant checks before finishing changes.
   - `shared/` for pure helpers.
 - Move pure logic to modules and cover it with tests before wiring it into Obsidian UI code.
 - Keep refactors behavior-preserving unless the user explicitly asks for behavior changes.
+
+## Issue and changelog process
+
+- Before implementing feature work or behavior changes, create or identify a GitHub issue and reference it in commits, pull requests, and changelog entries.
+- Work on a feature branch named for the issue, for example `issue-3-short-topic`, then merge through `main` after validation/review.
+- Add user-facing changes under `## Unreleased` in `CHANGELOG.md` and include the issue number, for example `(#3)`.
+- For releases, use a release-prep branch/PR to bump version files and manually promote `## Unreleased` entries into the release version section before tagging.
 
 ## Privacy and safety documentation
 

@@ -120,6 +120,7 @@ function createLcsTable(beforeLines, afterLines) {
 }
 
 // src/changes/change-tracker.mjs
+var CHANGE_SNAPSHOT_FILE_LIMIT = 500;
 var TEXT_FILE_EXTENSIONS = /* @__PURE__ */ new Set([
   "md",
   "txt",
@@ -169,10 +170,9 @@ var ChangeTracker = class {
   }
   async snapshot() {
     const files = this.getTrackedFiles();
-    const maxFiles = this.settings.maxChangeSnapshotFiles || 500;
-    if (files.length > maxFiles) {
+    if (files.length > CHANGE_SNAPSHOT_FILE_LIMIT) {
       throw new Error(
-        `Pi Agent change tracking found ${files.length} text files, which exceeds the configured limit of ${maxFiles}. Increase Max tracked files or add ignored folders before using Edit or Full agent mode.`
+        `Pi Agent change review found ${files.length} text files, which exceeds the internal safety limit of ${CHANGE_SNAPSHOT_FILE_LIMIT}. Add ignored folders/directories or use external version control for large projects.`
       );
     }
     const fileContents = /* @__PURE__ */ new Map();
@@ -255,10 +255,6 @@ var DEFAULT_SETTINGS = {
   acknowledgedToolRisk: false,
   availableModels: [],
   dryRun: false,
-  maxSearchResults: 8,
-  maxSearchFiles: 200,
-  maxFileChars: 12e3,
-  maxChangeSnapshotFiles: 500,
   ignoredFolders: [".obsidian", ".git", "node_modules", "Templates"],
   customInstructions: "",
   includeDefaultSkills: true,
@@ -268,7 +264,14 @@ var DEFAULT_SETTINGS = {
   dismissedPiSetup: false
 };
 function normalizeSettings(rawSettings = {}) {
-  const settings = { ...DEFAULT_SETTINGS, ...rawSettings };
+  const {
+    maxSearchResults: _maxSearchResults,
+    maxSearchFiles: _maxSearchFiles,
+    maxFileChars: _maxFileChars,
+    maxChangeSnapshotFiles: _maxChangeSnapshotFiles,
+    ...supportedSettings
+  } = rawSettings;
+  const settings = { ...DEFAULT_SETTINGS, ...supportedSettings };
   settings.model = normalizeString(settings.model);
   settings.customModel = normalizeString(settings.customModel);
   settings.reasoningEffort = normalizeString(settings.reasoningEffort);
@@ -278,30 +281,6 @@ function normalizeSettings(rawSettings = {}) {
     ? settings.availableModels
     : [];
   settings.dryRun = false;
-  settings.maxSearchResults = clampInteger(
-    settings.maxSearchResults,
-    3,
-    25,
-    DEFAULT_SETTINGS.maxSearchResults
-  );
-  settings.maxSearchFiles = clampInteger(
-    settings.maxSearchFiles,
-    1,
-    1e4,
-    DEFAULT_SETTINGS.maxSearchFiles
-  );
-  settings.maxFileChars = clampInteger(
-    settings.maxFileChars,
-    501,
-    25e4,
-    DEFAULT_SETTINGS.maxFileChars
-  );
-  settings.maxChangeSnapshotFiles = clampInteger(
-    settings.maxChangeSnapshotFiles,
-    1,
-    5e4,
-    DEFAULT_SETTINGS.maxChangeSnapshotFiles
-  );
   settings.ignoredFolders = normalizeStringList(
     settings.ignoredFolders,
     DEFAULT_SETTINGS.ignoredFolders
@@ -368,10 +347,6 @@ function normalizeToolMode(value) {
     : value === "workspace-write" || value === "danger-full-access"
       ? "edit"
       : DEFAULT_SETTINGS.sandboxMode;
-}
-function clampInteger(value, min, max, fallback) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
 }
 function formatModelOptionLabel(model) {
   const details = [
@@ -748,27 +723,12 @@ var ContextBuilder = class {
   }
   async build(prompt, selection = "") {
     const parsedPrompt = parsePromptReferences(prompt);
-    const activeNote = await this.graph.getActiveNoteContext(selection);
-    const linkedNeighborhood = activeNote
-      ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
-      : [];
-    const searchResults = await this.graph.searchNotes(parsedPrompt.cleanPrompt, {
-      limit: this.settings.maxSearchResults
-    });
-    const attachments = await this.resolveAttachments(parsedPrompt.references, activeNote);
+    const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
     const toolCatalog = this.getToolCatalog();
     const slashCommands = getSlashCommands(this.settings, this.vaultBasePath);
-    const inspection = this.createInspection({
-      activeNote,
-      linkedNeighborhood,
-      searchResults,
-      attachments
-    });
+    const inspection = this.createInspection(preAttachedContext);
     return {
-      activeNote,
-      linkedNeighborhood,
-      searchResults,
-      attachments,
+      ...preAttachedContext,
       instructions: [this.bundledInstructions, this.settings.customInstructions]
         .map((value) => value.trim())
         .filter(Boolean)
@@ -778,12 +738,35 @@ var ContextBuilder = class {
       slashCommands
     };
   }
+  /**
+   * Builds the context packet that is attached before Pi starts.
+   *
+   * Keep this deliberately small and predictable: active note context, one-hop
+   * linked/backlinked note context, and user-explicit prompt references. Broad
+   * vault exploration belongs to Pi's read/search/list tools in Review, Edit,
+   * and Full agent modes. Chat mode has no tools, so users can still attach
+   * additional context explicitly with @note, #tag, /search, or folder refs.
+   */
+  async buildPreAttachedContext(parsedPrompt, selection = "") {
+    const activeNote = await this.graph.getActiveNoteContext(selection);
+    const linkedNeighborhood = activeNote
+      ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
+      : [];
+    const attachments = await this.resolveAttachments(parsedPrompt.references, activeNote);
+    return {
+      activeNote,
+      linkedNeighborhood,
+      searchResults: [],
+      attachments
+    };
+  }
   async inspectContext(prompt, selection = "") {
     return (await this.build(prompt, selection)).inspection;
   }
   formatPrompt(prompt, context, threadHistory = []) {
     return [
-      "Use the following Obsidian vault context to answer the user.",
+      "Use the following Obsidian vault context as a starting point.",
+      "When read/search/list tools are enabled, inspect additional files yourself instead of assuming the pre-attached context is complete.",
       "Prefer cited wikilinks or vault paths when referring to notes.",
       "Respect the selected tool mode. Chat has no Pi CLI tools. Review can read/search/list only. Edit can edit/write but not run shell commands. Full agent can edit/write and run shell commands. Tool modes are not an OS-level sandbox.",
       "",
@@ -915,7 +898,7 @@ var ContextBuilder = class {
             : []
           : command === "search"
             ? argument
-              ? await this.graph.searchNotes(argument, { limit: this.settings.maxSearchResults })
+              ? await this.graph.searchNotes(argument)
               : []
             : command === "compact"
               ? { action: "Pi CLI session compaction", instructions: argument || void 0 }
@@ -1086,6 +1069,8 @@ function escapeRegExp(value) {
 }
 
 // src/context/vault-graph.mjs
+var CONTEXT_RESULT_LIMIT = 8;
+var NOTE_CONTEXT_CHAR_LIMIT = 12e3;
 var VaultGraph = class {
   constructor(app, settings, getCurrentContextFile) {
     this.app = app;
@@ -1098,13 +1083,13 @@ var VaultGraph = class {
   async searchNotes(query, options = {}) {
     const terms = tokenizeQuery(query);
     if (terms.length === 0) return [];
-    const limit = options.limit ?? this.settings.maxSearchResults;
-    const files = this.getMarkdownFiles()
-      .filter((file) => !options.folder || file.path.startsWith(options.folder))
-      .slice(0, this.settings.maxSearchFiles);
+    const limit = options.limit ?? CONTEXT_RESULT_LIMIT;
+    const files = this.getMarkdownFiles().filter(
+      (file) => !options.folder || file.path.startsWith(options.folder)
+    );
     const results = [];
     for (const file of files) {
-      const content = await this.readFile(file, this.settings.maxFileChars);
+      const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
       const score = scoreSearchResult(file.path, content, terms);
       const cache = this.app.metadataCache.getFileCache(file);
       results.push({
@@ -1120,7 +1105,7 @@ var VaultGraph = class {
   async getActiveNoteContext(selection = "") {
     const file = this.getActiveFile();
     if (!file) return void 0;
-    const content = await this.readFile(file, this.settings.maxFileChars);
+    const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
     return { ...(await this.getNoteContext(file)), content, selection };
   }
   async getNoteContext(fileOrPath) {
@@ -1131,7 +1116,7 @@ var VaultGraph = class {
     if (!(file instanceof import_obsidian.TFile))
       throw new Error(`Note not found: ${String(fileOrPath)}`);
     const cache = this.app.metadataCache.getFileCache(file);
-    const content = await this.readFile(file, this.settings.maxFileChars);
+    const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
     return {
       path: file.path,
       title: file.basename,
@@ -1155,17 +1140,17 @@ var VaultGraph = class {
         excerpt: "Title match",
         tags: this.getTags(this.app.metadataCache.getFileCache(file))
       }));
-    const searchMatches = await this.searchNotes(query, { limit: this.settings.maxSearchResults });
-    return rankSearchResults([...titleMatches, ...searchMatches], this.settings.maxSearchResults);
+    const searchMatches = await this.searchNotes(query, { limit: CONTEXT_RESULT_LIMIT });
+    return rankSearchResults([...titleMatches, ...searchMatches], CONTEXT_RESULT_LIMIT);
   }
   async getFolderSummary(folderPath) {
     const normalizedFolderPath = folderPath.replace(/^\/+|\/+$/g, "");
     const files = this.getMarkdownFiles()
       .filter((file) => file.path.startsWith(`${normalizedFolderPath}/`))
-      .slice(0, this.settings.maxSearchResults);
+      .slice(0, CONTEXT_RESULT_LIMIT);
     const results = [];
     for (const file of files) {
-      const content = await this.readFile(file, this.settings.maxFileChars);
+      const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
       results.push({
         path: file.path,
         title: file.basename,
@@ -1183,7 +1168,7 @@ var VaultGraph = class {
       const cache = this.app.metadataCache.getFileCache(file);
       const tags = this.getTags(cache);
       if (!tags.includes(normalizedTag) && !tags.includes(normalizedTag.slice(1))) continue;
-      const content = await this.readFile(file, this.settings.maxFileChars);
+      const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
       results.push({
         path: file.path,
         title: file.basename,
@@ -1191,7 +1176,7 @@ var VaultGraph = class {
         excerpt: createExcerpt(content, tokenizeQuery(normalizedTag), 260),
         tags
       });
-      if (results.length >= this.settings.maxSearchResults) break;
+      if (results.length >= CONTEXT_RESULT_LIMIT) break;
     }
     return results;
   }
@@ -1222,13 +1207,13 @@ var VaultGraph = class {
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
       )
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path))
-      .slice(0, this.settings.maxSearchResults);
+      .slice(0, CONTEXT_RESULT_LIMIT);
     const backlinks = [];
     for (const backlink of backlinkEntries) {
       const file = this.app.vault.getAbstractFileByPath(backlink.path);
       let excerpt = "";
       if (file instanceof import_obsidian.TFile) {
-        const content = await this.readFile(file, this.settings.maxFileChars);
+        const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
         excerpt = createExcerpt(content, tokenizeQuery(filePath.replace(/\.md$/i, "")), 220);
       }
       backlinks.push({
@@ -1273,14 +1258,15 @@ var VaultGraph = class {
           }
         }
       }
-      for (const path4 of nextFrontier) {
+      const limitedNextFrontier = [...nextFrontier].slice(0, CONTEXT_RESULT_LIMIT);
+      for (const path4 of limitedNextFrontier) {
         try {
           notes.push(await this.getNoteContext(path4));
         } catch {}
       }
-      frontier = [...nextFrontier].slice(0, this.settings.maxSearchResults);
+      frontier = limitedNextFrontier;
     }
-    return notes.slice(0, this.settings.maxSearchResults);
+    return notes.slice(0, CONTEXT_RESULT_LIMIT);
   }
   getActiveFile() {
     const file = this.getCurrentContextFile?.() ?? this.app.workspace.getActiveFile();
@@ -1290,9 +1276,9 @@ var VaultGraph = class {
     const file = this.app.vault.getAbstractFileByPath(filePath);
     if (!(file instanceof import_obsidian.TFile)) throw new Error(`File not found: ${filePath}`);
     if (!this.isPathAllowed(file.path)) throw new Error(`Path is not allowed: ${filePath}`);
-    return this.readFile(file, this.settings.maxFileChars);
+    return this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
   }
-  async readFile(file, maxChars) {
+  async readFile(file, maxChars = NOTE_CONTEXT_CHAR_LIMIT) {
     const content = await this.app.vault.cachedRead(file);
     return content.length > maxChars
       ? `${content.slice(0, maxChars)}
@@ -2130,7 +2116,7 @@ ${events
       context.activeNote
         ? `Active note: [[${context.activeNote.path.replace(/\.md$/i, "")}]]`
         : "Active note: none",
-      `Search results: ${context.searchResults.length}`,
+      `Automatic search results: ${context.searchResults.length}`,
       `Linked notes: ${context.linkedNeighborhood.length}`
     ];
     if (context.activeNote) {
@@ -2158,7 +2144,7 @@ ${events
     if (context.searchResults.length > 0) {
       lines.push(
         "",
-        "Top note matches:",
+        "Automatic note matches:",
         ...context.searchResults.map(
           (result) => `- [[${result.path.replace(/\.md$/i, "")}]] score=${result.score}`
         )
@@ -2374,54 +2360,12 @@ var PiAgentSettingTab = class extends import_obsidian3.PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
-    new import_obsidian3.Setting(containerEl).setName("Advanced context").setHeading();
-    this.addNumberSlider(
-      "Max context results",
-      "Number of ranked notes/links returned to Pi as Obsidian context.",
-      {
-        min: 3,
-        max: 25,
-        step: 1,
-        value: this.plugin.settings.maxSearchResults,
-        onChange: async (value) => {
-          this.plugin.settings.maxSearchResults = value;
-          await this.plugin.saveSettings();
-        }
-      }
-    );
-    this.addPositiveIntegerSetting(
-      "Max searched files",
-      "Maximum markdown files scanned for each vault search.",
-      "200",
-      0,
-      async (value) => {
-        this.plugin.settings.maxSearchFiles = value;
-        await this.plugin.saveSettings();
-      }
-    );
-    this.addPositiveIntegerSetting(
-      "Max note characters",
-      "Maximum characters read from a single note for context.",
-      "12000",
-      500,
-      async (value) => {
-        this.plugin.settings.maxFileChars = value;
-        await this.plugin.saveSettings();
-      }
-    );
-    this.addPositiveIntegerSetting(
-      "Max tracked files",
-      "Maximum text files snapshotted to detect agent changes.",
-      "500",
-      0,
-      async (value) => {
-        this.plugin.settings.maxChangeSnapshotFiles = value;
-        await this.plugin.saveSettings();
-      }
-    );
+    new import_obsidian3.Setting(containerEl).setName("Context and file access").setHeading();
     new import_obsidian3.Setting(containerEl)
-      .setName("Ignored folders")
-      .setDesc("Comma-separated folder prefixes that Pi retrieval should ignore.")
+      .setName("Ignored folders/directories")
+      .setDesc(
+        "Comma-separated folder prefixes that Pi pre-attached context, retrieval, and change review should ignore."
+      )
       .addTextArea((text) =>
         text
           .setPlaceholder(".obsidian, .git, node_modules")
@@ -2434,46 +2378,6 @@ var PiAgentSettingTab = class extends import_obsidian3.PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
-  }
-  addNumberSlider(name, description, options) {
-    new import_obsidian3.Setting(this.containerEl)
-      .setName(name)
-      .setDesc(description)
-      .addSlider((slider) =>
-        slider
-          .setLimits(options.min, options.max, options.step)
-          .setValue(options.value)
-          .setDynamicTooltip()
-          .onChange(options.onChange)
-      );
-  }
-  addPositiveIntegerSetting(name, description, placeholder, minExclusive, onChange) {
-    const setting = new import_obsidian3.Setting(this.containerEl)
-      .setName(name)
-      .setDesc(description);
-    const errorEl = this.containerEl.createDiv({ cls: "pi-agent-setting-error" });
-    errorEl.hidden = true;
-    setting.addText((text) =>
-      text
-        .setPlaceholder(placeholder)
-        .setValue(String(this.getSettingValueByName(name)))
-        .onChange(async (value) => {
-          const parsed = Number.parseInt(value, 10);
-          const isValid = String(parsed) === value.trim() && parsed > minExclusive;
-          errorEl.hidden = isValid;
-          errorEl.setText(
-            isValid ? "" : `${name} must be a whole number greater than ${minExclusive}.`
-          );
-          if (isValid) await onChange(parsed);
-        })
-    );
-  }
-  getSettingValueByName(name) {
-    return name === "Max searched files"
-      ? this.plugin.settings.maxSearchFiles
-      : name === "Max note characters"
-        ? this.plugin.settings.maxFileChars
-        : this.plugin.settings.maxChangeSnapshotFiles;
   }
   getModelDropdownValue() {
     const { model } = this.plugin.settings;
@@ -5108,7 +5012,7 @@ var PiAgentView = class extends f5.ItemView {
       (this.activityText = "Preparing context"),
       (this.activityKind = "context"),
       (this.activityDetail =
-        "Collecting current note, links, backlinks, search results, and attachments."),
+        "Collecting current note, links, backlinks, and explicit attachments."),
       (this.activityStickyUntil = 0),
       (this.pendingActivity = void 0),
       this.clearPendingActivityTimer(),
@@ -5601,7 +5505,7 @@ var be = `# Pi Agent
 
 You are Pi, an agentic AI coding assistant from https://pi.dev, running inside Pi Agent.
 
-The user is working in an Obsidian vault made of Markdown notes, scripts, configs, and sometimes plugin/source-code projects. Treat vault paths, wikilinks, frontmatter, headings, tags, backlinks, outgoing links, and code files as first-class context. The plugin may provide the current note, selected text, backlinks, outgoing links, search results, and explicit @note, #tag, or /command attachments.
+The user is working in an Obsidian vault made of Markdown notes, scripts, configs, and sometimes plugin/source-code projects. Treat vault paths, wikilinks, frontmatter, headings, tags, backlinks, outgoing links, and code files as first-class context. The plugin may provide the current note, selected text, backlinks, outgoing links, explicit search results, and explicit @note, #tag, or /command attachments.
 
 Your primary role is agentic coding and technical knowledge work inside the vault: inspect files, reason about systems, propose implementation plans, edit code or Markdown when edit tools are enabled, run commands when shell tools are enabled, and summarize concrete changes.
 
@@ -5926,7 +5830,7 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!o) throw new Error("Chat thread no longer exists.");
     if (!i) throw new Error("Pi runner is not available.");
     let l = getPriorThreadHistory(o.messages, e),
-      d = this.shouldTrackPiChanges() ? await this.changeTracker.snapshot() : void 0;
+      d = this.shouldTrackPiChanges() ? await this.prepareChangeSnapshot() : void 0;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||
@@ -5961,6 +5865,16 @@ Warning: Pi Agent could not summarize vault changes after this run: ${c}`.trim()
         this.saveThreadHistory()),
       m
     );
+  }
+  async prepareChangeSnapshot() {
+    try {
+      return await this.changeTracker.snapshot();
+    } catch (t) {
+      let n = t instanceof Error ? t.message : String(t);
+      new P.Notice(`Pi Agent change review skipped: ${n}`);
+      console.warn("Pi Agent: skipped pre-run change snapshot", t);
+      return void 0;
+    }
   }
   shouldTrackPiChanges() {
     let e = this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;

@@ -470,7 +470,7 @@ export class PiRunner {
       context.activeNote
         ? `Active note: [[${context.activeNote.path.replace(/\.md$/i, "")}]]`
         : "Active note: none",
-      `Search results: ${context.searchResults.length}`,
+      `Automatic search results: ${context.searchResults.length}`,
       `Linked notes: ${context.linkedNeighborhood.length}`
     ];
 
@@ -500,7 +500,7 @@ export class PiRunner {
     if (context.searchResults.length > 0) {
       lines.push(
         "",
-        "Top note matches:",
+        "Automatic note matches:",
         ...context.searchResults.map(
           (result) => `- [[${result.path.replace(/\.md$/i, "")}]] score=${result.score}`
         )

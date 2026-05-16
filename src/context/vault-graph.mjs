@@ -6,6 +6,11 @@ import {
   tokenizeQuery
 } from "../shared/text.mjs";
 
+// Internal context budgets keep pre-attached prompts bounded without exposing
+// low-level numeric controls in the settings UI.
+export const CONTEXT_RESULT_LIMIT = 8;
+export const NOTE_CONTEXT_CHAR_LIMIT = 12_000;
+
 export class VaultGraph {
   constructor(app, settings, getCurrentContextFile) {
     this.app = app;
@@ -21,14 +26,14 @@ export class VaultGraph {
     const terms = tokenizeQuery(query);
     if (terms.length === 0) return [];
 
-    const limit = options.limit ?? this.settings.maxSearchResults;
-    const files = this.getMarkdownFiles()
-      .filter((file) => !options.folder || file.path.startsWith(options.folder))
-      .slice(0, this.settings.maxSearchFiles);
+    const limit = options.limit ?? CONTEXT_RESULT_LIMIT;
+    const files = this.getMarkdownFiles().filter(
+      (file) => !options.folder || file.path.startsWith(options.folder)
+    );
     const results = [];
 
     for (const file of files) {
-      const content = await this.readFile(file, this.settings.maxFileChars);
+      const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
       const score = scoreSearchResult(file.path, content, terms);
       const cache = this.app.metadataCache.getFileCache(file);
 
@@ -48,7 +53,7 @@ export class VaultGraph {
     const file = this.getActiveFile();
     if (!file) return undefined;
 
-    const content = await this.readFile(file, this.settings.maxFileChars);
+    const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
     return { ...(await this.getNoteContext(file)), content, selection };
   }
 
@@ -60,7 +65,7 @@ export class VaultGraph {
     if (!(file instanceof TFile)) throw new Error(`Note not found: ${String(fileOrPath)}`);
 
     const cache = this.app.metadataCache.getFileCache(file);
-    const content = await this.readFile(file, this.settings.maxFileChars);
+    const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
 
     return {
       path: file.path,
@@ -86,20 +91,20 @@ export class VaultGraph {
         excerpt: "Title match",
         tags: this.getTags(this.app.metadataCache.getFileCache(file))
       }));
-    const searchMatches = await this.searchNotes(query, { limit: this.settings.maxSearchResults });
+    const searchMatches = await this.searchNotes(query, { limit: CONTEXT_RESULT_LIMIT });
 
-    return rankSearchResults([...titleMatches, ...searchMatches], this.settings.maxSearchResults);
+    return rankSearchResults([...titleMatches, ...searchMatches], CONTEXT_RESULT_LIMIT);
   }
 
   async getFolderSummary(folderPath) {
     const normalizedFolderPath = folderPath.replace(/^\/+|\/+$/g, "");
     const files = this.getMarkdownFiles()
       .filter((file) => file.path.startsWith(`${normalizedFolderPath}/`))
-      .slice(0, this.settings.maxSearchResults);
+      .slice(0, CONTEXT_RESULT_LIMIT);
     const results = [];
 
     for (const file of files) {
-      const content = await this.readFile(file, this.settings.maxFileChars);
+      const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
       results.push({
         path: file.path,
         title: file.basename,
@@ -121,7 +126,7 @@ export class VaultGraph {
       const tags = this.getTags(cache);
       if (!tags.includes(normalizedTag) && !tags.includes(normalizedTag.slice(1))) continue;
 
-      const content = await this.readFile(file, this.settings.maxFileChars);
+      const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
       results.push({
         path: file.path,
         title: file.basename,
@@ -129,7 +134,7 @@ export class VaultGraph {
         excerpt: createExcerpt(content, tokenizeQuery(normalizedTag), 260),
         tags
       });
-      if (results.length >= this.settings.maxSearchResults) break;
+      if (results.length >= CONTEXT_RESULT_LIMIT) break;
     }
 
     return results;
@@ -165,14 +170,14 @@ export class VaultGraph {
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
       )
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path))
-      .slice(0, this.settings.maxSearchResults);
+      .slice(0, CONTEXT_RESULT_LIMIT);
     const backlinks = [];
 
     for (const backlink of backlinkEntries) {
       const file = this.app.vault.getAbstractFileByPath(backlink.path);
       let excerpt = "";
       if (file instanceof TFile) {
-        const content = await this.readFile(file, this.settings.maxFileChars);
+        const content = await this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
         excerpt = createExcerpt(content, tokenizeQuery(filePath.replace(/\.md$/i, "")), 220);
       }
 
@@ -227,7 +232,8 @@ export class VaultGraph {
         }
       }
 
-      for (const path of nextFrontier) {
+      const limitedNextFrontier = [...nextFrontier].slice(0, CONTEXT_RESULT_LIMIT);
+      for (const path of limitedNextFrontier) {
         try {
           notes.push(await this.getNoteContext(path));
         } catch {
@@ -235,10 +241,10 @@ export class VaultGraph {
         }
       }
 
-      frontier = [...nextFrontier].slice(0, this.settings.maxSearchResults);
+      frontier = limitedNextFrontier;
     }
 
-    return notes.slice(0, this.settings.maxSearchResults);
+    return notes.slice(0, CONTEXT_RESULT_LIMIT);
   }
 
   getActiveFile() {
@@ -251,10 +257,10 @@ export class VaultGraph {
     if (!(file instanceof TFile)) throw new Error(`File not found: ${filePath}`);
     if (!this.isPathAllowed(file.path)) throw new Error(`Path is not allowed: ${filePath}`);
 
-    return this.readFile(file, this.settings.maxFileChars);
+    return this.readFile(file, NOTE_CONTEXT_CHAR_LIMIT);
   }
 
-  async readFile(file, maxChars) {
+  async readFile(file, maxChars = NOTE_CONTEXT_CHAR_LIMIT) {
     const content = await this.app.vault.cachedRead(file);
     return content.length > maxChars ? `${content.slice(0, maxChars)}\n...[truncated]` : content;
   }

@@ -30,7 +30,7 @@ function createGraph() {
 }
 
 describe("ContextBuilder", () => {
-  it("builds context with search results, attachments, commands, and inspection", async () => {
+  it("builds pre-attached context from active notes, explicit attachments, commands, and inspection", async () => {
     const builder = new ContextBuilder(
       createGraph(),
       { ...DEFAULT_SETTINGS, includeDefaultSkills: false, customInstructions: "Custom" },
@@ -38,21 +38,25 @@ describe("ContextBuilder", () => {
       ""
     );
 
-    const context = await builder.build("Use @Attached #tag\n/backlinks", "selection text");
+    const context = await builder.build(
+      "Use @Attached #tag\n/search topic\n/backlinks",
+      "selection text"
+    );
 
     expect(context.instructions).toBe("Bundled\n\nCustom");
     expect(context.activeNote.selection).toBe("selection text");
     expect(context.linkedNeighborhood).toEqual([{ path: "Linked.md" }]);
-    expect(context.searchResults).toEqual([{ path: "Search.md", score: 29 }]);
+    expect(context.searchResults).toEqual([]);
     expect(context.attachments).toMatchObject([
       { type: "note", label: "Attached" },
       { type: "tag", label: "#tag" },
+      { type: "command", label: "/search" },
       { type: "command", label: "/backlinks" }
     ]);
     expect(context.inspection).toMatchObject({
       activeNote: { path: "Active.md", hasSelection: true },
-      attachments: { total: 3 },
-      searchResults: { count: 1 },
+      attachments: { total: 4 },
+      searchResults: { count: 0 },
       linkedNeighborhood: { count: 1 }
     });
   });

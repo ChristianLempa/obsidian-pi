@@ -13,28 +13,13 @@ export class ContextBuilder {
 
   async build(prompt, selection = "") {
     const parsedPrompt = parsePromptReferences(prompt);
-    const activeNote = await this.graph.getActiveNoteContext(selection);
-    const linkedNeighborhood = activeNote
-      ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
-      : [];
-    const searchResults = await this.graph.searchNotes(parsedPrompt.cleanPrompt, {
-      limit: this.settings.maxSearchResults
-    });
-    const attachments = await this.resolveAttachments(parsedPrompt.references, activeNote);
+    const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
     const toolCatalog = this.getToolCatalog();
     const slashCommands = getSlashCommands(this.settings, this.vaultBasePath);
-    const inspection = this.createInspection({
-      activeNote,
-      linkedNeighborhood,
-      searchResults,
-      attachments
-    });
+    const inspection = this.createInspection(preAttachedContext);
 
     return {
-      activeNote,
-      linkedNeighborhood,
-      searchResults,
-      attachments,
+      ...preAttachedContext,
       instructions: [this.bundledInstructions, this.settings.customInstructions]
         .map((value) => value.trim())
         .filter(Boolean)
@@ -45,13 +30,38 @@ export class ContextBuilder {
     };
   }
 
+  /**
+   * Builds the context packet that is attached before Pi starts.
+   *
+   * Keep this deliberately small and predictable: active note context, one-hop
+   * linked/backlinked note context, and user-explicit prompt references. Broad
+   * vault exploration belongs to Pi's read/search/list tools in Review, Edit,
+   * and Full agent modes. Chat mode has no tools, so users can still attach
+   * additional context explicitly with @note, #tag, /search, or folder refs.
+   */
+  async buildPreAttachedContext(parsedPrompt, selection = "") {
+    const activeNote = await this.graph.getActiveNoteContext(selection);
+    const linkedNeighborhood = activeNote
+      ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
+      : [];
+    const attachments = await this.resolveAttachments(parsedPrompt.references, activeNote);
+
+    return {
+      activeNote,
+      linkedNeighborhood,
+      searchResults: [],
+      attachments
+    };
+  }
+
   async inspectContext(prompt, selection = "") {
     return (await this.build(prompt, selection)).inspection;
   }
 
   formatPrompt(prompt, context, threadHistory = []) {
     return [
-      "Use the following Obsidian vault context to answer the user.",
+      "Use the following Obsidian vault context as a starting point.",
+      "When read/search/list tools are enabled, inspect additional files yourself instead of assuming the pre-attached context is complete.",
       "Prefer cited wikilinks or vault paths when referring to notes.",
       "Respect the selected tool mode. Chat has no Pi CLI tools. Review can read/search/list only. Edit can edit/write but not run shell commands. Full agent can edit/write and run shell commands. Tool modes are not an OS-level sandbox.",
       "",
@@ -193,7 +203,7 @@ export class ContextBuilder {
             : []
           : command === "search"
             ? argument
-              ? await this.graph.searchNotes(argument, { limit: this.settings.maxSearchResults })
+              ? await this.graph.searchNotes(argument)
               : []
             : command === "compact"
               ? { action: "Pi CLI session compaction", instructions: argument || undefined }

@@ -1,5 +1,10 @@
 import { diffLines, formatUnifiedDiff, splitLines, summarizeChangedFiles } from "./diff.mjs";
 
+// Internal safety fuse for local before/after snapshots used by diff/revert.
+// Large projects should use ignored folders or external version control until
+// smarter per-run change tracking is implemented.
+export const CHANGE_SNAPSHOT_FILE_LIMIT = 500;
+
 const TEXT_FILE_EXTENSIONS = new Set([
   "md",
   "txt",
@@ -51,11 +56,9 @@ export class ChangeTracker {
 
   async snapshot() {
     const files = this.getTrackedFiles();
-    const maxFiles = this.settings.maxChangeSnapshotFiles || 500;
-
-    if (files.length > maxFiles) {
+    if (files.length > CHANGE_SNAPSHOT_FILE_LIMIT) {
       throw new Error(
-        `Pi Agent change tracking found ${files.length} text files, which exceeds the configured limit of ${maxFiles}. Increase Max tracked files or add ignored folders before using Edit or Full agent mode.`
+        `Pi Agent change review found ${files.length} text files, which exceeds the internal safety limit of ${CHANGE_SNAPSHOT_FILE_LIMIT}. Add ignored folders/directories or use external version control for large projects.`
       );
     }
 

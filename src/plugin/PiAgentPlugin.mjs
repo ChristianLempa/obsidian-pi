@@ -25,7 +25,7 @@ var be = `# Pi Agent
 
 You are Pi, an agentic AI coding assistant from https://pi.dev, running inside Pi Agent.
 
-The user is working in an Obsidian vault made of Markdown notes, scripts, configs, and sometimes plugin/source-code projects. Treat vault paths, wikilinks, frontmatter, headings, tags, backlinks, outgoing links, and code files as first-class context. The plugin may provide the current note, selected text, backlinks, outgoing links, search results, and explicit @note, #tag, or /command attachments.
+The user is working in an Obsidian vault made of Markdown notes, scripts, configs, and sometimes plugin/source-code projects. Treat vault paths, wikilinks, frontmatter, headings, tags, backlinks, outgoing links, and code files as first-class context. The plugin may provide the current note, selected text, backlinks, outgoing links, explicit search results, and explicit @note, #tag, or /command attachments.
 
 Your primary role is agentic coding and technical knowledge work inside the vault: inspect files, reason about systems, propose implementation plans, edit code or Markdown when edit tools are enabled, run commands when shell tools are enabled, and summarize concrete changes.
 
@@ -352,7 +352,7 @@ export class PiAgentPlugin extends P.Plugin {
     if (!o) throw new Error("Chat thread no longer exists.");
     if (!i) throw new Error("Pi runner is not available.");
     let l = getPriorThreadHistory(o.messages, e),
-      d = this.shouldTrackPiChanges() ? await this.changeTracker.snapshot() : void 0;
+      d = this.shouldTrackPiChanges() ? await this.prepareChangeSnapshot() : void 0;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||
@@ -386,6 +386,16 @@ export class PiAgentPlugin extends P.Plugin {
         this.saveThreadHistory()),
       m
     );
+  }
+  async prepareChangeSnapshot() {
+    try {
+      return await this.changeTracker.snapshot();
+    } catch (t) {
+      let n = t instanceof Error ? t.message : String(t);
+      new P.Notice(`Pi Agent change review skipped: ${n}`);
+      console.warn("Pi Agent: skipped pre-run change snapshot", t);
+      return void 0;
+    }
   }
   shouldTrackPiChanges() {
     let e = this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;

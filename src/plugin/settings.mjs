@@ -23,10 +23,6 @@ export const DEFAULT_SETTINGS = {
   acknowledgedToolRisk: false,
   availableModels: [],
   dryRun: false,
-  maxSearchResults: 8,
-  maxSearchFiles: 200,
-  maxFileChars: 12_000,
-  maxChangeSnapshotFiles: 500,
   ignoredFolders: [".obsidian", ".git", "node_modules", "Templates"],
   customInstructions: "",
   includeDefaultSkills: true,
@@ -37,7 +33,14 @@ export const DEFAULT_SETTINGS = {
 };
 
 export function normalizeSettings(rawSettings = {}) {
-  const settings = { ...DEFAULT_SETTINGS, ...rawSettings };
+  const {
+    maxSearchResults: _maxSearchResults,
+    maxSearchFiles: _maxSearchFiles,
+    maxFileChars: _maxFileChars,
+    maxChangeSnapshotFiles: _maxChangeSnapshotFiles,
+    ...supportedSettings
+  } = rawSettings;
+  const settings = { ...DEFAULT_SETTINGS, ...supportedSettings };
 
   settings.model = normalizeString(settings.model);
   settings.customModel = normalizeString(settings.customModel);
@@ -48,30 +51,6 @@ export function normalizeSettings(rawSettings = {}) {
     ? settings.availableModels
     : [];
   settings.dryRun = false;
-  settings.maxSearchResults = clampInteger(
-    settings.maxSearchResults,
-    3,
-    25,
-    DEFAULT_SETTINGS.maxSearchResults
-  );
-  settings.maxSearchFiles = clampInteger(
-    settings.maxSearchFiles,
-    1,
-    10_000,
-    DEFAULT_SETTINGS.maxSearchFiles
-  );
-  settings.maxFileChars = clampInteger(
-    settings.maxFileChars,
-    501,
-    250_000,
-    DEFAULT_SETTINGS.maxFileChars
-  );
-  settings.maxChangeSnapshotFiles = clampInteger(
-    settings.maxChangeSnapshotFiles,
-    1,
-    50_000,
-    DEFAULT_SETTINGS.maxChangeSnapshotFiles
-  );
   settings.ignoredFolders = normalizeStringList(
     settings.ignoredFolders,
     DEFAULT_SETTINGS.ignoredFolders
@@ -155,11 +134,6 @@ function normalizeToolMode(value) {
     : value === "workspace-write" || value === "danger-full-access"
       ? "edit"
       : DEFAULT_SETTINGS.sandboxMode;
-}
-
-function clampInteger(value, min, max, fallback) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
 }
 
 function formatModelOptionLabel(model) {

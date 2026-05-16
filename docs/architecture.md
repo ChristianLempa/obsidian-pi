@@ -17,7 +17,7 @@ styles.css
 Pi Agent has these runtime domains:
 
 - **Plugin shell**: Obsidian lifecycle, commands, settings, view registration, service construction, and persistence.
-- **Context**: active note, selection, backlinks, outgoing links, unresolved links, tags, frontmatter, headings, search results, and explicit prompt attachments.
+- **Context**: active note, selection, backlinks, outgoing links, unresolved links, tags, frontmatter, headings, one-hop linked context, and explicit prompt/search attachments.
 - **Pi integration**: CLI argument construction, session files, cancellation, model catalog lookup, JSON event parsing, token/context usage, and tool status mapping.
 - **Threads**: local chat threads, message normalization, fork/switch/delete/rename behavior, and persisted history trimming.
 - **Changes**: vault snapshots, text-file filters, before/after diffs, change summaries, and revert support.
@@ -83,7 +83,7 @@ The build uses esbuild to bundle the source entry into a CommonJS `main.js` for 
 
 1. The user submits a prompt from the Pi Agent view or an Obsidian command.
 2. The plugin stores the user message on the current chat thread.
-3. The context domain collects current note context, selected text, graph neighborhood, search results, and explicit attachments.
+3. The context domain collects current note context, selected text, a small graph neighborhood, and explicit attachments. Broader vault exploration is delegated to Pi read/search/list tools when enabled.
 4. The Pi integration domain formats the prompt and starts the Pi CLI in JSON mode.
 5. JSON events stream back into UI state: thinking, tool activity, text deltas, token usage, retries, compaction, and final answer.
 6. Edit-capable modes snapshot the vault before the run and diff it afterward.

@@ -9,7 +9,7 @@ When you send a message, the plugin can include:
 - your prompt and selected text
 - current note content and metadata
 - backlinks, outgoing links, unresolved links, headings, tags, and frontmatter
-- ranked search-result excerpts
+- explicit ranked search-result excerpts when you use search attachments or commands
 - explicit `@note`, `#tag`, `/search`, and `/skill:name` attachments
 - local chat thread history for continuity
 

@@ -165,58 +165,12 @@ export class PiAgentSettingTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl).setName("Advanced context").setHeading();
-    this.addNumberSlider(
-      "Max context results",
-      "Number of ranked notes/links returned to Pi as Obsidian context.",
-      {
-        min: 3,
-        max: 25,
-        step: 1,
-        value: this.plugin.settings.maxSearchResults,
-        onChange: async (value) => {
-          this.plugin.settings.maxSearchResults = value;
-          await this.plugin.saveSettings();
-        }
-      }
-    );
-
-    this.addPositiveIntegerSetting(
-      "Max searched files",
-      "Maximum markdown files scanned for each vault search.",
-      "200",
-      0,
-      async (value) => {
-        this.plugin.settings.maxSearchFiles = value;
-        await this.plugin.saveSettings();
-      }
-    );
-
-    this.addPositiveIntegerSetting(
-      "Max note characters",
-      "Maximum characters read from a single note for context.",
-      "12000",
-      500,
-      async (value) => {
-        this.plugin.settings.maxFileChars = value;
-        await this.plugin.saveSettings();
-      }
-    );
-
-    this.addPositiveIntegerSetting(
-      "Max tracked files",
-      "Maximum text files snapshotted to detect agent changes.",
-      "500",
-      0,
-      async (value) => {
-        this.plugin.settings.maxChangeSnapshotFiles = value;
-        await this.plugin.saveSettings();
-      }
-    );
-
+    new Setting(containerEl).setName("Context and file access").setHeading();
     new Setting(containerEl)
-      .setName("Ignored folders")
-      .setDesc("Comma-separated folder prefixes that Pi retrieval should ignore.")
+      .setName("Ignored folders/directories")
+      .setDesc(
+        "Comma-separated folder prefixes that Pi pre-attached context, retrieval, and change review should ignore."
+      )
       .addTextArea((text) =>
         text
           .setPlaceholder(".obsidian, .git, node_modules")
@@ -229,48 +183,6 @@ export class PiAgentSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
-  }
-
-  addNumberSlider(name, description, options) {
-    new Setting(this.containerEl)
-      .setName(name)
-      .setDesc(description)
-      .addSlider((slider) =>
-        slider
-          .setLimits(options.min, options.max, options.step)
-          .setValue(options.value)
-          .setDynamicTooltip()
-          .onChange(options.onChange)
-      );
-  }
-
-  addPositiveIntegerSetting(name, description, placeholder, minExclusive, onChange) {
-    const setting = new Setting(this.containerEl).setName(name).setDesc(description);
-    const errorEl = this.containerEl.createDiv({ cls: "pi-agent-setting-error" });
-    errorEl.hidden = true;
-
-    setting.addText((text) =>
-      text
-        .setPlaceholder(placeholder)
-        .setValue(String(this.getSettingValueByName(name)))
-        .onChange(async (value) => {
-          const parsed = Number.parseInt(value, 10);
-          const isValid = String(parsed) === value.trim() && parsed > minExclusive;
-          errorEl.hidden = isValid;
-          errorEl.setText(
-            isValid ? "" : `${name} must be a whole number greater than ${minExclusive}.`
-          );
-          if (isValid) await onChange(parsed);
-        })
-    );
-  }
-
-  getSettingValueByName(name) {
-    return name === "Max searched files"
-      ? this.plugin.settings.maxSearchFiles
-      : name === "Max note characters"
-        ? this.plugin.settings.maxFileChars
-        : this.plugin.settings.maxChangeSnapshotFiles;
   }
 
   getModelDropdownValue() {
