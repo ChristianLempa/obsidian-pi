@@ -1,0 +1,64 @@
+CHANGELOG.md
+  s_abc9547a8588ab::t_734b0f0c89c893 3-6,8
+  s_abc9547a8588ab::t_c1ec6935abaf9e 7
+tests/context-builder.test.mjs
+  s_abc9547a8588ab::t_a11889932b4237 41-44
+  s_abc9547a8588ab::t_f1bf3fac568ba9 33,49,53,58-59
+README.md
+  s_abc9547a8588ab::t_bf4ef11c6848ae 103-105,111-112
+  s_abc9547a8588ab::t_f7181b102b4cb5 3,38
+tests/settings.test.mjs
+  s_abc9547a8588ab::t_a5f0b8919b337e 61-72,78-81
+main.js
+  s_abc9547a8588ab::t_7345ea5066f7cf 123,173,175,267-274,726,729,731,741-762,768-769,901,1072-1073,1086-1089,1092,1108,1119,1143-1144,1150,1153,1171,1179,1210,1216,1269,1279,1281,2119,2147,2363,2365-2368,5015,5508,5870,5872-5877
+  s_abc9547a8588ab::t_a00018a509cec3 1261-1262,1267,5833,5869,5871
+src/pi/runner.mjs
+  s_abc9547a8588ab::t_bf56e74d3d7588 473,503
+docs/publishing.md
+  s_abc9547a8588ab::t_ea752f234639bd 6
+src/context/context-builder.mjs
+  s_abc9547a8588ab::t_c315bb25cacc70 16,19,22,33-53,206
+  s_abc9547a8588ab::t_c2e955754181b4 63-64
+docs/architecture.md
+  s_abc9547a8588ab::t_06446401350151 20,86
+src/plugin/settings-tab.mjs
+  s_abc9547a8588ab::t_328eeddc9f6fa8 168,170-173
+src/plugin/settings.mjs
+  s_abc9547a8588ab::t_767b3e9e2ba712 36-43
+AGENTS.md
+  s_abc9547a8588ab::t_6705319311d6e3 80
+  s_abc9547a8588ab::t_cbc8b56c414caa 82
+  s_abc9547a8588ab::t_829795caa01c07 9,77-79,81
+src/ui/PiAgentView.mjs
+  s_abc9547a8588ab::t_da89204625372d 512
+tests/change-tracker.test.mjs
+  s_abc9547a8588ab::t_2aca1618ebd8e5 2,21,31,43-47,49-51
+src/context/vault-graph.mjs
+  s_abc9547a8588ab::t_f69d867f61339f 9-10
+  s_abc9547a8588ab::t_7855b97cdc3d13 11-13,29-32,36,56,68,94,96,103,107,129,137,173,180,247,260,263
+  s_abc9547a8588ab::t_0e233e574245f1 235-236,244
+src/plugin/PiAgentPlugin.mjs
+  s_abc9547a8588ab::t_5eb3f719851077 355,390,392
+  s_abc9547a8588ab::t_4bee54d1fb8732 28,391,393-398
+PRIVACY.md
+  s_abc9547a8588ab::t_13663dc591d311 12
+src/changes/change-tracker.mjs
+  s_abc9547a8588ab::t_5bd70b8d02769d 3-5
+  s_abc9547a8588ab::t_38dd91a8d3ddb6 6-7,59,61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "f6ee41c6d7e0bf569804a586e6a51763b242528e",
+  "prompts": {},
+  "sessions": {
+    "s_abc9547a8588ab": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e30ac-4320-704a-b05d-22c30c44f2b0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
