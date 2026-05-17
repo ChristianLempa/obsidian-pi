@@ -1,26 +1,34 @@
 import { spawnSync } from "node:child_process";
-import { findPiExecutable } from "./environment.mjs";
+import { diagnosePiCliFailure } from "./diagnostics.mjs";
+import { buildPiProcessEnv, findPiExecutable } from "./environment.mjs";
 
 export function checkPiInstallation() {
-  const result = spawnSync(findPiExecutable(), ["--version"], {
+  const piExecutable = findPiExecutable();
+  const result = spawnSync(piExecutable, ["--version"], {
     encoding: "utf8",
+    env: buildPiProcessEnv(piExecutable),
     timeout: 5000
   });
 
   if (result.error) {
+    const diagnostic = diagnosePiCliFailure({ error: result.error });
     return {
       ok: false,
-      message:
-        result.error.code === "ENOENT"
-          ? "Pi CLI was not found on PATH."
-          : `Could not run Pi CLI: ${result.error.message}`
+      kind: diagnostic.kind,
+      message: diagnostic.message
     };
   }
 
   if (result.status !== 0) {
+    const diagnostic = diagnosePiCliFailure({
+      stderr: result.stderr,
+      stdout: result.stdout,
+      exitCode: result.status
+    });
     return {
       ok: false,
-      message: (result.stderr || result.stdout || `Pi exited with code ${result.status}.`).trim()
+      kind: diagnostic.kind,
+      message: diagnostic.message
     };
   }
 

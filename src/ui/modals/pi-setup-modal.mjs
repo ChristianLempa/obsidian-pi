@@ -16,20 +16,26 @@ export class PiSetupModal extends Modal {
     contentEl.createEl("p", {
       text: this.health?.message ?? "Pi Agent needs the Pi CLI before it can run prompts."
     });
+    const needsNode = this.health?.kind === "node-missing";
     contentEl.createEl("p", {
-      text: "Install Pi in a terminal, authenticate it if needed, then restart Obsidian so it can pick up your updated PATH."
+      text: needsNode
+        ? "Install Node.js or make your Node version manager available to GUI apps, then fully restart Obsidian. After that, run pi --version in a terminal to confirm Pi still works."
+        : "Install Pi in a terminal, authenticate it if needed, then restart Obsidian so it can pick up your updated PATH."
     });
-    contentEl.createEl("pre", { text: `${INSTALL_COMMAND}\npi --version` });
+    const commandText = needsNode
+      ? "node --version\npi --version"
+      : `${INSTALL_COMMAND}\npi --version`;
+    contentEl.createEl("pre", { text: commandText });
     contentEl.createEl("p", {
       text: "Start in Chat or Review mode. Only enable Edit or Full agent in vaults you are comfortable letting Pi modify."
     });
 
     const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
     actionsEl
-      .createEl("button", { text: "Copy install command" })
+      .createEl("button", { text: needsNode ? "Copy diagnostic commands" : "Copy install command" })
       .addEventListener("click", async () => {
-        await navigator.clipboard.writeText(INSTALL_COMMAND);
-        new Notice("Copied Pi install command.");
+        await navigator.clipboard.writeText(needsNode ? commandText : INSTALL_COMMAND);
+        new Notice(needsNode ? "Copied diagnostic commands." : "Copied Pi install command.");
       });
     actionsEl
       .createEl("button", { text: "Do not show again" })

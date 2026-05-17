@@ -83,10 +83,10 @@ function diffLines(beforeLines, afterLines) {
   }
   return changes.reverse();
 }
-function formatUnifiedDiff(path4, changes) {
+function formatUnifiedDiff(path5, changes) {
   return [
-    `--- a/${path4}`,
-    `+++ b/${path4}`,
+    `--- a/${path5}`,
+    `+++ b/${path5}`,
     "@@",
     ...changes.map((change) =>
       change.kind === "add"
@@ -1048,10 +1048,10 @@ function tokenizeQuery(query) {
     .map((term) => term.trim())
     .filter((term) => term.length > 1);
 }
-function scoreSearchResult(path4, content, terms) {
-  const normalizedPath = path4.toLowerCase();
+function scoreSearchResult(path5, content, terms) {
+  const normalizedPath = path5.toLowerCase();
   const normalizedContent = content.toLowerCase();
-  const basename = path4.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path4;
+  const basename = path5.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path5;
   let score = 0;
   for (const term of terms) {
     if (basename.includes(term)) score += 12;
@@ -1216,7 +1216,7 @@ var VaultGraph = class {
   }
   async getBacklinks(filePath) {
     const backlinkEntries = Object.entries(this.app.metadataCache.resolvedLinks)
-      .map(([path4, links]) => ({ path: path4, count: links[filePath] || 0 }))
+      .map(([path5, links]) => ({ path: path5, count: links[filePath] || 0 }))
       .filter(
         (backlink) =>
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
@@ -1243,10 +1243,10 @@ var VaultGraph = class {
   getOutgoingLinks(filePath) {
     const links = this.app.metadataCache.resolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .filter(([path4]) => this.isPathAllowed(path4))
-      .map(([path4, count]) => ({
-        path: path4,
-        display: path4.replace(/\.md$/i, ""),
+      .filter(([path5]) => this.isPathAllowed(path5))
+      .map(([path5, count]) => ({
+        path: path5,
+        display: path5.replace(/\.md$/i, ""),
         count
       }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
@@ -1254,7 +1254,7 @@ var VaultGraph = class {
   getUnresolvedLinks(filePath) {
     const links = this.app.metadataCache.unresolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .map(([path4, count]) => ({ path: path4, display: path4, count }))
+      .map(([path5, count]) => ({ path: path5, display: path5, count }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
   }
   async getLinkedNeighborhood(filePath, depth = 1) {
@@ -1263,9 +1263,9 @@ var VaultGraph = class {
     const notes = [];
     for (let index = 0; index < depth; index++) {
       const nextFrontier = /* @__PURE__ */ new Set();
-      for (const path4 of frontier) {
-        const outgoingLinks = this.getOutgoingLinks(path4);
-        const backlinks = await this.getBacklinks(path4);
+      for (const path5 of frontier) {
+        const outgoingLinks = this.getOutgoingLinks(path5);
+        const backlinks = await this.getBacklinks(path5);
         for (const link of [...outgoingLinks, ...backlinks]) {
           if (!seen.has(link.path) && link.path.endsWith(".md")) {
             seen.add(link.path);
@@ -1273,9 +1273,9 @@ var VaultGraph = class {
           }
         }
       }
-      for (const path4 of nextFrontier) {
+      for (const path5 of nextFrontier) {
         try {
-          notes.push(await this.getNoteContext(path4));
+          notes.push(await this.getNoteContext(path5));
         } catch {}
       }
       frontier = [...nextFrontier].slice(0, this.settings.maxSearchResults);
@@ -1339,10 +1339,70 @@ var VaultGraph = class {
 // src/pi/health.mjs
 var import_node_child_process = require("node:child_process");
 
+// src/pi/diagnostics.mjs
+var PI_INSTALL_COMMAND = "npm install -g @earendil-works/pi-coding-agent";
+var PI_CLI_MISSING_MESSAGE = `Pi CLI was not found. Install it with \`${PI_INSTALL_COMMAND}\`, then restart Obsidian so it can find \`pi\` on PATH.`;
+var NODE_RUNTIME_MISSING_MESSAGE =
+  "Pi CLI was found, but Node.js is not available to Obsidian. Install Node.js, then fully restart Obsidian. If you use nvm, fnm, asdf, or another version manager, make sure its Node bin directory is available to GUI apps or install Node with Homebrew/the official installer.";
+var NODE_RUNTIME_MISSING_PATTERNS = [
+  /env:\s*node:\s*No such file or directory/i,
+  /usr\/bin\/env:\s*['"]?node['"]?:\s*No such file or directory/i,
+  /\/usr\/bin\/env:\s*node:\s*No such file or directory/i,
+  /spawn\s+node\s+ENOENT/i
+];
+function createPiCliError(options = {}) {
+  return new Error(formatPiCliFailure(options));
+}
+function formatPiCliFailure(options = {}) {
+  return diagnosePiCliFailure(options).message;
+}
+function diagnosePiCliFailure({
+  context = "Could not run Pi CLI",
+  error,
+  stderr,
+  stdout,
+  exitCode
+} = {}) {
+  const text = getCombinedErrorText(error, stderr, stdout);
+  if (isPiCliMissing(error)) return { kind: "pi-missing", message: PI_CLI_MISSING_MESSAGE };
+  if (isNodeRuntimeMissing(text)) {
+    return { kind: "node-missing", message: NODE_RUNTIME_MISSING_MESSAGE };
+  }
+  const detail =
+    text || (typeof exitCode === "number" ? `Pi exited with code ${exitCode}.` : "Unknown error.");
+  return { kind: "generic", message: `${context}: ${detail}` };
+}
+function isNodeRuntimeMissing(text = "") {
+  return NODE_RUNTIME_MISSING_PATTERNS.some((pattern) => pattern.test(text));
+}
+function isPiCliMissing(error) {
+  return error && error.code === "ENOENT";
+}
+function getCombinedErrorText(error, stderr, stdout) {
+  return [getErrorMessage(error), stderr, stdout]
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .filter(Boolean)
+    .join("\n");
+}
+function getErrorMessage(error) {
+  if (!error) return "";
+  return error instanceof Error ? error.message : String(error);
+}
+
 // src/pi/environment.mjs
 var import_node_fs2 = __toESM(require("node:fs"), 1);
+var import_node_path2 = __toESM(require("node:path"), 1);
 var POSIX_PI_CANDIDATES = ["/opt/homebrew/bin/pi", "/usr/local/bin/pi", "/usr/bin/pi"];
 var WINDOWS_PI_CANDIDATES = ["pi.cmd", "pi.exe", "pi"];
+var POSIX_PATH_CANDIDATES = [
+  "/opt/homebrew/bin",
+  "/usr/local/bin",
+  "/usr/bin",
+  "/bin",
+  "/usr/sbin",
+  "/sbin"
+];
 function findPiExecutable() {
   if (process.platform === "win32") return WINDOWS_PI_CANDIDATES[0];
   for (const candidate of POSIX_PI_CANDIDATES) {
@@ -1350,26 +1410,95 @@ function findPiExecutable() {
   }
   return "pi";
 }
+function buildPiProcessEnv(piExecutable = findPiExecutable()) {
+  if (process.platform === "win32") return process.env;
+  return {
+    ...process.env,
+    PATH: buildPosixPath(piExecutable)
+  };
+}
+function buildPosixPath(piExecutable) {
+  return uniqueExistingDirectories([
+    ...getExecutableDirectory(piExecutable),
+    ...POSIX_PATH_CANDIDATES,
+    ...getNodeVersionManagerDirectories(),
+    ...getExistingPathEntries()
+  ]).join(import_node_path2.default.delimiter);
+}
+function getExistingPathEntries() {
+  return (process.env.PATH ?? "").split(import_node_path2.default.delimiter).filter(Boolean);
+}
+function getExecutableDirectory(executable) {
+  return import_node_path2.default.isAbsolute(executable)
+    ? [import_node_path2.default.dirname(executable)]
+    : [];
+}
+function getNodeVersionManagerDirectories() {
+  const home = process.env.HOME;
+  if (!home) return [];
+  return [
+    ...getNvmNodeBinDirectories(import_node_path2.default.join(home, ".nvm", "versions", "node")),
+    ...getFnmNodeBinDirectories(import_node_path2.default.join(home, ".fnm", "node-versions")),
+    import_node_path2.default.join(home, ".asdf", "shims"),
+    import_node_path2.default.join(home, ".volta", "bin")
+  ];
+}
+function getNvmNodeBinDirectories(root) {
+  return getChildDirectories(root).map((directory) =>
+    import_node_path2.default.join(directory, "bin")
+  );
+}
+function getFnmNodeBinDirectories(root) {
+  return getChildDirectories(root).map((directory) =>
+    import_node_path2.default.join(directory, "installation", "bin")
+  );
+}
+function getChildDirectories(root) {
+  try {
+    return import_node_fs2.default
+      .readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => import_node_path2.default.join(root, entry.name));
+  } catch {
+    return [];
+  }
+}
+function uniqueExistingDirectories(directories) {
+  const seen = /* @__PURE__ */ new Set();
+  return directories.filter((directory) => {
+    if (!directory || seen.has(directory) || !import_node_fs2.default.existsSync(directory))
+      return false;
+    seen.add(directory);
+    return true;
+  });
+}
 
 // src/pi/health.mjs
 function checkPiInstallation() {
-  const result = (0, import_node_child_process.spawnSync)(findPiExecutable(), ["--version"], {
+  const piExecutable = findPiExecutable();
+  const result = (0, import_node_child_process.spawnSync)(piExecutable, ["--version"], {
     encoding: "utf8",
+    env: buildPiProcessEnv(piExecutable),
     timeout: 5e3
   });
   if (result.error) {
+    const diagnostic = diagnosePiCliFailure({ error: result.error });
     return {
       ok: false,
-      message:
-        result.error.code === "ENOENT"
-          ? "Pi CLI was not found on PATH."
-          : `Could not run Pi CLI: ${result.error.message}`
+      kind: diagnostic.kind,
+      message: diagnostic.message
     };
   }
   if (result.status !== 0) {
+    const diagnostic = diagnosePiCliFailure({
+      stderr: result.stderr,
+      stdout: result.stdout,
+      exitCode: result.status
+    });
     return {
       ok: false,
-      message: (result.stderr || result.stdout || `Pi exited with code ${result.status}.`).trim()
+      kind: diagnostic.kind,
+      message: diagnostic.message
     };
   }
   return {
@@ -1382,7 +1511,7 @@ function checkPiInstallation() {
 // src/pi/model-catalog.mjs
 var import_node_child_process2 = require("node:child_process");
 var import_node_fs3 = __toESM(require("node:fs"), 1);
-var import_node_path2 = __toESM(require("node:path"), 1);
+var import_node_path3 = __toESM(require("node:path"), 1);
 var REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 var ESCAPE_CHARACTER = String.fromCharCode(27);
 var ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
@@ -1402,17 +1531,17 @@ var PiModelCatalog = class {
       (0, import_node_child_process2.execFile)(
         command,
         args,
-        { timeout: 2e4 },
+        { env: buildPiProcessEnv(command), timeout: 2e4 },
         (error, stdout, stderr) => {
           if (error) {
             reject(
               new Error(
-                `Could not query Pi model registry: ${error.message}${
-                  stderr
-                    ? `
-${stderr}`
-                    : ""
-                }`
+                formatPiCliFailure({
+                  context: "Could not query Pi model registry",
+                  error,
+                  stderr,
+                  stdout
+                })
               )
             );
             return;
@@ -1474,7 +1603,7 @@ function normalizeReasoningLevels(value) {
 }
 function getEffectiveConfig(vaultBasePath) {
   const vaultSettingsPath = vaultBasePath
-    ? import_node_path2.default.join(vaultBasePath, ".pi", "settings.json")
+    ? import_node_path3.default.join(vaultBasePath, ".pi", "settings.json")
     : "";
   const settings = readJsonFile2(vaultSettingsPath);
   const defaultModel = settings.defaultModel ? String(settings.defaultModel) : "";
@@ -1504,7 +1633,7 @@ function readJsonFile2(filePath) {
 // src/pi/runner.mjs
 var import_node_child_process3 = require("node:child_process");
 var import_node_fs4 = __toESM(require("node:fs"), 1);
-var import_node_path3 = __toESM(require("node:path"), 1);
+var import_node_path4 = __toESM(require("node:path"), 1);
 
 // src/pi/token-usage.mjs
 function calculateContextTokens(usage) {
@@ -1779,9 +1908,11 @@ var PiRunner = class {
     const args = this.buildPiArgs(resolvedSessionId, "json");
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const child = (0, import_node_child_process3.spawn)(findPiExecutable(), args, {
+      const piExecutable = findPiExecutable();
+      const child = (0, import_node_child_process3.spawn)(piExecutable, args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
-        detached: process.platform !== "win32"
+        detached: process.platform !== "win32",
+        env: buildPiProcessEnv(piExecutable)
       });
       this.activeChild = child;
       callbacks?.onEvent?.({
@@ -1841,13 +1972,7 @@ var PiRunner = class {
         stderr += chunk.toString("utf8");
       });
       child.once("error", (error) => {
-        failOnce(
-          error && error.code === "ENOENT"
-            ? new Error(
-                "Pi CLI not found. Install it with `npm install -g @earendil-works/pi-coding-agent`, then restart Obsidian so it can find `pi` on PATH."
-              )
-            : error
-        );
+        failOnce(createPiCliError({ error }));
       });
       child.once("close", (exitCode) => {
         if (this.activeChild === child) this.activeChild = void 0;
@@ -1860,7 +1985,9 @@ var PiRunner = class {
         flushStdoutBuffer();
         const errorText = getErrorText();
         if (exitCode && exitCode !== 0) {
-          failOnce(new Error(errorText || `Pi exited with code ${exitCode}.`));
+          failOnce(
+            new Error(formatPiCliFailure({ context: "Pi run failed", stderr: errorText, exitCode }))
+          );
           return;
         }
         if (runState?.errorMessage) {
@@ -1898,9 +2025,11 @@ var PiRunner = class {
     const args = this.buildPiArgs(resolvedSessionId, "rpc");
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const child = (0, import_node_child_process3.spawn)(findPiExecutable(), args, {
+      const piExecutable = findPiExecutable();
+      const child = (0, import_node_child_process3.spawn)(piExecutable, args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
-        detached: process.platform !== "win32"
+        detached: process.platform !== "win32",
+        env: buildPiProcessEnv(piExecutable)
       });
       this.activeChild = child;
       callbacks?.onEvent?.({
@@ -1970,13 +2099,7 @@ var PiRunner = class {
         stderr += chunk.toString("utf8");
       });
       child.once("error", (error) => {
-        failOnce(
-          error && error.code === "ENOENT"
-            ? new Error(
-                "Pi CLI not found. Install it with `npm install -g @earendil-works/pi-coding-agent`, then restart Obsidian so it can find `pi` on PATH."
-              )
-            : error
-        );
+        failOnce(createPiCliError({ error }));
       });
       child.once("close", (exitCode) => {
         if (this.activeChild === child) this.activeChild = void 0;
@@ -1988,7 +2111,9 @@ var PiRunner = class {
         }
         if (stdoutBuffer.trim()) handleLine(stdoutBuffer.trim());
         if (settled) return;
-        failOnce(new Error(stderr.trim() || `Pi RPC compact exited with code ${exitCode}.`));
+        failOnce(
+          new Error(formatPiCliFailure({ context: "Pi RPC compact failed", stderr, exitCode }))
+        );
       });
       child.stdin.write(
         `${JSON.stringify({
@@ -2071,9 +2196,9 @@ var PiRunner = class {
     return args;
   }
   createSessionFilePath() {
-    const sessionDir = import_node_path3.default.join(this.pluginDirectory ?? ".", "pi-sessions");
+    const sessionDir = import_node_path4.default.join(this.pluginDirectory ?? ".", "pi-sessions");
     import_node_fs4.default.mkdirSync(sessionDir, { recursive: true });
-    return import_node_path3.default.join(
+    return import_node_path4.default.join(
       sessionDir,
       `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
     );
@@ -2678,22 +2803,28 @@ var PiSetupModal = class extends import_obsidian5.Modal {
     contentEl.createEl("p", {
       text: this.health?.message ?? "Pi Agent needs the Pi CLI before it can run prompts."
     });
+    const needsNode = this.health?.kind === "node-missing";
     contentEl.createEl("p", {
-      text: "Install Pi in a terminal, authenticate it if needed, then restart Obsidian so it can pick up your updated PATH."
+      text: needsNode
+        ? "Install Node.js or make your Node version manager available to GUI apps, then fully restart Obsidian. After that, run pi --version in a terminal to confirm Pi still works."
+        : "Install Pi in a terminal, authenticate it if needed, then restart Obsidian so it can pick up your updated PATH."
     });
-    contentEl.createEl("pre", {
-      text: `${INSTALL_COMMAND}
-pi --version`
-    });
+    const commandText = needsNode
+      ? "node --version\npi --version"
+      : `${INSTALL_COMMAND}
+pi --version`;
+    contentEl.createEl("pre", { text: commandText });
     contentEl.createEl("p", {
       text: "Start in Chat or Review mode. Only enable Edit or Full agent in vaults you are comfortable letting Pi modify."
     });
     const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
     actionsEl
-      .createEl("button", { text: "Copy install command" })
+      .createEl("button", { text: needsNode ? "Copy diagnostic commands" : "Copy install command" })
       .addEventListener("click", async () => {
-        await navigator.clipboard.writeText(INSTALL_COMMAND);
-        new import_obsidian5.Notice("Copied Pi install command.");
+        await navigator.clipboard.writeText(needsNode ? commandText : INSTALL_COMMAND);
+        new import_obsidian5.Notice(
+          needsNode ? "Copied diagnostic commands." : "Copied Pi install command."
+        );
       });
     actionsEl
       .createEl("button", { text: "Do not show again" })
@@ -3040,9 +3171,9 @@ var NoteActions = class {
   }
   async createNoteFromResponse(response) {
     const title = this.getResponseTitle(response);
-    const path4 = await this.getAvailableNotePath(`${title}.md`);
+    const path5 = await this.getAvailableNotePath(`${title}.md`);
     await this.ensureFolder("Pi");
-    const file = await this.plugin.app.vault.create(path4, response);
+    const file = await this.plugin.app.vault.create(path5, response);
     await this.plugin.app.workspace.getLeaf(false).openFile(file);
   }
   async openCitedNotes(text) {
@@ -3102,8 +3233,8 @@ var NoteActions = class {
   }
   async getAvailableNotePath(name, folder = "Pi") {
     const normalizedFolder = normalizeArchiveFolder(folder);
-    const path4 = `${normalizedFolder}/${name}`;
-    if (!this.plugin.app.vault.getAbstractFileByPath(path4)) return path4;
+    const path5 = `${normalizedFolder}/${name}`;
+    if (!this.plugin.app.vault.getAbstractFileByPath(path5)) return path5;
     const basename = name.replace(/\.md$/i, "");
     for (let index = 2; index < 100; index++) {
       const candidate = `${normalizedFolder}/${basename} ${index}.md`;
@@ -3753,8 +3884,8 @@ function formatToolTarget(toolName, toolArgs) {
   if (toolName === "bash") return "command";
   if (toolName === "grep") {
     const pattern = sanitizeActivityDetail(pickNestedString(toolArgs, ["pattern", "query"]));
-    const path4 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
-    return pattern && path4 ? `"${pattern}" in ${path4}` : pattern ? `"${pattern}"` : path4;
+    const path5 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+    return pattern && path5 ? `"${pattern}" in ${path5}` : pattern ? `"${pattern}"` : path5;
   }
   if (toolName === "find") {
     return sanitizeActivityDetail(pickNestedString(toolArgs, ["glob", "pattern", "query", "path"]));
@@ -3776,8 +3907,8 @@ function formatToolTarget(toolName, toolArgs) {
   );
 }
 function formatPathForActivity(value) {
-  const path4 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
-  return path4 ? path4.split("/").pop() || path4 : "";
+  const path5 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
+  return path5 ? path5.split("/").pop() || path5 : "";
 }
 function sanitizeActivityDetail(value) {
   return value ? String(value).replace(/\s+/g, " ").trim() : "";

@@ -4,7 +4,8 @@ import path from "node:path";
 import { getConfiguredSkillPaths } from "../context/skills.mjs";
 import { CUSTOM_MODEL_VALUE } from "../plugin/settings.mjs";
 import { calculateContextTokens } from "./token-usage.mjs";
-import { findPiExecutable } from "./environment.mjs";
+import { createPiCliError, formatPiCliFailure } from "./diagnostics.mjs";
+import { buildPiProcessEnv, findPiExecutable } from "./environment.mjs";
 import { handlePiJsonEventLine } from "./events.mjs";
 
 export function isPiCliCommandPrompt(prompt) {
@@ -86,9 +87,11 @@ export class PiRunner {
 
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const child = spawn(findPiExecutable(), args, {
+      const piExecutable = findPiExecutable();
+      const child = spawn(piExecutable, args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
-        detached: process.platform !== "win32"
+        detached: process.platform !== "win32",
+        env: buildPiProcessEnv(piExecutable)
       });
       this.activeChild = child;
       callbacks?.onEvent?.({
@@ -152,13 +155,7 @@ export class PiRunner {
         stderr += chunk.toString("utf8");
       });
       child.once("error", (error) => {
-        failOnce(
-          error && error.code === "ENOENT"
-            ? new Error(
-                "Pi CLI not found. Install it with `npm install -g @earendil-works/pi-coding-agent`, then restart Obsidian so it can find `pi` on PATH."
-              )
-            : error
-        );
+        failOnce(createPiCliError({ error }));
       });
       child.once("close", (exitCode) => {
         if (this.activeChild === child) this.activeChild = undefined;
@@ -173,7 +170,9 @@ export class PiRunner {
         flushStdoutBuffer();
         const errorText = getErrorText();
         if (exitCode && exitCode !== 0) {
-          failOnce(new Error(errorText || `Pi exited with code ${exitCode}.`));
+          failOnce(
+            new Error(formatPiCliFailure({ context: "Pi run failed", stderr: errorText, exitCode }))
+          );
           return;
         }
         if (runState?.errorMessage) {
@@ -216,9 +215,11 @@ export class PiRunner {
 
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const child = spawn(findPiExecutable(), args, {
+      const piExecutable = findPiExecutable();
+      const child = spawn(piExecutable, args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
-        detached: process.platform !== "win32"
+        detached: process.platform !== "win32",
+        env: buildPiProcessEnv(piExecutable)
       });
       this.activeChild = child;
       callbacks?.onEvent?.({
@@ -290,13 +291,7 @@ export class PiRunner {
         stderr += chunk.toString("utf8");
       });
       child.once("error", (error) => {
-        failOnce(
-          error && error.code === "ENOENT"
-            ? new Error(
-                "Pi CLI not found. Install it with `npm install -g @earendil-works/pi-coding-agent`, then restart Obsidian so it can find `pi` on PATH."
-              )
-            : error
-        );
+        failOnce(createPiCliError({ error }));
       });
       child.once("close", (exitCode) => {
         if (this.activeChild === child) this.activeChild = undefined;
@@ -308,7 +303,9 @@ export class PiRunner {
         }
         if (stdoutBuffer.trim()) handleLine(stdoutBuffer.trim());
         if (settled) return;
-        failOnce(new Error(stderr.trim() || `Pi RPC compact exited with code ${exitCode}.`));
+        failOnce(
+          new Error(formatPiCliFailure({ context: "Pi RPC compact failed", stderr, exitCode }))
+        );
       });
 
       child.stdin.write(
