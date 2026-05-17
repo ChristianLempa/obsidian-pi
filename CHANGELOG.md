@@ -1,19 +1,20 @@
 # Changelog
 
-## Unreleased
+## 0.0.3
 
-- Simplified context settings by removing user-facing numeric context/change tracking limits and keeping ignored folders/directories as the visible context/file-access control (#3).
-- Changed pre-attached context to avoid automatic broad prompt searches; Pi now starts from current-note, link/backlink, and explicit attachment context while tool-enabled modes can explore further with Pi read/search/list tools (#3).
-- Documented the issue, branch, changelog, and manual release-prep process for future changes (#3).
+- Simplified context settings by removing user-facing numeric context/change tracking limits and keeping ignored folders/directories as the visible context/file-access control. (#3)
+- Changed pre-attached context to avoid automatic broad prompt searches; Pi now starts from current-note, link/backlink, and explicit attachment context while tool-enabled modes can explore further with Pi read/search/list tools. (#3)
+- Documented the issue, branch, changelog, and manual release-prep process for future changes. (#3)
+- Fixed CI format checks for optional local docs and agent guidance files. (#3)
+- Improved Pi CLI dependency diagnostics for missing Pi installs, missing Node runtimes, and startup failures. (#6)
+- Added safer Pi subprocess PATH handling for Obsidian GUI launches on macOS and common Node version managers. (#6)
+- Updated Pi setup guidance to explain Node/PATH issues when the Pi CLI is installed but cannot run. (#6)
+- Started smarter change tracking that snapshots Pi-touched files for Edit mode while keeping full snapshots as a Full agent fallback. (#4)
 
 ## 0.0.2
 
 Automated review fixes for Obsidian Community Plugins:
 
-- Improved Pi CLI dependency diagnostics for missing Pi installs, missing Node runtimes, and startup failures. (#6)
-- Added safer Pi subprocess PATH handling for Obsidian GUI launches on macOS and common Node version managers. (#6)
-- Updated Pi setup guidance to explain Node/PATH issues when the Pi CLI is installed but cannot run. (#6)
-- Started smarter change tracking that snapshots Pi-touched files for Edit mode while keeping full snapshots as a Full agent fallback. (#4)
 - Added GitHub release notes generated from the current changelog entry.
 - Added artifact attestations for supported release assets.
 - Removed unsupported release zip uploads from the GitHub release workflow.
