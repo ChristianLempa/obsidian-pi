@@ -352,7 +352,7 @@ export class PiAgentPlugin extends P.Plugin {
     if (!o) throw new Error("Chat thread no longer exists.");
     if (!i) throw new Error("Pi runner is not available.");
     let l = getPriorThreadHistory(o.messages, e),
-      d = this.shouldTrackPiChanges() ? await this.prepareChangeSnapshot() : void 0;
+      d = this.shouldTrackPiChanges() ? await this.prepareChangeTrackingRun() : void 0;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||
@@ -363,37 +363,46 @@ export class PiAgentPlugin extends P.Plugin {
             linkedNeighborhood: a.linkedNeighborhood.length
           }
         }));
+    let h,
+      u,
+      m = d ? wrapChangeTrackingCallbacks(t, d) : t;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
-    let h = await i.run(e, a, o.piSessionId, l, t),
-      u;
+    try {
+      h = await i.run(e, a, o.piSessionId, l, m);
+    } catch (c) {
+      d == null || d.stop();
+      throw c;
+    }
     if (d)
       try {
-        u = await this.changeTracker.diff(d);
-      } catch (m) {
-        let c = m instanceof Error ? m.message : String(m);
+        u = await d.finish();
+      } catch (c) {
+        let g = c instanceof Error ? c.message : String(c);
         h = {
           ...h,
           finalResponse:
-            `${h.finalResponse}\n\nWarning: Pi Agent could not summarize vault changes after this run: ${c}`.trim()
+            `${h.finalResponse}\n\nWarning: Pi Agent could not summarize vault changes after this run: ${g}`.trim()
         };
-        console.warn("Pi Agent: failed to summarize post-run vault changes", m);
+        console.warn("Pi Agent: failed to summarize post-run vault changes", c);
       }
-    let m = u ? mergeRunChanges(h, u) : h;
+    let y = u ? mergeRunChanges(h, u) : h;
     return (
       h.sessionId &&
         (this.threadHistory.setThreadPiSessionId(o.id, h.sessionId),
         this.syncCurrentThreadState(),
         this.saveThreadHistory()),
-      m
+      y
     );
   }
-  async prepareChangeSnapshot() {
+  async prepareChangeTrackingRun() {
     try {
-      return await this.changeTracker.snapshot();
+      return await this.changeTracker.beginRun({
+        useFullSnapshot: this.settings.sandboxMode === "full-agent"
+      });
     } catch (t) {
       let n = t instanceof Error ? t.message : String(t);
       new P.Notice(`Pi Agent change review skipped: ${n}`);
-      console.warn("Pi Agent: skipped pre-run change snapshot", t);
+      console.warn("Pi Agent: skipped pre-run change tracking", t);
       return void 0;
     }
   }
@@ -437,7 +446,7 @@ export class PiAgentPlugin extends P.Plugin {
         this.getVaultBasePath()
       )),
       (this.catalog = new PiModelCatalog(this.getPluginDirectory())),
-      (this.changeTracker = new ChangeTracker(this.app, this.settings)),
+      (this.changeTracker = new ChangeTracker(this.app, this.settings, this.getVaultBasePath())),
       (this.pi = new PiRunner(
         this.settings,
         this.contextBuilder,
@@ -564,6 +573,15 @@ export class PiAgentPlugin extends P.Plugin {
 }
 function isLegacyBareModelId(model) {
   return !model.includes("/") && model !== "__custom";
+}
+function wrapChangeTrackingCallbacks(callbacks, changeRun) {
+  return {
+    ...callbacks,
+    onEvent: (event) => {
+      changeRun.handlePiEvent(event);
+      callbacks?.onEvent?.(event);
+    }
+  };
 }
 function mergeRunChanges(r, i) {
   var n, s;

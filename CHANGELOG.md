@@ -13,6 +13,7 @@ Automated review fixes for Obsidian Community Plugins:
 - Improved Pi CLI dependency diagnostics for missing Pi installs, missing Node runtimes, and startup failures. (#6)
 - Added safer Pi subprocess PATH handling for Obsidian GUI launches on macOS and common Node version managers. (#6)
 - Updated Pi setup guidance to explain Node/PATH issues when the Pi CLI is installed but cannot run. (#6)
+- Started smarter change tracking that snapshots Pi-touched files for Edit mode while keeping full snapshots as a Full agent fallback. (#4)
 - Added GitHub release notes generated from the current changelog entry.
 - Added artifact attestations for supported release assets.
 - Removed unsupported release zip uploads from the GitHub release workflow.

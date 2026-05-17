@@ -45,6 +45,9 @@ module.exports = __toCommonJS(main_exports);
 var import_node_fs5 = __toESM(require("node:fs"), 1);
 var P = __toESM(require("obsidian"), 1);
 
+// src/changes/change-tracker.mjs
+var import_node_path = __toESM(require("node:path"), 1);
+
 // src/changes/diff.mjs
 function splitLines(text) {
   return text.length === 0 ? [] : text.split(/\r?\n/);
@@ -83,10 +86,10 @@ function diffLines(beforeLines, afterLines) {
   }
   return changes.reverse();
 }
-function formatUnifiedDiff(path5, changes) {
+function formatUnifiedDiff(path6, changes) {
   return [
-    `--- a/${path5}`,
-    `+++ b/${path5}`,
+    `--- a/${path6}`,
+    `+++ b/${path6}`,
     "@@",
     ...changes.map((change) =>
       change.kind === "add"
@@ -163,10 +166,20 @@ var TEXT_FILE_EXTENSIONS = /* @__PURE__ */ new Set([
   "env",
   "gitignore"
 ]);
+var PATH_KEY_PATTERN = /(^|_)(path|file|filename|target|source|destination)(_|$)/i;
+var UNKNOWN_WRITE_TOOLS = /* @__PURE__ */ new Set(["bash", "shell", "terminal", "exec"]);
 var ChangeTracker = class {
-  constructor(app, settings) {
+  constructor(app, settings, vaultBasePath = "") {
     this.app = app;
     this.settings = settings;
+    this.vaultBasePath = normalizePath(vaultBasePath);
+  }
+  async beginRun({ useFullSnapshot = false } = {}) {
+    if (useFullSnapshot) {
+      const before = await this.snapshot();
+      return new SnapshotChangeRun(this, before);
+    }
+    return new TouchedFileChangeRun(this);
   }
   async snapshot() {
     const files = this.getTrackedFiles();
@@ -181,33 +194,22 @@ var ChangeTracker = class {
   }
   async diff(beforeSnapshot) {
     const afterSnapshot = await this.snapshot();
-    const paths = /* @__PURE__ */ new Set([
-      ...beforeSnapshot.files.keys(),
-      ...afterSnapshot.files.keys()
-    ]);
-    const files = [];
-    const fileSnapshots = [];
-    const unifiedDiffs = [];
-    for (const filePath of [...paths].sort((left, right) => left.localeCompare(right))) {
-      const before = beforeSnapshot.files.get(filePath);
-      const after = afterSnapshot.files.get(filePath);
-      if (before === after) continue;
-      const changes = diffLines(splitLines(before ?? ""), splitLines(after ?? ""));
-      const additions = changes.filter((change) => change.kind === "add").length;
-      const deletions = changes.filter((change) => change.kind === "delete").length;
-      const status = before === void 0 ? "added" : after === void 0 ? "deleted" : "modified";
-      files.push({ path: filePath, status, additions, deletions });
-      fileSnapshots.push({ path: filePath, status, before, after });
-      unifiedDiffs.push(formatUnifiedDiff(filePath, changes));
+    return diffSnapshots(beforeSnapshot, afterSnapshot, "vault-snapshot");
+  }
+  async snapshotPaths(paths) {
+    const fileContents = /* @__PURE__ */ new Map();
+    for (const filePath of paths) {
+      const normalizedPath = this.normalizeVaultPath(filePath);
+      if (!this.isPathAllowed(normalizedPath) || !this.isTextFile(normalizedPath)) continue;
+      const file = this.getFileByPath(normalizedPath);
+      fileContents.set(normalizedPath, file ? await this.app.vault.cachedRead(file) : void 0);
     }
-    if (files.length === 0) return void 0;
-    return {
-      files,
-      stats: summarizeChangedFiles(files),
-      sourceEventType: "vault-snapshot",
-      fileSnapshots,
-      unifiedDiff: unifiedDiffs.join("\n")
-    };
+    return { files: fileContents };
+  }
+  getFileByPath(filePath) {
+    const file = this.app.vault.getAbstractFileByPath?.(filePath);
+    if (file && typeof file.path === "string") return file;
+    return this.getTrackedFiles().find((trackedFile) => trackedFile.path === filePath);
   }
   getTrackedFiles() {
     const files =
@@ -230,7 +232,155 @@ var ChangeTracker = class {
       );
     });
   }
+  normalizeVaultPath(filePath) {
+    let normalizedPath = normalizePath(filePath);
+    if (!normalizedPath) return normalizedPath;
+    if (this.vaultBasePath && normalizedPath.startsWith(`${this.vaultBasePath}/`)) {
+      normalizedPath = normalizedPath.slice(this.vaultBasePath.length + 1);
+    }
+    return normalizedPath.replace(/^\.\//, "").replace(/^\/+/, "");
+  }
 };
+var SnapshotChangeRun = class {
+  constructor(tracker, beforeSnapshot) {
+    this.tracker = tracker;
+    this.beforeSnapshot = beforeSnapshot;
+  }
+  handlePiEvent() {}
+  async finish() {
+    return this.tracker.diff(this.beforeSnapshot);
+  }
+  stop() {}
+};
+var TouchedFileChangeRun = class {
+  constructor(tracker) {
+    this.tracker = tracker;
+    this.paths = /* @__PURE__ */ new Set();
+    this.beforeFiles = /* @__PURE__ */ new Map();
+    this.pendingSnapshots = [];
+    this.lateUncapturedPaths = /* @__PURE__ */ new Set();
+    this.eventRefs = this.registerVaultListeners();
+  }
+  handlePiEvent(event) {
+    if (isUnknownWriteToolEvent(event)) return;
+    for (const filePath of extractToolFilePaths(event))
+      this.trackPath(filePath, { captureBefore: true });
+  }
+  async finish() {
+    await Promise.allSettled(this.pendingSnapshots);
+    this.stop();
+    const reliablePaths = [...this.paths].filter(
+      (filePath) => !this.lateUncapturedPaths.has(filePath) || this.beforeFiles.has(filePath)
+    );
+    if (reliablePaths.length === 0) return void 0;
+    const beforeSnapshot = {
+      files: new Map(reliablePaths.map((filePath) => [filePath, this.beforeFiles.get(filePath)]))
+    };
+    const afterSnapshot = await this.tracker.snapshotPaths(reliablePaths);
+    return diffSnapshots(beforeSnapshot, afterSnapshot, "touched-files");
+  }
+  stop() {
+    if (!this.eventRefs) return;
+    for (const eventRef of this.eventRefs) this.tracker.app.vault.offref?.(eventRef);
+    this.eventRefs = void 0;
+  }
+  trackPath(filePath, { captureBefore }) {
+    const normalizedPath = this.tracker.normalizeVaultPath(filePath);
+    if (
+      !normalizedPath ||
+      !this.tracker.isPathAllowed(normalizedPath) ||
+      !this.tracker.isTextFile(normalizedPath)
+    )
+      return;
+    this.paths.add(normalizedPath);
+    if (captureBefore) this.captureBefore(normalizedPath);
+    if (!captureBefore && !this.beforeFiles.has(normalizedPath))
+      this.lateUncapturedPaths.add(normalizedPath);
+  }
+  captureBefore(filePath) {
+    if (this.beforeFiles.has(filePath)) return;
+    const pendingSnapshot = this.tracker.snapshotPaths([filePath]).then((snapshot) => {
+      this.beforeFiles.set(filePath, snapshot.files.get(filePath));
+    });
+    this.pendingSnapshots.push(pendingSnapshot);
+  }
+  registerVaultListeners() {
+    const vault = this.tracker.app.vault;
+    if (typeof vault.on !== "function") return [];
+    return [
+      vault.on("create", (file) => this.trackPath(file?.path, { captureBefore: false })),
+      vault.on("modify", (file) => this.trackPath(file?.path, { captureBefore: false })),
+      vault.on("delete", (file) => this.trackPath(file?.path, { captureBefore: false })),
+      vault.on("rename", (file, oldPath) => {
+        this.trackPath(oldPath, { captureBefore: false });
+        this.trackPath(file?.path, { captureBefore: false });
+      })
+    ].filter(Boolean);
+  }
+};
+function diffSnapshots(beforeSnapshot, afterSnapshot, sourceEventType) {
+  const paths = /* @__PURE__ */ new Set([
+    ...beforeSnapshot.files.keys(),
+    ...afterSnapshot.files.keys()
+  ]);
+  const files = [];
+  const fileSnapshots = [];
+  const unifiedDiffs = [];
+  for (const filePath of [...paths].sort((left, right) => left.localeCompare(right))) {
+    const before = beforeSnapshot.files.get(filePath);
+    const after = afterSnapshot.files.get(filePath);
+    if (before === after) continue;
+    const changes = diffLines(splitLines(before ?? ""), splitLines(after ?? ""));
+    const additions = changes.filter((change) => change.kind === "add").length;
+    const deletions = changes.filter((change) => change.kind === "delete").length;
+    const status = before === void 0 ? "added" : after === void 0 ? "deleted" : "modified";
+    files.push({ path: filePath, status, additions, deletions });
+    fileSnapshots.push({ path: filePath, status, before, after });
+    unifiedDiffs.push(formatUnifiedDiff(filePath, changes));
+  }
+  if (files.length === 0) return void 0;
+  return {
+    files,
+    stats: summarizeChangedFiles(files),
+    sourceEventType,
+    fileSnapshots,
+    unifiedDiff: unifiedDiffs.join("\n")
+  };
+}
+function extractToolFilePaths(event) {
+  if (!event || !event.toolName) return [];
+  const values = [];
+  collectPathValues(event.toolArgs ?? event.raw?.args, values);
+  return values;
+}
+function collectPathValues(value, values, key = "") {
+  if (!value) return;
+  if (typeof value === "string") {
+    if (PATH_KEY_PATTERN.test(key) || looksLikeFilePath(value)) values.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectPathValues(item, values, key);
+    return;
+  }
+  if (typeof value === "object") {
+    for (const [childKey, childValue] of Object.entries(value)) {
+      collectPathValues(childValue, values, childKey);
+    }
+  }
+}
+function isUnknownWriteToolEvent(event) {
+  if (event?.type !== "tool_start" && event?.type !== "tool_update" && event?.type !== "tool_end") {
+    return false;
+  }
+  return UNKNOWN_WRITE_TOOLS.has(String(event.toolName ?? "").toLowerCase());
+}
+function looksLikeFilePath(value) {
+  return /(^\.?\.?\/|\\|\.[a-z0-9]{1,8}$)/i.test(value) && !value.includes("\n");
+}
+function normalizePath(filePath = "") {
+  return import_node_path.default.normalize(String(filePath)).replace(/\\/g, "/");
+}
 
 // src/plugin/settings.mjs
 var CUSTOM_MODEL_VALUE = "__custom";
@@ -411,7 +561,7 @@ function dedupeReferences(references) {
 
 // src/context/skills.mjs
 var import_node_fs = __toESM(require("node:fs"), 1);
-var import_node_path = __toESM(require("node:path"), 1);
+var import_node_path2 = __toESM(require("node:path"), 1);
 
 // src/shared/paths.mjs
 function normalizeVaultFolder(value, fallback = "Pi") {
@@ -488,8 +638,8 @@ function discoverSkills(settings, basePath) {
   }
   if (!settings || settings.includeDefaultSkills !== false) {
     if (basePath) {
-      addRoot(import_node_path.default.join(basePath, ".pi", "skills"), 1);
-      addRoot(import_node_path.default.join(basePath, ".agents", "skills"), 1);
+      addRoot(import_node_path2.default.join(basePath, ".pi", "skills"), 1);
+      addRoot(import_node_path2.default.join(basePath, ".agents", "skills"), 1);
     }
     for (const skillPath of getSettingsSkillPaths(basePath)) addRoot(skillPath, 1);
   }
@@ -514,9 +664,9 @@ function resolveSkillPath(skillPath, basePath) {
   let resolved = String(skillPath || "").trim();
   if (!resolved) return "";
   if (resolved.startsWith("~")) return "";
-  return import_node_path.default.isAbsolute(resolved)
+  return import_node_path2.default.isAbsolute(resolved)
     ? resolved
-    : import_node_path.default.join(basePath || "", resolved);
+    : import_node_path2.default.join(basePath || "", resolved);
 }
 function findSkillFiles(
   skillPath,
@@ -536,7 +686,7 @@ function findSkillFiles(
     return results;
   }
   if (!stats.isDirectory() || depth < 0) return results;
-  const directSkillFile = import_node_path.default.join(skillPath, "SKILL.md");
+  const directSkillFile = import_node_path2.default.join(skillPath, "SKILL.md");
   try {
     if (import_node_fs.default.existsSync(directSkillFile)) results.push(directSkillFile);
   } catch {}
@@ -548,7 +698,7 @@ function findSkillFiles(
   }
   for (const entry of entries) {
     if (results.length >= DEFAULT_SKILL_SEARCH_LIMIT) break;
-    const childPath = import_node_path.default.join(skillPath, entry.name);
+    const childPath = import_node_path2.default.join(skillPath, entry.name);
     if (entry.isDirectory()) {
       findSkillFiles(childPath, depth - 1, false, results);
     } else if (
@@ -631,7 +781,7 @@ function getSettingsSkillPaths(basePath) {
   };
   if (basePath)
     collect(
-      readJsonFile(import_node_path.default.join(basePath, ".pi", "settings.json")),
+      readJsonFile(import_node_path2.default.join(basePath, ".pi", "settings.json")),
       basePath
     );
   return skillPaths.filter(Boolean);
@@ -652,9 +802,9 @@ function cleanSkillYamlValue(value) {
     .replace(/^["]|["]$/g, "");
 }
 function inferSkillNameFromPath(skillPath) {
-  return import_node_path.default.basename(skillPath).toLowerCase() === "skill.md"
-    ? import_node_path.default.basename(import_node_path.default.dirname(skillPath))
-    : import_node_path.default.basename(skillPath, import_node_path.default.extname(skillPath));
+  return import_node_path2.default.basename(skillPath).toLowerCase() === "skill.md"
+    ? import_node_path2.default.basename(import_node_path2.default.dirname(skillPath))
+    : import_node_path2.default.basename(skillPath, import_node_path2.default.extname(skillPath));
 }
 function inferSkillDescription(content, frontmatterMatch) {
   const body = frontmatterMatch ? content.slice(frontmatterMatch[0].length) : content;
@@ -1031,10 +1181,10 @@ function tokenizeQuery(query) {
     .map((term) => term.trim())
     .filter((term) => term.length > 1);
 }
-function scoreSearchResult(path5, content, terms) {
-  const normalizedPath = path5.toLowerCase();
+function scoreSearchResult(path6, content, terms) {
+  const normalizedPath = path6.toLowerCase();
   const normalizedContent = content.toLowerCase();
-  const basename = path5.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path5;
+  const basename = path6.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path6;
   let score = 0;
   for (const term of terms) {
     if (basename.includes(term)) score += 12;
@@ -1201,7 +1351,7 @@ var VaultGraph = class {
   }
   async getBacklinks(filePath) {
     const backlinkEntries = Object.entries(this.app.metadataCache.resolvedLinks)
-      .map(([path5, links]) => ({ path: path5, count: links[filePath] || 0 }))
+      .map(([path6, links]) => ({ path: path6, count: links[filePath] || 0 }))
       .filter(
         (backlink) =>
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
@@ -1228,10 +1378,10 @@ var VaultGraph = class {
   getOutgoingLinks(filePath) {
     const links = this.app.metadataCache.resolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .filter(([path5]) => this.isPathAllowed(path5))
-      .map(([path5, count]) => ({
-        path: path5,
-        display: path5.replace(/\.md$/i, ""),
+      .filter(([path6]) => this.isPathAllowed(path6))
+      .map(([path6, count]) => ({
+        path: path6,
+        display: path6.replace(/\.md$/i, ""),
         count
       }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
@@ -1239,7 +1389,7 @@ var VaultGraph = class {
   getUnresolvedLinks(filePath) {
     const links = this.app.metadataCache.unresolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .map(([path5, count]) => ({ path: path5, display: path5, count }))
+      .map(([path6, count]) => ({ path: path6, display: path6, count }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
   }
   async getLinkedNeighborhood(filePath, depth = 1) {
@@ -1248,9 +1398,9 @@ var VaultGraph = class {
     const notes = [];
     for (let index = 0; index < depth; index++) {
       const nextFrontier = /* @__PURE__ */ new Set();
-      for (const path5 of frontier) {
-        const outgoingLinks = this.getOutgoingLinks(path5);
-        const backlinks = await this.getBacklinks(path5);
+      for (const path6 of frontier) {
+        const outgoingLinks = this.getOutgoingLinks(path6);
+        const backlinks = await this.getBacklinks(path6);
         for (const link of [...outgoingLinks, ...backlinks]) {
           if (!seen.has(link.path) && link.path.endsWith(".md")) {
             seen.add(link.path);
@@ -1259,9 +1409,9 @@ var VaultGraph = class {
         }
       }
       const limitedNextFrontier = [...nextFrontier].slice(0, CONTEXT_RESULT_LIMIT);
-      for (const path5 of limitedNextFrontier) {
+      for (const path6 of limitedNextFrontier) {
         try {
-          notes.push(await this.getNoteContext(path5));
+          notes.push(await this.getNoteContext(path6));
         } catch {}
       }
       frontier = limitedNextFrontier;
@@ -1378,7 +1528,7 @@ function getErrorMessage(error) {
 
 // src/pi/environment.mjs
 var import_node_fs2 = __toESM(require("node:fs"), 1);
-var import_node_path2 = __toESM(require("node:path"), 1);
+var import_node_path3 = __toESM(require("node:path"), 1);
 var POSIX_PI_CANDIDATES = ["/opt/homebrew/bin/pi", "/usr/local/bin/pi", "/usr/bin/pi"];
 var WINDOWS_PI_CANDIDATES = ["pi.cmd", "pi.exe", "pi"];
 var POSIX_PATH_CANDIDATES = [
@@ -1409,34 +1559,34 @@ function buildPosixPath(piExecutable) {
     ...POSIX_PATH_CANDIDATES,
     ...getNodeVersionManagerDirectories(),
     ...getExistingPathEntries()
-  ]).join(import_node_path2.default.delimiter);
+  ]).join(import_node_path3.default.delimiter);
 }
 function getExistingPathEntries() {
-  return (process.env.PATH ?? "").split(import_node_path2.default.delimiter).filter(Boolean);
+  return (process.env.PATH ?? "").split(import_node_path3.default.delimiter).filter(Boolean);
 }
 function getExecutableDirectory(executable) {
-  return import_node_path2.default.isAbsolute(executable)
-    ? [import_node_path2.default.dirname(executable)]
+  return import_node_path3.default.isAbsolute(executable)
+    ? [import_node_path3.default.dirname(executable)]
     : [];
 }
 function getNodeVersionManagerDirectories() {
   const home = process.env.HOME;
   if (!home) return [];
   return [
-    ...getNvmNodeBinDirectories(import_node_path2.default.join(home, ".nvm", "versions", "node")),
-    ...getFnmNodeBinDirectories(import_node_path2.default.join(home, ".fnm", "node-versions")),
-    import_node_path2.default.join(home, ".asdf", "shims"),
-    import_node_path2.default.join(home, ".volta", "bin")
+    ...getNvmNodeBinDirectories(import_node_path3.default.join(home, ".nvm", "versions", "node")),
+    ...getFnmNodeBinDirectories(import_node_path3.default.join(home, ".fnm", "node-versions")),
+    import_node_path3.default.join(home, ".asdf", "shims"),
+    import_node_path3.default.join(home, ".volta", "bin")
   ];
 }
 function getNvmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path2.default.join(directory, "bin")
+    import_node_path3.default.join(directory, "bin")
   );
 }
 function getFnmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path2.default.join(directory, "installation", "bin")
+    import_node_path3.default.join(directory, "installation", "bin")
   );
 }
 function getChildDirectories(root) {
@@ -1444,7 +1594,7 @@ function getChildDirectories(root) {
     return import_node_fs2.default
       .readdirSync(root, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => import_node_path2.default.join(root, entry.name));
+      .map((entry) => import_node_path3.default.join(root, entry.name));
   } catch {
     return [];
   }
@@ -1497,7 +1647,7 @@ function checkPiInstallation() {
 // src/pi/model-catalog.mjs
 var import_node_child_process2 = require("node:child_process");
 var import_node_fs3 = __toESM(require("node:fs"), 1);
-var import_node_path3 = __toESM(require("node:path"), 1);
+var import_node_path4 = __toESM(require("node:path"), 1);
 var REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 var ESCAPE_CHARACTER = String.fromCharCode(27);
 var ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
@@ -1589,7 +1739,7 @@ function normalizeReasoningLevels(value) {
 }
 function getEffectiveConfig(vaultBasePath) {
   const vaultSettingsPath = vaultBasePath
-    ? import_node_path3.default.join(vaultBasePath, ".pi", "settings.json")
+    ? import_node_path4.default.join(vaultBasePath, ".pi", "settings.json")
     : "";
   const settings = readJsonFile2(vaultSettingsPath);
   const defaultModel = settings.defaultModel ? String(settings.defaultModel) : "";
@@ -1619,7 +1769,7 @@ function readJsonFile2(filePath) {
 // src/pi/runner.mjs
 var import_node_child_process3 = require("node:child_process");
 var import_node_fs4 = __toESM(require("node:fs"), 1);
-var import_node_path4 = __toESM(require("node:path"), 1);
+var import_node_path5 = __toESM(require("node:path"), 1);
 
 // src/pi/token-usage.mjs
 function calculateContextTokens(usage) {
@@ -2182,9 +2332,9 @@ var PiRunner = class {
     return args;
   }
   createSessionFilePath() {
-    const sessionDir = import_node_path4.default.join(this.pluginDirectory ?? ".", "pi-sessions");
+    const sessionDir = import_node_path5.default.join(this.pluginDirectory ?? ".", "pi-sessions");
     import_node_fs4.default.mkdirSync(sessionDir, { recursive: true });
-    return import_node_path4.default.join(
+    return import_node_path5.default.join(
       sessionDir,
       `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
     );
@@ -3075,9 +3225,9 @@ var NoteActions = class {
   }
   async createNoteFromResponse(response) {
     const title = this.getResponseTitle(response);
-    const path5 = await this.getAvailableNotePath(`${title}.md`);
+    const path6 = await this.getAvailableNotePath(`${title}.md`);
     await this.ensureFolder("Pi");
-    const file = await this.plugin.app.vault.create(path5, response);
+    const file = await this.plugin.app.vault.create(path6, response);
     await this.plugin.app.workspace.getLeaf(false).openFile(file);
   }
   async openCitedNotes(text) {
@@ -3137,8 +3287,8 @@ var NoteActions = class {
   }
   async getAvailableNotePath(name, folder = "Pi") {
     const normalizedFolder = normalizeArchiveFolder(folder);
-    const path5 = `${normalizedFolder}/${name}`;
-    if (!this.plugin.app.vault.getAbstractFileByPath(path5)) return path5;
+    const path6 = `${normalizedFolder}/${name}`;
+    if (!this.plugin.app.vault.getAbstractFileByPath(path6)) return path6;
     const basename = name.replace(/\.md$/i, "");
     for (let index = 2; index < 100; index++) {
       const candidate = `${normalizedFolder}/${basename} ${index}.md`;
@@ -3788,8 +3938,8 @@ function formatToolTarget(toolName, toolArgs) {
   if (toolName === "bash") return "command";
   if (toolName === "grep") {
     const pattern = sanitizeActivityDetail(pickNestedString(toolArgs, ["pattern", "query"]));
-    const path5 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
-    return pattern && path5 ? `"${pattern}" in ${path5}` : pattern ? `"${pattern}"` : path5;
+    const path6 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+    return pattern && path6 ? `"${pattern}" in ${path6}` : pattern ? `"${pattern}"` : path6;
   }
   if (toolName === "find") {
     return sanitizeActivityDetail(pickNestedString(toolArgs, ["glob", "pattern", "query", "path"]));
@@ -3811,8 +3961,8 @@ function formatToolTarget(toolName, toolArgs) {
   );
 }
 function formatPathForActivity(value) {
-  const path5 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
-  return path5 ? path5.split("/").pop() || path5 : "";
+  const path6 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
+  return path6 ? path6.split("/").pop() || path6 : "";
 }
 function sanitizeActivityDetail(value) {
   return value ? String(value).replace(/\s+/g, " ").trim() : "";
@@ -5961,7 +6111,7 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!o) throw new Error("Chat thread no longer exists.");
     if (!i) throw new Error("Pi runner is not available.");
     let l = getPriorThreadHistory(o.messages, e),
-      d = this.shouldTrackPiChanges() ? await this.prepareChangeSnapshot() : void 0;
+      d = this.shouldTrackPiChanges() ? await this.prepareChangeTrackingRun() : void 0;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||
@@ -5972,38 +6122,47 @@ var PiAgentPlugin = class extends P.Plugin {
             linkedNeighborhood: a.linkedNeighborhood.length
           }
         }));
+    let h,
+      u,
+      m = d ? wrapChangeTrackingCallbacks(t, d) : t;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
-    let h = await i.run(e, a, o.piSessionId, l, t),
-      u;
+    try {
+      h = await i.run(e, a, o.piSessionId, l, m);
+    } catch (c) {
+      d == null || d.stop();
+      throw c;
+    }
     if (d)
       try {
-        u = await this.changeTracker.diff(d);
-      } catch (m2) {
-        let c = m2 instanceof Error ? m2.message : String(m2);
+        u = await d.finish();
+      } catch (c) {
+        let g = c instanceof Error ? c.message : String(c);
         h = {
           ...h,
           finalResponse: `${h.finalResponse}
 
-Warning: Pi Agent could not summarize vault changes after this run: ${c}`.trim()
+Warning: Pi Agent could not summarize vault changes after this run: ${g}`.trim()
         };
-        console.warn("Pi Agent: failed to summarize post-run vault changes", m2);
+        console.warn("Pi Agent: failed to summarize post-run vault changes", c);
       }
-    let m = u ? mergeRunChanges(h, u) : h;
+    let y = u ? mergeRunChanges(h, u) : h;
     return (
       h.sessionId &&
         (this.threadHistory.setThreadPiSessionId(o.id, h.sessionId),
         this.syncCurrentThreadState(),
         this.saveThreadHistory()),
-      m
+      y
     );
   }
-  async prepareChangeSnapshot() {
+  async prepareChangeTrackingRun() {
     try {
-      return await this.changeTracker.snapshot();
+      return await this.changeTracker.beginRun({
+        useFullSnapshot: this.settings.sandboxMode === "full-agent"
+      });
     } catch (t) {
       let n = t instanceof Error ? t.message : String(t);
       new P.Notice(`Pi Agent change review skipped: ${n}`);
-      console.warn("Pi Agent: skipped pre-run change snapshot", t);
+      console.warn("Pi Agent: skipped pre-run change tracking", t);
       return void 0;
     }
   }
@@ -6048,7 +6207,7 @@ Warning: Pi Agent could not summarize vault changes after this run: ${c}`.trim()
         this.getVaultBasePath()
       )),
       (this.catalog = new PiModelCatalog(this.getPluginDirectory())),
-      (this.changeTracker = new ChangeTracker(this.app, this.settings)),
+      (this.changeTracker = new ChangeTracker(this.app, this.settings, this.getVaultBasePath())),
       (this.pi = new PiRunner(
         this.settings,
         this.contextBuilder,
@@ -6175,6 +6334,15 @@ Warning: Pi Agent could not summarize vault changes after this run: ${c}`.trim()
 };
 function isLegacyBareModelId(model) {
   return !model.includes("/") && model !== "__custom";
+}
+function wrapChangeTrackingCallbacks(callbacks, changeRun) {
+  return {
+    ...callbacks,
+    onEvent: (event) => {
+      changeRun.handlePiEvent(event);
+      callbacks?.onEvent?.(event);
+    }
+  };
 }
 function mergeRunChanges(r, i) {
   var n, s;
