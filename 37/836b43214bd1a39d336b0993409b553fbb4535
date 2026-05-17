@@ -1,0 +1,27 @@
+CHANGELOG.md
+  s_0553afa369be1c::t_d637d18ee08d1a 3,5-12
+manifest.json
+  s_0553afa369be1c::t_75703e29166808 4
+package.json
+  s_0553afa369be1c::t_23e88d6bd497f8 3
+versions.json
+  s_0553afa369be1c::t_95c247a5bc09c2 3-4
+package-lock.json
+  ai_agent 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "37836b43214bd1a39d336b0993409b553fbb4535",
+  "prompts": {},
+  "sessions": {
+    "s_0553afa369be1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e36e4-7fe3-72fe-ba6b-7ace4ca5974e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "ChristianLempa <christian.lempa@clcreative.de>"
+    }
+  }
+}
