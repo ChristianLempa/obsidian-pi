@@ -1,0 +1,19 @@
+package.json
+  s_0553afa369be1c::t_46abf6ed5378a5 9-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "4eb9d305208cf27ea9e843aeb718282ca1dfe5fa",
+  "prompts": {},
+  "sessions": {
+    "s_0553afa369be1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e36e4-7fe3-72fe-ba6b-7ace4ca5974e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "ChristianLempa <christian.lempa@clcreative.de>"
+    }
+  }
+}

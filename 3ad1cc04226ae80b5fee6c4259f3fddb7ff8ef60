@@ -1,0 +1,45 @@
+tests/context-builder.test.mjs
+  ai_agent 33,41-44,49,53,58-59
+CHANGELOG.md
+  ai_agent 3-8
+src/changes/change-tracker.mjs
+  ai_agent 4-8,73,75
+src/plugin/settings-tab.mjs
+  ai_agent 168,170-173
+src/context/vault-graph.mjs
+  ai_agent 9-13,29-32,36,56,68,94,96,103,107,129,137,173,180,235-236,244,247,260,263
+src/pi/runner.mjs
+  ai_agent 470,500
+main.js
+  s_0553afa369be1c::t_13ba0c0df880e2 126,186,188,417-424,876,879,881,891-912,918-919,1051,1222-1223,1236-1239,1242,1258,1269,1293-1294,1300,1303,1321,1329,1360,1366,1411-1412,1417,1419,1429,1431,2394,2422,2638,2640-2643,5296,5789,6114,6157-6167
+src/context/context-builder.mjs
+  ai_agent 16,19,22,33-56,63-64,206
+PRIVACY.md
+  ai_agent 12
+src/plugin/settings.mjs
+  ai_agent 36-43
+src/ui/PiAgentView.mjs
+  ai_agent 512
+tests/change-tracker.test.mjs
+  ai_agent 2,36,46,58-62,64-66
+README.md
+  ai_agent 3,38,103-105,111-112
+tests/settings.test.mjs
+  ai_agent 61-72,78-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "3ad1cc04226ae80b5fee6c4259f3fddb7ff8ef60",
+  "prompts": {},
+  "sessions": {
+    "s_0553afa369be1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e36e4-7fe3-72fe-ba6b-7ace4ca5974e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "ChristianLempa <christian.lempa@clcreative.de>"
+    }
+  }
+}
