@@ -19,7 +19,32 @@ export function findPiExecutable() {
     if (fs.existsSync(candidate)) return candidate;
   }
 
+  const piNode = findPiNodeExecutable();
+  if (piNode) return piNode;
+
   return "pi";
+}
+
+function findPiNodeExecutable() {
+  const home = process.env.HOME;
+  if (!home) return null;
+
+  const root = path.join(home, ".local", "share", "pi-node");
+
+  try {
+    const versions = fs.readdirSync(root, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => path.join(root, d.name));
+
+    for (const v of versions) {
+      const candidate = path.join(v, "bin", "pi");
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 export function buildPiProcessEnv(piExecutable = findPiExecutable()) {
@@ -35,9 +60,25 @@ function buildPosixPath(piExecutable) {
   return uniqueExistingDirectories([
     ...getExecutableDirectory(piExecutable),
     ...POSIX_PATH_CANDIDATES,
+    ...getPiNodePaths(),
     ...getNodeVersionManagerDirectories(),
     ...getExistingPathEntries()
   ]).join(path.delimiter);
+}
+
+function getPiNodePaths() {
+  const home = process.env.HOME;
+  if (!home) return [];
+
+  const root = path.join(home, ".local", "share", "pi-node");
+
+  try {
+    return fs.readdirSync(root, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => path.join(root, d.name, "bin"));
+  } catch {
+    return [];
+  }
 }
 
 function getExistingPathEntries() {
