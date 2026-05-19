@@ -1,0 +1,19 @@
+.gitignore
+  s_6bc5840cfda560::t_cf432f2f014b33 7-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "76ab89dc441256234c532734eec80d9f53df429a",
+  "prompts": {},
+  "sessions": {
+    "s_6bc5840cfda560": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e3fc9-4a45-7d22-a7b4-7bab416938b4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
