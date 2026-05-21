@@ -1,0 +1,32 @@
+src/pi/environment.mjs
+  s_6c86a3f329b893::t_3d3cfdc6279175 35-38,77-80
+CHANGELOG.md
+  s_6c86a3f329b893::t_d24626ad14da0f 3-6
+package.json
+  s_6c86a3f329b893::t_ae56e486076055 3
+versions.json
+  s_6c86a3f329b893::t_4e26578935adf5 4-5
+scripts/extract-release-notes.mjs
+  s_6c86a3f329b893::t_c3e91abcf1ef69 9-10,12
+  s_6c86a3f329b893::t_dcb13df0d20dfc 11
+manifest.json
+  s_6c86a3f329b893::t_2a4b19f9ea9c96 4
+package-lock.json
+  ai_agent 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "d320741ebe9c195ca3662f56196edb82139cfdf7",
+  "prompts": {},
+  "sessions": {
+    "s_6c86a3f329b893": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e49ba-26b8-7b16-b7c0-24feeb9d9255",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
