@@ -1,0 +1,40 @@
+tests/environment.test.mjs
+  s_f42c3738c27a59::t_5b6039f9c42019 14-17
+  s_f42c3738c27a59::t_0bf1c13fb35ca4 5,7-11,33-51
+src/pi/health.mjs
+  s_f42c3738c27a59::t_14cb150d597896 5-6
+main.js
+  s_f42c3738c27a59::t_8ed95708f8bda4 410,440,1544-1546,1555-1573,1670-1671,1712,1714,1717-1718,2106,2223,2656-2669,6044,6282
+README.md
+  s_f42c3738c27a59::t_2cad3be7eb3f19 16
+src/pi/model-catalog.mjs
+  s_f42c3738c27a59::t_80d495e63ee208 12,14,18-19
+src/plugin/settings.mjs
+  s_f42c3738c27a59::t_b62b04577fb245 28,60
+tests/settings.test.mjs
+  s_f42c3738c27a59::t_6f915f0d980efb 68,76
+src/pi/runner.mjs
+  s_f42c3738c27a59::t_eee875140fa2a0 90,218
+src/pi/environment.mjs
+  s_f42c3738c27a59::t_2030ffacf85a61 15-17,30-50
+src/plugin/PiAgentPlugin.mjs
+  s_f42c3738c27a59::t_fa3c643034aae1 211,448
+src/plugin/settings-tab.mjs
+  s_f42c3738c27a59::t_4ff5b6f66ffada 125-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2d50b4975e003e49d168ebce4e85e9faf108ed68",
+  "prompts": {},
+  "sessions": {
+    "s_f42c3738c27a59": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e6341-a105-7825-835c-1c5d4d37944f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
