@@ -65,6 +65,7 @@ describe("plugin settings helpers", () => {
       maxFileChars: 10,
       maxChangeSnapshotFiles: 0,
       ignoredFolders: ["", ".git"],
+      piExecutablePath: " /custom/bin/pi ",
       includeDefaultSkills: undefined,
       dismissedPiSetup: true
     });
@@ -72,6 +73,7 @@ describe("plugin settings helpers", () => {
     expect(settings).toMatchObject({
       sandboxMode: "edit",
       ignoredFolders: [".git"],
+      piExecutablePath: "/custom/bin/pi",
       includeDefaultSkills: true,
       dismissedPiSetup: true
     });

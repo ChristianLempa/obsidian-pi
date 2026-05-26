@@ -9,12 +9,14 @@ const ESCAPE_CHARACTER = String.fromCharCode(27);
 const ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
 
 export class PiModelCatalog {
-  constructor(pluginDirectory) {
+  constructor(pluginDirectory, settings = {}) {
     this.pluginDirectory = pluginDirectory;
+    this.settings = settings;
   }
 
   async getAvailableModels() {
-    const output = await this.execPi(findPiExecutable(), ["--list-models"]);
+    const piExecutable = findPiExecutable(this.settings.piExecutablePath);
+    const output = await this.execPi(piExecutable, ["--list-models"]);
     return parseModelCatalog(output);
   }
 

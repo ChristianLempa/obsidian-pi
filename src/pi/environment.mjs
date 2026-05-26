@@ -12,7 +12,9 @@ const POSIX_PATH_CANDIDATES = [
   "/sbin"
 ];
 
-export function findPiExecutable() {
+export function findPiExecutable(configuredPath = "") {
+  const configuredExecutable = normalizePiExecutablePath(configuredPath);
+  if (configuredExecutable) return configuredExecutable;
   if (process.platform === "win32") return WINDOWS_PI_CANDIDATES[0];
 
   for (const candidate of POSIX_PI_CANDIDATES) {
@@ -23,6 +25,29 @@ export function findPiExecutable() {
   if (piNode) return piNode;
 
   return "pi";
+}
+
+export function normalizePiExecutablePath(executablePath) {
+  const normalizedPath = typeof executablePath === "string" ? executablePath.trim() : "";
+  if (!normalizedPath) return "";
+
+  return expandEnvironmentVariables(expandHomeDirectory(normalizedPath));
+}
+
+function expandHomeDirectory(executablePath) {
+  const home = process.env.HOME;
+  if (!home) return executablePath;
+  if (executablePath === "~") return home;
+  return executablePath.startsWith(`~${path.sep}`)
+    ? path.join(home, executablePath.slice(2))
+    : executablePath;
+}
+
+function expandEnvironmentVariables(executablePath) {
+  return executablePath.replace(/\$(\w+)|\$\{([^}]+)\}/g, (match, name, bracedName) => {
+    const value = process.env[name || bracedName];
+    return value === undefined ? match : value;
+  });
 }
 
 function findPiNodeExecutable() {

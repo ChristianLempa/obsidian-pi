@@ -13,7 +13,7 @@ npm install -g @earendil-works/pi-coding-agent
 pi --version
 ```
 
-If Obsidian cannot find `pi`, restart Obsidian after installation so it picks up your updated PATH.
+If Obsidian cannot find `pi`, restart Obsidian after installation so it picks up your updated PATH. For custom installs such as nix-darwin, set **Pi executable path** in the plugin settings, for example `/etc/profiles/per-user/${USER}/bin/pi`.
 
 First run checklist:
 

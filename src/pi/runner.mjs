@@ -87,7 +87,7 @@ export class PiRunner {
 
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const piExecutable = findPiExecutable();
+      const piExecutable = findPiExecutable(this.settings.piExecutablePath);
       const child = spawn(piExecutable, args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
         detached: process.platform !== "win32",
@@ -215,7 +215,7 @@ export class PiRunner {
 
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const piExecutable = findPiExecutable();
+      const piExecutable = findPiExecutable(this.settings.piExecutablePath);
       const child = spawn(piExecutable, args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
         detached: process.platform !== "win32",

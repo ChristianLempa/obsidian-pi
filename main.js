@@ -407,6 +407,7 @@ var DEFAULT_SETTINGS = {
   dryRun: false,
   ignoredFolders: [".obsidian", ".git", "node_modules", "Templates"],
   customInstructions: "",
+  piExecutablePath: "",
   includeDefaultSkills: true,
   additionalSkillFolders: [],
   effectiveModel: "",
@@ -436,6 +437,7 @@ function normalizeSettings(rawSettings = {}) {
     DEFAULT_SETTINGS.ignoredFolders
   );
   settings.customInstructions = normalizeString(settings.customInstructions);
+  settings.piExecutablePath = normalizeString(settings.piExecutablePath);
   settings.includeDefaultSkills = settings.includeDefaultSkills !== false;
   settings.additionalSkillFolders = normalizeStringList(settings.additionalSkillFolders, []);
   settings.effectiveModel = normalizeString(settings.effectiveModel);
@@ -1539,7 +1541,9 @@ var POSIX_PATH_CANDIDATES = [
   "/usr/sbin",
   "/sbin"
 ];
-function findPiExecutable() {
+function findPiExecutable(configuredPath = "") {
+  const configuredExecutable = normalizePiExecutablePath(configuredPath);
+  if (configuredExecutable) return configuredExecutable;
   if (process.platform === "win32") return WINDOWS_PI_CANDIDATES[0];
   for (const candidate of POSIX_PI_CANDIDATES) {
     if (import_node_fs2.default.existsSync(candidate)) return candidate;
@@ -1547,6 +1551,25 @@ function findPiExecutable() {
   const piNode = findPiNodeExecutable();
   if (piNode) return piNode;
   return "pi";
+}
+function normalizePiExecutablePath(executablePath) {
+  const normalizedPath = typeof executablePath === "string" ? executablePath.trim() : "";
+  if (!normalizedPath) return "";
+  return expandEnvironmentVariables(expandHomeDirectory(normalizedPath));
+}
+function expandHomeDirectory(executablePath) {
+  const home = process.env.HOME;
+  if (!home) return executablePath;
+  if (executablePath === "~") return home;
+  return executablePath.startsWith(`~${import_node_path3.default.sep}`)
+    ? import_node_path3.default.join(home, executablePath.slice(2))
+    : executablePath;
+}
+function expandEnvironmentVariables(executablePath) {
+  return executablePath.replace(/\$(\w+)|\$\{([^}]+)\}/g, (match, name, bracedName) => {
+    const value = process.env[name || bracedName];
+    return value === void 0 ? match : value;
+  });
 }
 function findPiNodeExecutable() {
   const home = process.env.HOME;
@@ -1644,8 +1667,8 @@ function uniqueExistingDirectories(directories) {
 }
 
 // src/pi/health.mjs
-function checkPiInstallation() {
-  const piExecutable = findPiExecutable();
+function checkPiInstallation(piExecutablePath = "") {
+  const piExecutable = findPiExecutable(piExecutablePath);
   const result = (0, import_node_child_process.spawnSync)(piExecutable, ["--version"], {
     encoding: "utf8",
     env: buildPiProcessEnv(piExecutable),
@@ -1686,11 +1709,13 @@ var REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 var ESCAPE_CHARACTER = String.fromCharCode(27);
 var ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
 var PiModelCatalog = class {
-  constructor(pluginDirectory) {
+  constructor(pluginDirectory, settings = {}) {
     this.pluginDirectory = pluginDirectory;
+    this.settings = settings;
   }
   async getAvailableModels() {
-    const output = await this.execPi(findPiExecutable(), ["--list-models"]);
+    const piExecutable = findPiExecutable(this.settings.piExecutablePath);
+    const output = await this.execPi(piExecutable, ["--list-models"]);
     return parseModelCatalog(output);
   }
   getEffectiveConfig(vaultBasePath) {
@@ -2078,7 +2103,7 @@ var PiRunner = class {
     const args = this.buildPiArgs(resolvedSessionId, "json");
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const piExecutable = findPiExecutable();
+      const piExecutable = findPiExecutable(this.settings.piExecutablePath);
       const child = (0, import_node_child_process3.spawn)(piExecutable, args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
         detached: process.platform !== "win32",
@@ -2195,7 +2220,7 @@ var PiRunner = class {
     const args = this.buildPiArgs(resolvedSessionId, "rpc");
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
-      const piExecutable = findPiExecutable();
+      const piExecutable = findPiExecutable(this.settings.piExecutablePath);
       const child = (0, import_node_child_process3.spawn)(piExecutable, args, {
         cwd: this.workingDirectory ?? this.pluginDirectory,
         detached: process.platform !== "win32",
@@ -2628,6 +2653,20 @@ var PiAgentSettingTab = class extends import_obsidian3.PluginSettingTab {
           })
       );
     new import_obsidian3.Setting(containerEl).setName("Pi CLI").setHeading();
+    new import_obsidian3.Setting(containerEl)
+      .setName("Pi executable path")
+      .setDesc(
+        "Optional path to the Pi CLI. Leave empty to auto-detect common install locations. Supports ~ and environment variables like ${USER}."
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("/etc/profiles/per-user/${USER}/bin/pi")
+          .setValue(this.plugin.settings.piExecutablePath)
+          .onChange(async (value) => {
+            this.plugin.settings.piExecutablePath = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
     new import_obsidian3.Setting(containerEl)
       .setName("Check Pi installation")
       .setDesc("Verify that Obsidian can run the Pi CLI from its current environment.")
@@ -6002,7 +6041,7 @@ var PiAgentPlugin = class extends P.Plugin {
     }, 800);
   }
   checkPiInstallation(showSuccess) {
-    let e = checkPiInstallation();
+    let e = checkPiInstallation(this.settings.piExecutablePath);
     if (e.ok) {
       showSuccess && new P.Notice(`Pi CLI is available: ${e.version || e.message}`);
       return e;
@@ -6240,7 +6279,7 @@ Warning: Pi Agent could not summarize vault changes after this run: ${g}`.trim()
         be,
         this.getVaultBasePath()
       )),
-      (this.catalog = new PiModelCatalog(this.getPluginDirectory())),
+      (this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings)),
       (this.changeTracker = new ChangeTracker(this.app, this.settings, this.getVaultBasePath())),
       (this.pi = new PiRunner(
         this.settings,

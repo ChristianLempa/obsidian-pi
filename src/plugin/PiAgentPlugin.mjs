@@ -208,7 +208,7 @@ export class PiAgentPlugin extends P.Plugin {
     }, 800);
   }
   checkPiInstallation(showSuccess) {
-    let e = checkPiInstallation();
+    let e = checkPiInstallation(this.settings.piExecutablePath);
     if (e.ok) {
       showSuccess && new P.Notice(`Pi CLI is available: ${e.version || e.message}`);
       return e;
@@ -445,7 +445,7 @@ export class PiAgentPlugin extends P.Plugin {
         be,
         this.getVaultBasePath()
       )),
-      (this.catalog = new PiModelCatalog(this.getPluginDirectory())),
+      (this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings)),
       (this.changeTracker = new ChangeTracker(this.app, this.settings, this.getVaultBasePath())),
       (this.pi = new PiRunner(
         this.settings,

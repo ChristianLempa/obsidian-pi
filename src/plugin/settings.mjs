@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS = {
   dryRun: false,
   ignoredFolders: [".obsidian", ".git", "node_modules", "Templates"],
   customInstructions: "",
+  piExecutablePath: "",
   includeDefaultSkills: true,
   additionalSkillFolders: [],
   effectiveModel: "",
@@ -56,6 +57,7 @@ export function normalizeSettings(rawSettings = {}) {
     DEFAULT_SETTINGS.ignoredFolders
   );
   settings.customInstructions = normalizeString(settings.customInstructions);
+  settings.piExecutablePath = normalizeString(settings.piExecutablePath);
   settings.includeDefaultSkills = settings.includeDefaultSkills !== false;
   settings.additionalSkillFolders = normalizeStringList(settings.additionalSkillFolders, []);
   settings.effectiveModel = normalizeString(settings.effectiveModel);

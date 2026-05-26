@@ -2,8 +2,8 @@ import { spawnSync } from "node:child_process";
 import { diagnosePiCliFailure } from "./diagnostics.mjs";
 import { buildPiProcessEnv, findPiExecutable } from "./environment.mjs";
 
-export function checkPiInstallation() {
-  const piExecutable = findPiExecutable();
+export function checkPiInstallation(piExecutablePath = "") {
+  const piExecutable = findPiExecutable(piExecutablePath);
   const result = spawnSync(piExecutable, ["--version"], {
     encoding: "utf8",
     env: buildPiProcessEnv(piExecutable),

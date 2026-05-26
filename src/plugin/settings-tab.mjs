@@ -122,6 +122,21 @@ export class PiAgentSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("Pi CLI").setHeading();
     new Setting(containerEl)
+      .setName("Pi executable path")
+      .setDesc(
+        "Optional path to the Pi CLI. Leave empty to auto-detect common install locations. Supports ~ and environment variables like ${USER}."
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("/etc/profiles/per-user/${USER}/bin/pi")
+          .setValue(this.plugin.settings.piExecutablePath)
+          .onChange(async (value) => {
+            this.plugin.settings.piExecutablePath = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
       .setName("Check Pi installation")
       .setDesc("Verify that Obsidian can run the Pi CLI from its current environment.")
       .addButton((button) =>
