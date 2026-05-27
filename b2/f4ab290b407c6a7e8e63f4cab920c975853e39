@@ -1,0 +1,24 @@
+src/pi/environment.mjs
+  s_e4703b1cb849d9::t_0eb0d0e4720a7f 112,116
+tests/environment.test.mjs
+  s_e4703b1cb849d9::t_5eab7a883dbf75 82
+  s_e4703b1cb849d9::t_aad9e6145c6ff1 65,68,70,79-81
+main.js
+  s_e4703b1cb849d9::t_5eab7a883dbf75 1623,1626
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b2f4ab290b407c6a7e8e63f4cab920c975853e39",
+  "prompts": {},
+  "sessions": {
+    "s_e4703b1cb849d9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e682c-71f8-7720-800f-440d23c9b627",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
