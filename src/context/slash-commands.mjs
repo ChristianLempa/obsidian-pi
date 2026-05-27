@@ -38,6 +38,14 @@ export const BUILTIN_SLASH_COMMANDS = [
     insertText: "/compact ",
     argumentHint: "instructions",
     implemented: true
+  },
+  {
+    command: "/context",
+    label: "Show context",
+    detail: "Display the current Obsidian context packet without calling Pi.",
+    insertText: "/context show",
+    argumentHint: "show",
+    implemented: true
   }
 ];
 
