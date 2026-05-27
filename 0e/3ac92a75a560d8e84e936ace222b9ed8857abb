@@ -1,0 +1,21 @@
+.github/workflows/ci.yml
+  s_e4703b1cb849d9::t_c4c1bf629d9ab6 18,21,23
+.github/workflows/release.yml
+  s_e4703b1cb849d9::t_c2542dc9ad8e8e 19,22,24,36,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0e3ac92a75a560d8e84e936ace222b9ed8857abb",
+  "prompts": {},
+  "sessions": {
+    "s_e4703b1cb849d9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e682c-71f8-7720-800f-440d23c9b627",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
