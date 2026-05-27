@@ -1,0 +1,19 @@
+CHANGELOG.md
+  s_e4703b1cb849d9::t_8c9aaa11a87b28 3-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "35a289ffedf7ea2e40652ff9e9e8a777b5bfa74d",
+  "prompts": {},
+  "sessions": {
+    "s_e4703b1cb849d9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e682c-71f8-7720-800f-440d23c9b627",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
