@@ -47,3 +47,4 @@ Initial Pi Agent release:
 - Review mode for read/search-only workflows.
 - Edit and Full agent modes for controlled vault/project changes through Pi.
 - Chat history and Pi session persistence.
+- Change summaries and diff review for edited files.
