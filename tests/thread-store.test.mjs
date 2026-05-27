@@ -42,21 +42,22 @@ describe("ThreadStore", () => {
     expect(store.deleteThread(originalId)).toBe(true);
   });
 
-  it("clones runtime change data to avoid external mutation", () => {
-    const store = new ThreadStore();
-    const currentId = store.getCurrentThread().id;
-    const changedFiles = [{ path: "a.md", additions: 1, deletions: 0 }];
+  it("drops legacy change metadata from messages", () => {
+    const store = new ThreadStore(undefined, [
+      {
+        role: "assistant",
+        content: "done",
+        createdAt: 1,
+        changedFiles: [{ path: "a.md", additions: 1, deletions: 0 }],
+        changeStats: { filesChanged: 1, additions: 1, deletions: 0 },
+        changeSummaries: [{ files: [{ path: "a.md" }], unifiedDiff: "diff" }]
+      }
+    ]);
 
-    store.addMessageToThread(currentId, {
+    expect(store.getCurrentMessages()[0]).toEqual({
       role: "assistant",
       content: "done",
-      createdAt: 1,
-      changedFiles
+      createdAt: 1
     });
-    changedFiles[0].path = "mutated.md";
-
-    expect(store.getCurrentMessages()[0].changedFiles).toEqual([
-      { path: "a.md", additions: 1, deletions: 0 }
-    ]);
   });
 });

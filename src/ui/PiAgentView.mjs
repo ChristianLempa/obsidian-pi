@@ -93,7 +93,6 @@ export class PiAgentView extends f.ItemView {
         runPrompt: (c) => {
           this.runPrompt(c);
         },
-        openChangedFiles: (c) => this.openChangedFiles(c),
         insertIntoCurrentNote: (c) => {
           var p;
           return (p = this.noteActions) == null ? void 0 : p.insertIntoCurrentNote(c);
@@ -548,9 +547,6 @@ export class PiAgentView extends f.ItemView {
           role: "assistant",
           content: a.finalResponse,
           createdAt: Date.now(),
-          changeSummaries: a.changes,
-          changedFiles: a.changedFiles,
-          changeStats: a.changeStats,
           contextUsage: a.contextUsage,
           tokenUsage: a.tokenUsage,
           runMetadata: s

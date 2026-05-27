@@ -39,7 +39,6 @@ Privacy reminder: prompts, selected text, note content, search excerpts, attachm
 - Choose tool modes: Chat, Review, Edit, and Full agent.
 - Enable default Pi skills and add trusted custom skill folders.
 - Use `/` autocomplete for Obsidian context commands and `/skill:name` commands.
-- Review detected vault changes and diffs after edit/full-agent runs.
 - Copy responses, create notes from answers, and open cited vault notes.
 
 > Tool modes control which Pi CLI tools are enabled. They are not an operating-system sandbox.

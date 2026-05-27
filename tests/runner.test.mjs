@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../src/plugin/settings.mjs";
-import { PiRunner, emptyChangeStats } from "../src/pi/runner.mjs";
+import { PiRunner } from "../src/pi/runner.mjs";
 
 let tempDirs = [];
 
@@ -87,9 +87,9 @@ describe("PiRunner", () => {
 
     expect(result).toMatchObject({
       finalResponse: expect.stringContaining("Dry run: Pi CLI was not called."),
-      sessionId: "session-id",
-      changeStats: emptyChangeStats()
+      sessionId: "session-id"
     });
+    expect(result).not.toHaveProperty("changeStats");
   });
 
   it("creates forked session files", () => {

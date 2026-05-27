@@ -45,343 +45,6 @@ module.exports = __toCommonJS(main_exports);
 var import_node_fs6 = __toESM(require("node:fs"), 1);
 var P = __toESM(require("obsidian"), 1);
 
-// src/changes/change-tracker.mjs
-var import_node_path = __toESM(require("node:path"), 1);
-
-// src/changes/diff.mjs
-function splitLines(text) {
-  return text.length === 0 ? [] : text.split(/\r?\n/);
-}
-function diffLines(beforeLines, afterLines) {
-  if (beforeLines.length * afterLines.length > 25e4) {
-    return [
-      ...beforeLines.map((text) => ({ kind: "delete", text })),
-      ...afterLines.map((text) => ({ kind: "add", text }))
-    ];
-  }
-  const table = createLcsTable(beforeLines, afterLines);
-  const changes = [];
-  let beforeIndex = beforeLines.length;
-  let afterIndex = afterLines.length;
-  while (beforeIndex > 0 || afterIndex > 0) {
-    if (
-      beforeIndex > 0 &&
-      afterIndex > 0 &&
-      beforeLines[beforeIndex - 1] === afterLines[afterIndex - 1]
-    ) {
-      changes.push({ kind: "same", text: beforeLines[beforeIndex - 1] });
-      beforeIndex--;
-      afterIndex--;
-    } else if (
-      afterIndex > 0 &&
-      (beforeIndex === 0 ||
-        table[beforeIndex][afterIndex - 1] >= table[beforeIndex - 1][afterIndex])
-    ) {
-      changes.push({ kind: "add", text: afterLines[afterIndex - 1] });
-      afterIndex--;
-    } else if (beforeIndex > 0) {
-      changes.push({ kind: "delete", text: beforeLines[beforeIndex - 1] });
-      beforeIndex--;
-    }
-  }
-  return changes.reverse();
-}
-function formatUnifiedDiff(path7, changes) {
-  return [
-    `--- a/${path7}`,
-    `+++ b/${path7}`,
-    "@@",
-    ...changes.map((change) =>
-      change.kind === "add"
-        ? `+${change.text}`
-        : change.kind === "delete"
-          ? `-${change.text}`
-          : ` ${change.text}`
-    )
-  ].join("\n");
-}
-function summarizeChangedFiles(files) {
-  return {
-    filesChanged: files.length,
-    additions: files.reduce((sum, file) => sum + file.additions, 0),
-    deletions: files.reduce((sum, file) => sum + file.deletions, 0)
-  };
-}
-function createLcsTable(beforeLines, afterLines) {
-  const table = Array.from({ length: beforeLines.length + 1 }, () =>
-    Array.from({ length: afterLines.length + 1 }, () => 0)
-  );
-  for (let beforeIndex = 1; beforeIndex <= beforeLines.length; beforeIndex++) {
-    for (let afterIndex = 1; afterIndex <= afterLines.length; afterIndex++) {
-      table[beforeIndex][afterIndex] =
-        beforeLines[beforeIndex - 1] === afterLines[afterIndex - 1]
-          ? table[beforeIndex - 1][afterIndex - 1] + 1
-          : Math.max(table[beforeIndex - 1][afterIndex], table[beforeIndex][afterIndex - 1]);
-    }
-  }
-  return table;
-}
-
-// src/changes/change-tracker.mjs
-var CHANGE_SNAPSHOT_FILE_LIMIT = 500;
-var TEXT_FILE_EXTENSIONS = /* @__PURE__ */ new Set([
-  "md",
-  "txt",
-  "canvas",
-  "css",
-  "js",
-  "mjs",
-  "cjs",
-  "ts",
-  "tsx",
-  "jsx",
-  "json",
-  "jsonc",
-  "yaml",
-  "yml",
-  "toml",
-  "xml",
-  "html",
-  "svg",
-  "csv",
-  "tsv",
-  "sh",
-  "bash",
-  "zsh",
-  "fish",
-  "py",
-  "rb",
-  "go",
-  "rs",
-  "java",
-  "c",
-  "h",
-  "cpp",
-  "hpp",
-  "cs",
-  "php",
-  "sql",
-  "ini",
-  "conf",
-  "env",
-  "gitignore"
-]);
-var PATH_KEY_PATTERN = /(^|_)(path|file|filename|target|source|destination)(_|$)/i;
-var UNKNOWN_WRITE_TOOLS = /* @__PURE__ */ new Set(["bash", "shell", "terminal", "exec"]);
-var ChangeTracker = class {
-  constructor(app, settings, vaultBasePath = "") {
-    this.app = app;
-    this.settings = settings;
-    this.vaultBasePath = normalizePath(vaultBasePath);
-  }
-  async beginRun({ useFullSnapshot = false } = {}) {
-    if (useFullSnapshot) {
-      const before = await this.snapshot();
-      return new SnapshotChangeRun(this, before);
-    }
-    return new TouchedFileChangeRun(this);
-  }
-  async snapshot() {
-    const files = this.getTrackedFiles();
-    if (files.length > CHANGE_SNAPSHOT_FILE_LIMIT) {
-      throw new Error(
-        `Pi Agent change review found ${files.length} text files, which exceeds the internal safety limit of ${CHANGE_SNAPSHOT_FILE_LIMIT}. Add ignored folders/directories or use external version control for large projects.`
-      );
-    }
-    const fileContents = /* @__PURE__ */ new Map();
-    for (const file of files) fileContents.set(file.path, await this.app.vault.cachedRead(file));
-    return { files: fileContents };
-  }
-  async diff(beforeSnapshot) {
-    const afterSnapshot = await this.snapshot();
-    return diffSnapshots(beforeSnapshot, afterSnapshot, "vault-snapshot");
-  }
-  async snapshotPaths(paths) {
-    const fileContents = /* @__PURE__ */ new Map();
-    for (const filePath of paths) {
-      const normalizedPath = this.normalizeVaultPath(filePath);
-      if (!this.isPathAllowed(normalizedPath) || !this.isTextFile(normalizedPath)) continue;
-      const file = this.getFileByPath(normalizedPath);
-      fileContents.set(normalizedPath, file ? await this.app.vault.cachedRead(file) : void 0);
-    }
-    return { files: fileContents };
-  }
-  getFileByPath(filePath) {
-    const file = this.app.vault.getAbstractFileByPath?.(filePath);
-    if (file && typeof file.path === "string") return file;
-    return this.getTrackedFiles().find((trackedFile) => trackedFile.path === filePath);
-  }
-  getTrackedFiles() {
-    const files =
-      typeof this.app.vault.getFiles === "function"
-        ? this.app.vault.getFiles()
-        : this.app.vault.getMarkdownFiles();
-    return files.filter((file) => this.isPathAllowed(file.path) && this.isTextFile(file.path));
-  }
-  isTextFile(filePath) {
-    const extension = filePath.split(".").pop();
-    return !!extension && TEXT_FILE_EXTENSIONS.has(extension.toLowerCase());
-  }
-  isPathAllowed(filePath) {
-    const normalizedPath = filePath.replace(/\\/g, "/");
-    return !this.settings.ignoredFolders.some((ignoredFolder) => {
-      const normalizedIgnoredFolder = ignoredFolder.replace(/\/+$/, "");
-      return (
-        normalizedPath === normalizedIgnoredFolder ||
-        normalizedPath.startsWith(`${normalizedIgnoredFolder}/`)
-      );
-    });
-  }
-  normalizeVaultPath(filePath) {
-    let normalizedPath = normalizePath(filePath);
-    if (!normalizedPath) return normalizedPath;
-    if (this.vaultBasePath && normalizedPath.startsWith(`${this.vaultBasePath}/`)) {
-      normalizedPath = normalizedPath.slice(this.vaultBasePath.length + 1);
-    }
-    return normalizedPath.replace(/^\.\//, "").replace(/^\/+/, "");
-  }
-};
-var SnapshotChangeRun = class {
-  constructor(tracker, beforeSnapshot) {
-    this.tracker = tracker;
-    this.beforeSnapshot = beforeSnapshot;
-  }
-  handlePiEvent() {}
-  async finish() {
-    return this.tracker.diff(this.beforeSnapshot);
-  }
-  stop() {}
-};
-var TouchedFileChangeRun = class {
-  constructor(tracker) {
-    this.tracker = tracker;
-    this.paths = /* @__PURE__ */ new Set();
-    this.beforeFiles = /* @__PURE__ */ new Map();
-    this.pendingSnapshots = [];
-    this.lateUncapturedPaths = /* @__PURE__ */ new Set();
-    this.eventRefs = this.registerVaultListeners();
-  }
-  handlePiEvent(event) {
-    if (isUnknownWriteToolEvent(event)) return;
-    for (const filePath of extractToolFilePaths(event))
-      this.trackPath(filePath, { captureBefore: true });
-  }
-  async finish() {
-    await Promise.allSettled(this.pendingSnapshots);
-    this.stop();
-    const reliablePaths = [...this.paths].filter(
-      (filePath) => !this.lateUncapturedPaths.has(filePath) || this.beforeFiles.has(filePath)
-    );
-    if (reliablePaths.length === 0) return void 0;
-    const beforeSnapshot = {
-      files: new Map(reliablePaths.map((filePath) => [filePath, this.beforeFiles.get(filePath)]))
-    };
-    const afterSnapshot = await this.tracker.snapshotPaths(reliablePaths);
-    return diffSnapshots(beforeSnapshot, afterSnapshot, "touched-files");
-  }
-  stop() {
-    if (!this.eventRefs) return;
-    for (const eventRef of this.eventRefs) this.tracker.app.vault.offref?.(eventRef);
-    this.eventRefs = void 0;
-  }
-  trackPath(filePath, { captureBefore }) {
-    const normalizedPath = this.tracker.normalizeVaultPath(filePath);
-    if (
-      !normalizedPath ||
-      !this.tracker.isPathAllowed(normalizedPath) ||
-      !this.tracker.isTextFile(normalizedPath)
-    )
-      return;
-    this.paths.add(normalizedPath);
-    if (captureBefore) this.captureBefore(normalizedPath);
-    if (!captureBefore && !this.beforeFiles.has(normalizedPath))
-      this.lateUncapturedPaths.add(normalizedPath);
-  }
-  captureBefore(filePath) {
-    if (this.beforeFiles.has(filePath)) return;
-    const pendingSnapshot = this.tracker.snapshotPaths([filePath]).then((snapshot) => {
-      this.beforeFiles.set(filePath, snapshot.files.get(filePath));
-    });
-    this.pendingSnapshots.push(pendingSnapshot);
-  }
-  registerVaultListeners() {
-    const vault = this.tracker.app.vault;
-    if (typeof vault.on !== "function") return [];
-    return [
-      vault.on("create", (file) => this.trackPath(file?.path, { captureBefore: false })),
-      vault.on("modify", (file) => this.trackPath(file?.path, { captureBefore: false })),
-      vault.on("delete", (file) => this.trackPath(file?.path, { captureBefore: false })),
-      vault.on("rename", (file, oldPath) => {
-        this.trackPath(oldPath, { captureBefore: false });
-        this.trackPath(file?.path, { captureBefore: false });
-      })
-    ].filter(Boolean);
-  }
-};
-function diffSnapshots(beforeSnapshot, afterSnapshot, sourceEventType) {
-  const paths = /* @__PURE__ */ new Set([
-    ...beforeSnapshot.files.keys(),
-    ...afterSnapshot.files.keys()
-  ]);
-  const files = [];
-  const fileSnapshots = [];
-  const unifiedDiffs = [];
-  for (const filePath of [...paths].sort((left, right) => left.localeCompare(right))) {
-    const before = beforeSnapshot.files.get(filePath);
-    const after = afterSnapshot.files.get(filePath);
-    if (before === after) continue;
-    const changes = diffLines(splitLines(before ?? ""), splitLines(after ?? ""));
-    const additions = changes.filter((change) => change.kind === "add").length;
-    const deletions = changes.filter((change) => change.kind === "delete").length;
-    const status = before === void 0 ? "added" : after === void 0 ? "deleted" : "modified";
-    files.push({ path: filePath, status, additions, deletions });
-    fileSnapshots.push({ path: filePath, status, before, after });
-    unifiedDiffs.push(formatUnifiedDiff(filePath, changes));
-  }
-  if (files.length === 0) return void 0;
-  return {
-    files,
-    stats: summarizeChangedFiles(files),
-    sourceEventType,
-    fileSnapshots,
-    unifiedDiff: unifiedDiffs.join("\n")
-  };
-}
-function extractToolFilePaths(event) {
-  if (!event || !event.toolName) return [];
-  const values = [];
-  collectPathValues(event.toolArgs ?? event.raw?.args, values);
-  return values;
-}
-function collectPathValues(value, values, key = "") {
-  if (!value) return;
-  if (typeof value === "string") {
-    if (PATH_KEY_PATTERN.test(key) || looksLikeFilePath(value)) values.push(value);
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) collectPathValues(item, values, key);
-    return;
-  }
-  if (typeof value === "object") {
-    for (const [childKey, childValue] of Object.entries(value)) {
-      collectPathValues(childValue, values, childKey);
-    }
-  }
-}
-function isUnknownWriteToolEvent(event) {
-  if (event?.type !== "tool_start" && event?.type !== "tool_update" && event?.type !== "tool_end") {
-    return false;
-  }
-  return UNKNOWN_WRITE_TOOLS.has(String(event.toolName ?? "").toLowerCase());
-}
-function looksLikeFilePath(value) {
-  return /(^\.?\.?\/|\\|\.[a-z0-9]{1,8}$)/i.test(value) && !value.includes("\n");
-}
-function normalizePath(filePath = "") {
-  return import_node_path.default.normalize(String(filePath)).replace(/\\/g, "/");
-}
-
 // src/plugin/settings.mjs
 var CUSTOM_MODEL_VALUE = "__custom";
 var EMPTY_MODEL_OPTIONS = {
@@ -511,7 +174,7 @@ function formatModelOptionLabel(model) {
 
 // src/context/prompt-templates.mjs
 var import_node_fs = __toESM(require("node:fs"), 1);
-var import_node_path2 = __toESM(require("node:path"), 1);
+var import_node_path = __toESM(require("node:path"), 1);
 var PROMPT_TEMPLATE_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
 var RESERVED_SLASH_COMMANDS = /* @__PURE__ */ new Set([
   "backlinks",
@@ -545,7 +208,7 @@ function getPromptTemplateSlashCommands(basePath) {
   }));
 }
 function discoverPromptTemplates(basePath) {
-  const promptsDir = basePath ? import_node_path2.default.join(basePath, ".pi", "prompts") : "";
+  const promptsDir = basePath ? import_node_path.default.join(basePath, ".pi", "prompts") : "";
   if (!promptsDir) return [];
   try {
     return import_node_fs.default
@@ -554,15 +217,13 @@ function discoverPromptTemplates(basePath) {
         (entry) =>
           entry.isFile() &&
           entry.name.toLowerCase().endsWith(".md") &&
-          PROMPT_TEMPLATE_NAME_PATTERN.test(
-            import_node_path2.default.basename(entry.name, ".md")
-          ) &&
+          PROMPT_TEMPLATE_NAME_PATTERN.test(import_node_path.default.basename(entry.name, ".md")) &&
           !RESERVED_SLASH_COMMANDS.has(
-            import_node_path2.default.basename(entry.name, ".md").toLowerCase()
+            import_node_path.default.basename(entry.name, ".md").toLowerCase()
           )
       )
       .map((entry) =>
-        readPromptTemplate(import_node_path2.default.join(promptsDir, entry.name), basePath)
+        readPromptTemplate(import_node_path.default.join(promptsDir, entry.name), basePath)
       )
       .filter(Boolean)
       .sort((a, b) => a.command.localeCompare(b.command));
@@ -573,7 +234,7 @@ function discoverPromptTemplates(basePath) {
 async function findPromptTemplate(basePath, name) {
   if (!basePath || !PROMPT_TEMPLATE_NAME_PATTERN.test(name)) return void 0;
   return readPromptTemplateFile(
-    import_node_path2.default.join(basePath, ".pi", "prompts", `${name}.md`),
+    import_node_path.default.join(basePath, ".pi", "prompts", `${name}.md`),
     basePath
   );
 }
@@ -601,12 +262,12 @@ async function readPromptTemplateFile(filePath, basePath) {
 }
 function createPromptTemplate(filePath, basePath, raw) {
   const parsed = parsePromptTemplateContent(raw);
-  const name = import_node_path2.default.basename(filePath, ".md");
+  const name = import_node_path.default.basename(filePath, ".md");
   return {
     name,
     command: `/${name}`,
     path: filePath,
-    relativePath: basePath ? import_node_path2.default.relative(basePath, filePath) : filePath,
+    relativePath: basePath ? import_node_path.default.relative(basePath, filePath) : filePath,
     ...parsed
   };
 }
@@ -742,7 +403,7 @@ function dedupeReferences(references) {
 
 // src/context/skills.mjs
 var import_node_fs2 = __toESM(require("node:fs"), 1);
-var import_node_path3 = __toESM(require("node:path"), 1);
+var import_node_path2 = __toESM(require("node:path"), 1);
 
 // src/shared/paths.mjs
 function normalizeVaultFolder(value, fallback = "Pi") {
@@ -819,8 +480,8 @@ function discoverSkills(settings, basePath) {
   }
   if (!settings || settings.includeDefaultSkills !== false) {
     if (basePath) {
-      addRoot(import_node_path3.default.join(basePath, ".pi", "skills"), 1);
-      addRoot(import_node_path3.default.join(basePath, ".agents", "skills"), 1);
+      addRoot(import_node_path2.default.join(basePath, ".pi", "skills"), 1);
+      addRoot(import_node_path2.default.join(basePath, ".agents", "skills"), 1);
     }
     for (const skillPath of getSettingsSkillPaths(basePath)) addRoot(skillPath, 1);
   }
@@ -845,9 +506,9 @@ function resolveSkillPath(skillPath, basePath) {
   let resolved = String(skillPath || "").trim();
   if (!resolved) return "";
   if (resolved.startsWith("~")) return "";
-  return import_node_path3.default.isAbsolute(resolved)
+  return import_node_path2.default.isAbsolute(resolved)
     ? resolved
-    : import_node_path3.default.join(basePath || "", resolved);
+    : import_node_path2.default.join(basePath || "", resolved);
 }
 function findSkillFiles(
   skillPath,
@@ -867,7 +528,7 @@ function findSkillFiles(
     return results;
   }
   if (!stats.isDirectory() || depth < 0) return results;
-  const directSkillFile = import_node_path3.default.join(skillPath, "SKILL.md");
+  const directSkillFile = import_node_path2.default.join(skillPath, "SKILL.md");
   try {
     if (import_node_fs2.default.existsSync(directSkillFile)) results.push(directSkillFile);
   } catch {}
@@ -879,7 +540,7 @@ function findSkillFiles(
   }
   for (const entry of entries) {
     if (results.length >= DEFAULT_SKILL_SEARCH_LIMIT) break;
-    const childPath = import_node_path3.default.join(skillPath, entry.name);
+    const childPath = import_node_path2.default.join(skillPath, entry.name);
     if (entry.isDirectory()) {
       findSkillFiles(childPath, depth - 1, false, results);
     } else if (
@@ -962,7 +623,7 @@ function getSettingsSkillPaths(basePath) {
   };
   if (basePath)
     collect(
-      readJsonFile(import_node_path3.default.join(basePath, ".pi", "settings.json")),
+      readJsonFile(import_node_path2.default.join(basePath, ".pi", "settings.json")),
       basePath
     );
   return skillPaths.filter(Boolean);
@@ -983,9 +644,9 @@ function cleanSkillYamlValue(value) {
     .replace(/^["]|["]$/g, "");
 }
 function inferSkillNameFromPath(skillPath) {
-  return import_node_path3.default.basename(skillPath).toLowerCase() === "skill.md"
-    ? import_node_path3.default.basename(import_node_path3.default.dirname(skillPath))
-    : import_node_path3.default.basename(skillPath, import_node_path3.default.extname(skillPath));
+  return import_node_path2.default.basename(skillPath).toLowerCase() === "skill.md"
+    ? import_node_path2.default.basename(import_node_path2.default.dirname(skillPath))
+    : import_node_path2.default.basename(skillPath, import_node_path2.default.extname(skillPath));
 }
 function inferSkillDescription(content, frontmatterMatch) {
   const body = frontmatterMatch ? content.slice(frontmatterMatch[0].length) : content;
@@ -1365,10 +1026,10 @@ function tokenizeQuery(query) {
     .map((term) => term.trim())
     .filter((term) => term.length > 1);
 }
-function scoreSearchResult(path7, content, terms) {
-  const normalizedPath = path7.toLowerCase();
+function scoreSearchResult(path6, content, terms) {
+  const normalizedPath = path6.toLowerCase();
   const normalizedContent = content.toLowerCase();
-  const basename = path7.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path7;
+  const basename = path6.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path6;
   let score = 0;
   for (const term of terms) {
     if (basename.includes(term)) score += 12;
@@ -1535,7 +1196,7 @@ var VaultGraph = class {
   }
   async getBacklinks(filePath) {
     const backlinkEntries = Object.entries(this.app.metadataCache.resolvedLinks)
-      .map(([path7, links]) => ({ path: path7, count: links[filePath] || 0 }))
+      .map(([path6, links]) => ({ path: path6, count: links[filePath] || 0 }))
       .filter(
         (backlink) =>
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
@@ -1562,10 +1223,10 @@ var VaultGraph = class {
   getOutgoingLinks(filePath) {
     const links = this.app.metadataCache.resolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .filter(([path7]) => this.isPathAllowed(path7))
-      .map(([path7, count]) => ({
-        path: path7,
-        display: path7.replace(/\.md$/i, ""),
+      .filter(([path6]) => this.isPathAllowed(path6))
+      .map(([path6, count]) => ({
+        path: path6,
+        display: path6.replace(/\.md$/i, ""),
         count
       }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
@@ -1573,7 +1234,7 @@ var VaultGraph = class {
   getUnresolvedLinks(filePath) {
     const links = this.app.metadataCache.unresolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .map(([path7, count]) => ({ path: path7, display: path7, count }))
+      .map(([path6, count]) => ({ path: path6, display: path6, count }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
   }
   async getLinkedNeighborhood(filePath, depth = 1) {
@@ -1582,9 +1243,9 @@ var VaultGraph = class {
     const notes = [];
     for (let index = 0; index < depth; index++) {
       const nextFrontier = /* @__PURE__ */ new Set();
-      for (const path7 of frontier) {
-        const outgoingLinks = this.getOutgoingLinks(path7);
-        const backlinks = await this.getBacklinks(path7);
+      for (const path6 of frontier) {
+        const outgoingLinks = this.getOutgoingLinks(path6);
+        const backlinks = await this.getBacklinks(path6);
         for (const link of [...outgoingLinks, ...backlinks]) {
           if (!seen.has(link.path) && link.path.endsWith(".md")) {
             seen.add(link.path);
@@ -1593,9 +1254,9 @@ var VaultGraph = class {
         }
       }
       const limitedNextFrontier = [...nextFrontier].slice(0, CONTEXT_RESULT_LIMIT);
-      for (const path7 of limitedNextFrontier) {
+      for (const path6 of limitedNextFrontier) {
         try {
-          notes.push(await this.getNoteContext(path7));
+          notes.push(await this.getNoteContext(path6));
         } catch {}
       }
       frontier = limitedNextFrontier;
@@ -1712,7 +1373,7 @@ function getErrorMessage(error) {
 
 // src/pi/environment.mjs
 var import_node_fs3 = __toESM(require("node:fs"), 1);
-var import_node_path4 = __toESM(require("node:path"), 1);
+var import_node_path3 = __toESM(require("node:path"), 1);
 var POSIX_PI_CANDIDATES = ["/opt/homebrew/bin/pi", "/usr/local/bin/pi", "/usr/bin/pi"];
 var WINDOWS_PI_CANDIDATES = ["pi.cmd", "pi.exe", "pi"];
 var POSIX_PATH_CANDIDATES = [
@@ -1743,8 +1404,8 @@ function expandHomeDirectory(executablePath) {
   const home = process.env.HOME;
   if (!home) return executablePath;
   if (executablePath === "~") return home;
-  return executablePath.startsWith(`~${import_node_path4.default.sep}`)
-    ? import_node_path4.default.join(home, executablePath.slice(2))
+  return executablePath.startsWith(`~${import_node_path3.default.sep}`)
+    ? import_node_path3.default.join(home, executablePath.slice(2))
     : executablePath;
 }
 function expandEnvironmentVariables(executablePath) {
@@ -1756,14 +1417,14 @@ function expandEnvironmentVariables(executablePath) {
 function findPiNodeExecutable() {
   const home = process.env.HOME;
   if (!home) return null;
-  const root = import_node_path4.default.join(home, ".local", "share", "pi-node");
+  const root = import_node_path3.default.join(home, ".local", "share", "pi-node");
   try {
     const versions = import_node_fs3.default
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => import_node_path4.default.join(root, d.name));
+      .map((d) => import_node_path3.default.join(root, d.name));
     for (const v of versions) {
-      const candidate = import_node_path4.default.join(v, "bin", "pi");
+      const candidate = import_node_path3.default.join(v, "bin", "pi");
       if (import_node_fs3.default.existsSync(candidate)) return candidate;
     }
   } catch {
@@ -1814,47 +1475,47 @@ function buildPosixPath(piExecutable) {
     ...getPiNodePaths(),
     ...getNodeVersionManagerDirectories(),
     ...getExistingPathEntries()
-  ]).join(import_node_path4.default.delimiter);
+  ]).join(import_node_path3.default.delimiter);
 }
 function getPiNodePaths() {
   const home = process.env.HOME;
   if (!home) return [];
-  const root = import_node_path4.default.join(home, ".local", "share", "pi-node");
+  const root = import_node_path3.default.join(home, ".local", "share", "pi-node");
   try {
     return import_node_fs3.default
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => import_node_path4.default.join(root, d.name, "bin"));
+      .map((d) => import_node_path3.default.join(root, d.name, "bin"));
   } catch {
     return [];
   }
 }
 function getExistingPathEntries() {
-  return (process.env.PATH ?? "").split(import_node_path4.default.delimiter).filter(Boolean);
+  return (process.env.PATH ?? "").split(import_node_path3.default.delimiter).filter(Boolean);
 }
 function getExecutableDirectory(executable) {
-  return import_node_path4.default.isAbsolute(executable)
-    ? [import_node_path4.default.dirname(executable)]
+  return import_node_path3.default.isAbsolute(executable)
+    ? [import_node_path3.default.dirname(executable)]
     : [];
 }
 function getNodeVersionManagerDirectories() {
   const home = process.env.HOME;
   if (!home) return [];
   return [
-    ...getNvmNodeBinDirectories(import_node_path4.default.join(home, ".nvm", "versions", "node")),
-    ...getFnmNodeBinDirectories(import_node_path4.default.join(home, ".fnm", "node-versions")),
-    import_node_path4.default.join(home, ".asdf", "shims"),
-    import_node_path4.default.join(home, ".volta", "bin")
+    ...getNvmNodeBinDirectories(import_node_path3.default.join(home, ".nvm", "versions", "node")),
+    ...getFnmNodeBinDirectories(import_node_path3.default.join(home, ".fnm", "node-versions")),
+    import_node_path3.default.join(home, ".asdf", "shims"),
+    import_node_path3.default.join(home, ".volta", "bin")
   ];
 }
 function getNvmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path4.default.join(directory, "bin")
+    import_node_path3.default.join(directory, "bin")
   );
 }
 function getFnmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path4.default.join(directory, "installation", "bin")
+    import_node_path3.default.join(directory, "installation", "bin")
   );
 }
 function getChildDirectories(root) {
@@ -1862,7 +1523,7 @@ function getChildDirectories(root) {
     return import_node_fs3.default
       .readdirSync(root, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => import_node_path4.default.join(root, entry.name));
+      .map((entry) => import_node_path3.default.join(root, entry.name));
   } catch {
     return [];
   }
@@ -1919,7 +1580,7 @@ function checkPiInstallation(piExecutablePath = "") {
 // src/pi/model-catalog.mjs
 var import_node_child_process2 = require("node:child_process");
 var import_node_fs4 = __toESM(require("node:fs"), 1);
-var import_node_path5 = __toESM(require("node:path"), 1);
+var import_node_path4 = __toESM(require("node:path"), 1);
 var REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 var ESCAPE_CHARACTER = String.fromCharCode(27);
 var ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
@@ -2014,7 +1675,7 @@ function normalizeReasoningLevels(value) {
 }
 function getEffectiveConfig(vaultBasePath) {
   const vaultSettingsPath = vaultBasePath
-    ? import_node_path5.default.join(vaultBasePath, ".pi", "settings.json")
+    ? import_node_path4.default.join(vaultBasePath, ".pi", "settings.json")
     : "";
   const settings = readJsonFile2(vaultSettingsPath);
   const defaultModel = settings.defaultModel ? String(settings.defaultModel) : "";
@@ -2044,7 +1705,7 @@ function readJsonFile2(filePath) {
 // src/pi/runner.mjs
 var import_node_child_process3 = require("node:child_process");
 var import_node_fs5 = __toESM(require("node:fs"), 1);
-var import_node_path6 = __toESM(require("node:path"), 1);
+var import_node_path5 = __toESM(require("node:path"), 1);
 
 // src/pi/token-usage.mjs
 function calculateContextTokens(usage) {
@@ -2288,11 +1949,7 @@ var PiRunner = class {
           finalResponse: this.formatDryRunResponse(prompt, context),
           sessionId,
           threadId: sessionId,
-          pendingChanges: [],
-          events: [],
-          changes: [],
-          changedFiles: [],
-          changeStats: emptyChangeStats()
+          events: []
         }
       : this.runPiCli(formattedPrompt, sessionId, callbacks);
   }
@@ -2424,14 +2081,10 @@ var PiRunner = class {
           ),
           sessionId: resolvedSessionId,
           threadId: resolvedSessionId,
-          pendingChanges: [],
           events,
           contextUsage: this.getRunContextUsage(runState?.tokenUsage, events),
           contextCompacted: this.didCompactContext(events),
-          tokenUsage: runState?.tokenUsage ?? void 0,
-          changes: [],
-          changedFiles: [],
-          changeStats: emptyChangeStats()
+          tokenUsage: runState?.tokenUsage ?? void 0
         });
       });
       child.stdin.write(prompt);
@@ -2482,14 +2135,10 @@ var PiRunner = class {
             : `Context compaction failed: ${response.error ?? "Unknown error"}`,
           sessionId: resolvedSessionId,
           threadId: resolvedSessionId,
-          pendingChanges: [],
           events,
           contextUsage: void 0,
           contextCompacted: response.success === true,
           tokenUsage: void 0,
-          changes: [],
-          changedFiles: [],
-          changeStats: emptyChangeStats(),
           compactionResult: result
         });
       };
@@ -2620,9 +2269,9 @@ var PiRunner = class {
     return args;
   }
   createSessionFilePath() {
-    const sessionDir = import_node_path6.default.join(this.pluginDirectory ?? ".", "pi-sessions");
+    const sessionDir = import_node_path5.default.join(this.pluginDirectory ?? ".", "pi-sessions");
     import_node_fs5.default.mkdirSync(sessionDir, { recursive: true });
-    return import_node_path6.default.join(
+    return import_node_path5.default.join(
       sessionDir,
       `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
     );
@@ -2662,12 +2311,8 @@ ${events
       finalResponse: "Dry run: context would be compacted.",
       sessionId,
       threadId: sessionId,
-      pendingChanges: [],
       events: [],
-      contextCompacted: true,
-      changes: [],
-      changedFiles: [],
-      changeStats: emptyChangeStats()
+      contextCompacted: true
     };
   }
   formatDryRunResponse(prompt, context) {
@@ -2716,9 +2361,6 @@ ${events
     return lines.join("\n");
   }
 };
-function emptyChangeStats() {
-  return { filesChanged: 0, additions: 0, deletions: 0 };
-}
 function createSessionId() {
   const randomUUID = globalThis.crypto?.randomUUID;
   return randomUUID
@@ -2941,7 +2583,7 @@ var PiAgentSettingTab = class extends import_obsidian3.PluginSettingTab {
     new import_obsidian3.Setting(containerEl)
       .setName("Ignored folders/directories")
       .setDesc(
-        "Comma-separated folder prefixes that Pi pre-attached context, retrieval, and change review should ignore."
+        "Comma-separated folder prefixes that Pi pre-attached context and retrieval should ignore."
       )
       .addTextArea((text) =>
         text
@@ -3098,11 +2740,11 @@ var ApprovalModal = class extends import_obsidian4.Modal {
     contentEl.addClass("pi-agent-approval");
     new import_obsidian4.Setting(contentEl).setName("Approve vault change").setHeading();
     contentEl.createEl("p", { text: `${this.change.path} - ${this.change.reason}` });
-    const diffEl = contentEl.createEl("div", { cls: "pi-agent-diff" });
-    diffEl.createEl("h3", { text: "Before" });
-    diffEl.createEl("pre", { text: this.change.before || "(new file)" });
-    diffEl.createEl("h3", { text: "After" });
-    diffEl.createEl("pre", { text: this.change.after });
+    const previewEl = contentEl.createEl("div", { cls: "pi-agent-change-preview" });
+    previewEl.createEl("h3", { text: "Before" });
+    previewEl.createEl("pre", { text: this.change.before || "(new file)" });
+    previewEl.createEl("h3", { text: "After" });
+    previewEl.createEl("pre", { text: this.change.after });
     const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
     actionsEl.createEl("button", { text: "Reject" }).addEventListener("click", () => {
       this.finish();
@@ -3202,189 +2844,14 @@ pi --version`;
 var f5 = __toESM(require("obsidian"), 1);
 
 // src/ui/message-actions.mjs
-var import_obsidian7 = require("obsidian");
-
-// src/ui/modals/change-review-modal.mjs
 var import_obsidian6 = require("obsidian");
-var ChangeReviewModal = class extends import_obsidian6.Modal {
-  constructor(plugin, message) {
-    super(plugin.app);
-    this.message = message;
-    this.plugin = plugin;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.empty();
-    this.modalEl.addClass("pi-agent-change-review-modal");
-    contentEl.addClass("pi-agent-change-review");
-    new import_obsidian6.Setting(contentEl).setName("Agent changes").setHeading();
-    const stats = this.getStats();
-    const summaryEl = contentEl.createEl("p", { cls: "pi-agent-change-summary" });
-    summaryEl.createSpan({ text: `${stats.filesChanged} files changed, ` });
-    summaryEl.createSpan({ cls: "pi-agent-diff-additions", text: `+${stats.additions}` });
-    summaryEl.createSpan({ text: " " });
-    summaryEl.createSpan({ cls: "pi-agent-diff-deletions", text: `-${stats.deletions}` });
-    const changedFiles = this.getChangedFiles();
-    if (changedFiles.length > 0) {
-      const filesEl = contentEl.createEl("ul", { cls: "pi-agent-change-files" });
-      for (const file of changedFiles) {
-        filesEl.createEl("li", {
-          text: `${file.status} ${file.path} (+${file.additions} -${file.deletions})`
-        });
-      }
-    }
-    const unifiedDiffs = this.getUnifiedDiffs();
-    if (unifiedDiffs.length > 0) {
-      for (const diff of unifiedDiffs) this.renderDiff(contentEl, diff);
-    } else {
-      contentEl.createEl("p", {
-        cls: "pi-agent-empty",
-        text: "Agent reported changed files, but did not emit a unified diff for this response."
-      });
-    }
-    const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
-    const fileSnapshots = this.getFileSnapshots();
-    actionsEl.createEl("button", { text: "Copy diff" }).addEventListener("click", () => {
-      this.copyDiff();
-    });
-    const revertButton = actionsEl.createEl("button", { text: "Revert", cls: "mod-warning" });
-    revertButton.disabled = fileSnapshots.length === 0;
-    revertButton.addEventListener("click", () => {
-      this.revertDiff();
-    });
-    actionsEl
-      .createEl("button", { text: "Close", cls: "mod-cta" })
-      .addEventListener("click", () => this.close());
-  }
-  onClose() {
-    this.modalEl.removeClass("pi-agent-change-review-modal");
-    this.contentEl.empty();
-  }
-  getStats() {
-    if (this.message.changeStats) return this.message.changeStats;
-    const changedFiles = this.getChangedFiles();
-    return {
-      filesChanged: changedFiles.length,
-      additions: changedFiles.reduce((sum, file) => sum + file.additions, 0),
-      deletions: changedFiles.reduce((sum, file) => sum + file.deletions, 0)
-    };
-  }
-  getChangedFiles() {
-    if (this.message.changedFiles?.length) return this.message.changedFiles;
-    const changedFiles = /* @__PURE__ */ new Map();
-    for (const summary of this.message.changeSummaries ?? []) {
-      for (const file of summary.files) changedFiles.set(file.path, file);
-    }
-    return [...changedFiles.values()];
-  }
-  getUnifiedDiffs() {
-    return (this.message.changeSummaries ?? [])
-      .map((summary) => summary.unifiedDiff?.trim() ?? "")
-      .filter(Boolean);
-  }
-  renderDiff(containerEl, diff) {
-    const diffEl = containerEl.createDiv({ cls: "pi-agent-change-diff" });
-    const lines = diff.split(/\r?\n/);
-    for (let index = 0; index < lines.length; index++) {
-      const line = lines[index];
-      const lineEl = diffEl.createDiv({ cls: this.getDiffLineClass(line) });
-      lineEl.createSpan({ cls: "pi-agent-diff-line-number", text: String(index + 1) });
-      lineEl.createSpan({ cls: "pi-agent-diff-line-text", text: line || " " });
-    }
-  }
-  getDiffLineClass(line) {
-    return line.startsWith("+++") || line.startsWith("---")
-      ? "pi-agent-diff-line pi-agent-diff-line-meta"
-      : line.startsWith("+")
-        ? "pi-agent-diff-line pi-agent-diff-line-add"
-        : line.startsWith("-")
-          ? "pi-agent-diff-line pi-agent-diff-line-delete"
-          : line.startsWith("@@")
-            ? "pi-agent-diff-line pi-agent-diff-line-hunk"
-            : "pi-agent-diff-line";
-  }
-  async copyDiff() {
-    const diff = this.getUnifiedDiffs().join("\n\n");
-    if (!diff) {
-      new import_obsidian6.Notice("No unified diff available for this response.");
-      return;
-    }
-    await navigator.clipboard.writeText(diff);
-    new import_obsidian6.Notice("Copied agent diff.");
-  }
-  async revertDiff() {
-    const fileSnapshots = this.getFileSnapshots();
-    if (fileSnapshots.length === 0) {
-      new import_obsidian6.Notice("No reversible file snapshot is available for this response.");
-      return;
-    }
-    try {
-      const revertedFiles = await revertFileSnapshots(this.plugin, fileSnapshots);
-      if (revertedFiles.length === 0) {
-        new import_obsidian6.Notice("No reversible changes found in this diff.");
-        return;
-      }
-      new import_obsidian6.Notice(
-        `Reverted ${revertedFiles.length} file${revertedFiles.length === 1 ? "" : "s"}.`
-      );
-      this.close();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      new import_obsidian6.Notice(`Could not revert diff: ${message}`);
-    }
-  }
-  getFileSnapshots() {
-    return (this.message.changeSummaries ?? []).flatMap((summary) => summary.fileSnapshots ?? []);
-  }
-};
-async function revertFileSnapshots(plugin, fileSnapshots) {
-  const revertedFiles = [];
-  for (const snapshot of fileSnapshots) {
-    if (snapshot.status === "added") {
-      await deleteCreatedFile(plugin, snapshot.path, snapshot.after);
-      revertedFiles.push(snapshot.path);
-      continue;
-    }
-    if (snapshot.before !== void 0) {
-      await restoreFile(plugin, snapshot.path, snapshot.before, snapshot.after, snapshot.status);
-      revertedFiles.push(snapshot.path);
-    }
-  }
-  return revertedFiles;
-}
-async function restoreFile(plugin, filePath, before, after, status) {
-  const file = plugin.app.vault.getAbstractFileByPath(filePath);
-  if (file instanceof import_obsidian6.TFile) {
-    await plugin.app.vault.process(file, (content) => {
-      if (after !== void 0 && content !== after)
-        throw new Error(`File changed since Pi edited it: ${filePath}`);
-      if (after === void 0 && status === "deleted") {
-        throw new Error(`File was recreated after Pi deleted it: ${filePath}`);
-      }
-      return before;
-    });
-  } else {
-    await plugin.app.vault.create(filePath, before);
-  }
-}
-async function deleteCreatedFile(plugin, filePath, after) {
-  const file = plugin.app.vault.getAbstractFileByPath(filePath);
-  if (!(file instanceof import_obsidian6.TFile)) return;
-  if (after !== void 0) {
-    const content = await plugin.app.vault.cachedRead(file);
-    if (content !== after) throw new Error(`File changed since Pi created it: ${filePath}`);
-  }
-  await plugin.app.vault.delete(file);
-}
-
-// src/ui/message-actions.mjs
 var MessageActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
     this.callbacks = callbacks;
   }
   showMessageMenu(event, message, messageIndex) {
-    const menu = new import_obsidian7.Menu();
+    const menu = new import_obsidian6.Menu();
     if (message.role === "user") {
       menu.addItem((item) =>
         item
@@ -3409,25 +2876,6 @@ ${message.content}`)
           )
       );
     } else {
-      if (this.messageHasChanges(message)) {
-        menu.addItem((item) =>
-          item
-            .setTitle("Review changes")
-            .setIcon("git-compare")
-            .onClick(() => new ChangeReviewModal(this.plugin, message).open())
-        );
-      }
-      if (message.changedFiles?.length) {
-        menu.addItem((item) =>
-          item
-            .setTitle("Open changed files")
-            .setIcon("folder-open")
-            .onClick(() => {
-              this.callbacks.openChangedFiles(message.changedFiles ?? []);
-            })
-        );
-        menu.addSeparator();
-      }
       menu.addItem((item) =>
         item
           .setTitle("Copy response")
@@ -3469,45 +2917,12 @@ ${message.content}`)
   }
   async copyResponse(content) {
     await navigator.clipboard.writeText(content);
-    new import_obsidian7.Notice("Copied response.");
-  }
-  getMessageChangeStats(message) {
-    if (message.changeStats) {
-      const { filesChanged, additions, deletions } = message.changeStats;
-      if (filesChanged > 0 || additions > 0 || deletions > 0) return message.changeStats;
-    }
-    const diffStats = getDiffStats(message.content);
-    return diffStats
-      ? { filesChanged: 0, additions: diffStats.additions, deletions: diffStats.deletions }
-      : void 0;
-  }
-  messageHasChanges(message) {
-    return !!(
-      message.changeSummaries?.length ||
-      message.changedFiles?.length ||
-      (message.changeStats &&
-        (message.changeStats.filesChanged > 0 ||
-          message.changeStats.additions > 0 ||
-          message.changeStats.deletions > 0))
-    );
+    new import_obsidian6.Notice("Copied response.");
   }
 };
-function getDiffStats(content) {
-  let additions = 0;
-  let deletions = 0;
-  for (const match of content.matchAll(/```(?:diff|patch)?\s*\n([\s\S]*?)```/g)) {
-    for (const line of match[1].split(/\r?\n/)) {
-      if (!line.startsWith("+++") && !line.startsWith("---")) {
-        if (line.startsWith("+")) additions++;
-        if (line.startsWith("-")) deletions++;
-      }
-    }
-  }
-  return additions > 0 || deletions > 0 ? { additions, deletions } : void 0;
-}
 
 // src/ui/note-actions.mjs
-var import_obsidian8 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var NoteActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -3515,27 +2930,27 @@ var NoteActions = class {
   }
   async copyText(text) {
     await navigator.clipboard.writeText(text);
-    new import_obsidian8.Notice("Copied to clipboard.");
+    new import_obsidian7.Notice("Copied to clipboard.");
   }
   insertIntoCurrentNote(text) {
     const editor = this.plugin.app.workspace.activeEditor?.editor;
     if (!editor) {
-      new import_obsidian8.Notice("Open a note first.");
+      new import_obsidian7.Notice("Open a note first.");
       return;
     }
     editor.replaceSelection(text);
   }
   async createNoteFromResponse(response) {
     const title = this.getResponseTitle(response);
-    const path7 = await this.getAvailableNotePath(`${title}.md`);
+    const path6 = await this.getAvailableNotePath(`${title}.md`);
     await this.ensureFolder("Pi");
-    const file = await this.plugin.app.vault.create(path7, response);
+    const file = await this.plugin.app.vault.create(path6, response);
     await this.plugin.app.workspace.getLeaf(false).openFile(file);
   }
   async openCitedNotes(text) {
     const links = this.extractVaultLinks(text);
     if (links.length === 0) {
-      new import_obsidian8.Notice("No vault links found.");
+      new import_obsidian7.Notice("No vault links found.");
       return;
     }
     for (const link of links.slice(0, 5)) await this.callbacks.openVaultLink(link);
@@ -3589,8 +3004,8 @@ var NoteActions = class {
   }
   async getAvailableNotePath(name, folder = "Pi") {
     const normalizedFolder = normalizeArchiveFolder(folder);
-    const path7 = `${normalizedFolder}/${name}`;
-    if (!this.plugin.app.vault.getAbstractFileByPath(path7)) return path7;
+    const path6 = `${normalizedFolder}/${name}`;
+    if (!this.plugin.app.vault.getAbstractFileByPath(path6)) return path6;
     const basename = name.replace(/\.md$/i, "");
     for (let index = 2; index < 100; index++) {
       const candidate = `${normalizedFolder}/${basename} ${index}.md`;
@@ -3600,7 +3015,7 @@ var NoteActions = class {
   }
 };
 function normalizeArchiveFolder(folder) {
-  return (0, import_obsidian8.normalizePath)(normalizeVaultFolder(folder, "Pi"));
+  return (0, import_obsidian7.normalizePath)(normalizeVaultFolder(folder, "Pi"));
 }
 
 // src/ui/prompt-queue.mjs
@@ -3869,7 +3284,6 @@ __export(vault_link_actions_exports, {
   getVaultBasePath: () => getVaultBasePath,
   isExternalLinkTarget: () => isExternalLinkTarget,
   normalizeVaultPath: () => normalizeVaultPath,
-  openChangedFiles: () => openChangedFiles,
   openExternalUrl: () => openExternalUrl,
   openVaultLink: () => openVaultLink,
   openVaultPath: () => openVaultPath,
@@ -4071,9 +3485,6 @@ function revealLine(e, t) {
         (d = s.focus) == null || d.call(s));
     }, 50);
 }
-async function openChangedFiles(e) {
-  if (e.length !== 0) for (let t of e.slice(0, 5)) await this.openVaultPath(t.path);
-}
 async function openVaultPath(e, t = "tab") {
   let n = this.parseVaultLinkTarget(e);
   if (!n) {
@@ -4240,8 +3651,8 @@ function formatToolTarget(toolName, toolArgs) {
   if (toolName === "bash") return "command";
   if (toolName === "grep") {
     const pattern = sanitizeActivityDetail(pickNestedString(toolArgs, ["pattern", "query"]));
-    const path7 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
-    return pattern && path7 ? `"${pattern}" in ${path7}` : pattern ? `"${pattern}"` : path7;
+    const path6 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+    return pattern && path6 ? `"${pattern}" in ${path6}` : pattern ? `"${pattern}"` : path6;
   }
   if (toolName === "find") {
     return sanitizeActivityDetail(pickNestedString(toolArgs, ["glob", "pattern", "query", "path"]));
@@ -4263,8 +3674,8 @@ function formatToolTarget(toolName, toolArgs) {
   );
 }
 function formatPathForActivity(value) {
-  const path7 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
-  return path7 ? path7.split("/").pop() || path7 : "";
+  const path6 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
+  return path6 ? path6.split("/").pop() || path6 : "";
 }
 function sanitizeActivityDetail(value) {
   return value ? String(value).replace(/\s+/g, " ").trim() : "";
@@ -4386,7 +3797,6 @@ function renderActivityDetails(e, t) {
   for (let s of t.slice(0, 5)) n.createDiv({ cls: "pi-agent-activity-detail", text: s });
 }
 function renderRoleLabel(e, t, n, s) {
-  var d;
   let a = e.createDiv({ cls: "pi-agent-message-role" }),
     o = a.createSpan({ cls: "pi-agent-message-role-title" }),
     l = o.createSpan({
@@ -4407,43 +3817,6 @@ function renderRoleLabel(e, t, n, s) {
       })));
   }
   if (n && s !== void 0) {
-    let h =
-      n.role === "assistant"
-        ? (d = this.messageActions) == null
-          ? void 0
-          : d.getMessageChangeStats(n)
-        : void 0;
-    if (h) {
-      let g = a.createSpan({
-          cls: "pi-agent-message-diff-stat",
-          attr: {
-            role: "button",
-            tabindex: "0",
-            title: "Review changed files and diff lines",
-            "aria-label": "Review changed files and diff lines"
-          }
-        }),
-        m = (p) => {
-          (p.preventDefault(), p.stopPropagation(), new ChangeReviewModal(this.plugin, n).open());
-        };
-      (h.filesChanged &&
-        g.createSpan({
-          cls: "pi-agent-diff-files",
-          text: `${h.filesChanged} files`
-        }),
-        g.createSpan({
-          cls: "pi-agent-diff-additions",
-          text: `+${h.additions}`
-        }),
-        g.createSpan({
-          cls: "pi-agent-diff-deletions",
-          text: `-${h.deletions}`
-        }),
-        g.addEventListener("click", m),
-        g.addEventListener("keydown", (p) => {
-          (p.key === "Enter" || p.key === " ") && m(p);
-        }));
-    }
     let u = a.createEl("button", {
       cls: "clickable-icon pi-agent-message-actions",
       attr: { "aria-label": "Message actions" }
@@ -4714,7 +4087,7 @@ function formatActiveToolStatus() {
 }
 
 // src/ui/run-settings.mjs
-var import_obsidian9 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 var RunSettingsControls = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -4739,7 +4112,7 @@ var RunSettingsControls = class {
         this.plugin.settings.model = value;
         this.plugin.settings.reasoningEffort = "";
         if (value === CUSTOM_MODEL_VALUE && !this.plugin.settings.customModel) {
-          new import_obsidian9.Notice("Set custom model ID in plugin settings.");
+          new import_obsidian8.Notice("Set custom model ID in plugin settings.");
         }
         await this.plugin.saveSettings();
         this.refresh();
@@ -4794,11 +4167,11 @@ var RunSettingsControls = class {
       cls: `clickable-icon pi-agent-run-setting ${this.getRunSettingClass(name, selectedValue)}`,
       attr: { "aria-label": `${name}: ${selectedLabel}`, title: `${name}: ${selectedLabel}` }
     });
-    (0, import_obsidian9.setIcon)(buttonEl, icon);
+    (0, import_obsidian8.setIcon)(buttonEl, icon);
     buttonEl.createSpan({ cls: "pi-agent-control-label", text: displayLabel });
     buttonEl.addEventListener("click", async (event) => {
       event.preventDefault();
-      const menu = new import_obsidian9.Menu();
+      const menu = new import_obsidian8.Menu();
       for (const [optionValue, optionLabel] of Object.entries(options)) {
         menu.addItem((item) => {
           item.setTitle(optionLabel).onClick(async () => {
@@ -5056,7 +4429,7 @@ var ComposerSuggestions = class {
 };
 
 // src/ui/thread-actions.mjs
-var import_obsidian10 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var ThreadActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -5075,7 +4448,7 @@ var ThreadActions = class {
         this.callbacks.renderThreadTitle(),
         this.callbacks.renderMessages(),
         this.callbacks.renderToolBadges?.())
-      : new import_obsidian10.Notice("Nothing to fork yet.");
+      : new import_obsidian9.Notice("Nothing to fork yet.");
   }
 };
 
@@ -5178,7 +4551,6 @@ var PiAgentView = class extends f5.ItemView {
         runPrompt: (c) => {
           this.runPrompt(c);
         },
-        openChangedFiles: (c) => this.openChangedFiles(c),
         insertIntoCurrentNote: (c) => {
           var p;
           return (p = this.noteActions) == null ? void 0 : p.insertIntoCurrentNote(c);
@@ -5634,9 +5006,6 @@ var PiAgentView = class extends f5.ItemView {
           role: "assistant",
           content: a.finalResponse,
           createdAt: Date.now(),
-          changeSummaries: a.changes,
-          changedFiles: a.changedFiles,
-          changeStats: a.changeStats,
           contextUsage: a.contextUsage,
           tokenUsage: a.tokenUsage,
           runMetadata: s
@@ -5788,21 +5157,6 @@ function sanitizeThreadHistory(history, limit = 40) {
     threads: [...(history.threads || [])]
       .sort((left, right) => right.updatedAt - left.updatedAt)
       .slice(0, limit)
-      .map((thread) => ({
-        ...thread,
-        messages: (thread.messages || []).map(compactPersistedMessage)
-      }))
-  };
-}
-function compactPersistedMessage(message) {
-  return {
-    ...message,
-    changeSummaries: message.changeSummaries?.map((summary) => ({
-      files: summary.files,
-      stats: summary.stats,
-      sourceEventType: summary.sourceEventType,
-      unifiedDiff: summary.unifiedDiff
-    }))
   };
 }
 
@@ -6032,15 +5386,6 @@ function cloneMessage(message) {
     role: message.role,
     content: message.content,
     createdAt: message.createdAt,
-    changeSummaries: message.changeSummaries?.map((summary) => ({
-      files: summary.files.map((file) => ({ ...file })),
-      stats: { ...summary.stats },
-      sourceEventType: summary.sourceEventType,
-      unifiedDiff: summary.unifiedDiff,
-      fileSnapshots: summary.fileSnapshots?.map((snapshot) => ({ ...snapshot }))
-    })),
-    changedFiles: message.changedFiles?.map((file) => ({ ...file })),
-    changeStats: message.changeStats ? { ...message.changeStats } : void 0,
     contextUsage: message.contextUsage ? { ...message.contextUsage } : void 0,
     tokenUsage: message.tokenUsage ? { ...message.tokenUsage } : void 0,
     runMetadata: message.runMetadata ? { ...message.runMetadata } : void 0
@@ -6401,9 +5746,8 @@ var PiAgentPlugin = class extends P.Plugin {
     var p;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     if (
-      ((!this.graph || !this.contextBuilder || !this.pi || !this.changeTracker) &&
-        this.rebuildServices(),
-      !this.graph || !this.contextBuilder || !this.pi || !this.changeTracker)
+      ((!this.graph || !this.contextBuilder || !this.pi) && this.rebuildServices(),
+      !this.graph || !this.contextBuilder || !this.pi)
     )
       throw new Error("Pi services are not available.");
     let s = this.getEditorSelection(),
@@ -6412,8 +5756,7 @@ var PiAgentPlugin = class extends P.Plugin {
     let o = n ? this.threadHistory.getThread(n) : this.threadHistory.getCurrentThread();
     if (!o) throw new Error("Chat thread no longer exists.");
     if (!i) throw new Error("Pi runner is not available.");
-    let l = getPriorThreadHistory(o.messages, e),
-      d = this.shouldTrackPiChanges() ? await this.prepareChangeTrackingRun() : void 0;
+    let l = getPriorThreadHistory(o.messages, e);
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||
@@ -6424,53 +5767,15 @@ var PiAgentPlugin = class extends P.Plugin {
             linkedNeighborhood: a.linkedNeighborhood.length
           }
         }));
-    let h,
-      u,
-      m = d ? wrapChangeTrackingCallbacks(t, d) : t;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
-    try {
-      h = await i.run(e, a, o.piSessionId, l, m);
-    } catch (c) {
-      d == null || d.stop();
-      throw c;
-    }
-    if (d)
-      try {
-        u = await d.finish();
-      } catch (c) {
-        let g = c instanceof Error ? c.message : String(c);
-        h = {
-          ...h,
-          finalResponse: `${h.finalResponse}
-
-Warning: Pi Agent could not summarize vault changes after this run: ${g}`.trim()
-        };
-        console.warn("Pi Agent: failed to summarize post-run vault changes", c);
-      }
-    let y = u ? mergeRunChanges(h, u) : h;
+    let h = await i.run(e, a, o.piSessionId, l, t);
     return (
       h.sessionId &&
         (this.threadHistory.setThreadPiSessionId(o.id, h.sessionId),
         this.syncCurrentThreadState(),
         this.saveThreadHistory()),
-      y
+      h
     );
-  }
-  async prepareChangeTrackingRun() {
-    try {
-      return await this.changeTracker.beginRun({
-        useFullSnapshot: this.settings.sandboxMode === "full-agent"
-      });
-    } catch (t) {
-      let n = t instanceof Error ? t.message : String(t);
-      new P.Notice(`Pi Agent change review skipped: ${n}`);
-      console.warn("Pi Agent: skipped pre-run change tracking", t);
-      return void 0;
-    }
-  }
-  shouldTrackPiChanges() {
-    let e = this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
-    return e === "edit" || e === "full-agent";
   }
   getSelectedModelInfo() {
     let e =
@@ -6509,7 +5814,6 @@ Warning: Pi Agent could not summarize vault changes after this run: ${g}`.trim()
         this.getVaultBasePath()
       )),
       (this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings)),
-      (this.changeTracker = new ChangeTracker(this.app, this.settings, this.getVaultBasePath())),
       (this.pi = new PiRunner(
         this.settings,
         this.contextBuilder,
@@ -6637,48 +5941,9 @@ Warning: Pi Agent could not summarize vault changes after this run: ${g}`.trim()
 function isLegacyBareModelId(model) {
   return !model.includes("/") && model !== "__custom";
 }
-function wrapChangeTrackingCallbacks(callbacks, changeRun) {
-  return {
-    ...callbacks,
-    onEvent: (event) => {
-      changeRun.handlePiEvent(event);
-      callbacks?.onEvent?.(event);
-    }
-  };
-}
-function mergeRunChanges(r, i) {
-  var n, s;
-  let e = [...((n = r.changes) != null ? n : []), i],
-    t = mergeChangedFiles([...((s = r.changedFiles) != null ? s : []), ...i.files]);
-  return {
-    ...r,
-    changes: e,
-    changedFiles: t,
-    changeStats: {
-      filesChanged: t.length,
-      additions: t.reduce((a, o) => a + o.additions, 0),
-      deletions: t.reduce((a, o) => a + o.deletions, 0)
-    }
-  };
-}
 function getPriorThreadHistory(r, i) {
   let e = r[r.length - 1];
   return (e == null ? void 0 : e.role) === "user" && e.content === i ? r.slice(0, -1) : r;
-}
-function mergeChangedFiles(r) {
-  let i = /* @__PURE__ */ new Map();
-  for (let e of r) {
-    let t = i.get(e.path);
-    if (!t) {
-      i.set(e.path, { ...e });
-      continue;
-    }
-    ((t.additions = Math.max(t.additions, e.additions)),
-      (t.deletions = Math.max(t.deletions, e.deletions)),
-      t.status === "unknown" && (t.status = e.status),
-      e.previousPath && (t.previousPath = e.previousPath));
-  }
-  return [...i.values()];
 }
 
 // src/main.js

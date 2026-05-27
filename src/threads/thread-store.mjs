@@ -277,15 +277,6 @@ function cloneMessage(message) {
     role: message.role,
     content: message.content,
     createdAt: message.createdAt,
-    changeSummaries: message.changeSummaries?.map((summary) => ({
-      files: summary.files.map((file) => ({ ...file })),
-      stats: { ...summary.stats },
-      sourceEventType: summary.sourceEventType,
-      unifiedDiff: summary.unifiedDiff,
-      fileSnapshots: summary.fileSnapshots?.map((snapshot) => ({ ...snapshot }))
-    })),
-    changedFiles: message.changedFiles?.map((file) => ({ ...file })),
-    changeStats: message.changeStats ? { ...message.changeStats } : undefined,
     contextUsage: message.contextUsage ? { ...message.contextUsage } : undefined,
     tokenUsage: message.tokenUsage ? { ...message.tokenUsage } : undefined,
     runMetadata: message.runMetadata ? { ...message.runMetadata } : undefined

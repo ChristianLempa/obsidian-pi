@@ -205,10 +205,6 @@ export function revealLine(e, t) {
     }, 50);
 }
 
-export async function openChangedFiles(e) {
-  if (e.length !== 0) for (let t of e.slice(0, 5)) await this.openVaultPath(t.path);
-}
-
 export async function openVaultPath(e, t = "tab") {
   let n = this.parseVaultLinkTarget(e);
   if (!n) {

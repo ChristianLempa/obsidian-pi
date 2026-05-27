@@ -184,7 +184,7 @@ export class PiAgentSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Ignored folders/directories")
       .setDesc(
-        "Comma-separated folder prefixes that Pi pre-attached context, retrieval, and change review should ignore."
+        "Comma-separated folder prefixes that Pi pre-attached context and retrieval should ignore."
       )
       .addTextArea((text) =>
         text

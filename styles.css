@@ -242,45 +242,6 @@
   color: var(--text-normal);
 }
 
-.pi-agent-view .pi-agent-message-diff-stat {
-  align-items: center;
-  appearance: none;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
-  font-variant-numeric: tabular-nums;
-  gap: 4px;
-  height: auto;
-  line-height: inherit;
-  margin-right: 4px;
-  min-width: max-content;
-  opacity: 1;
-  padding: 0;
-  white-space: nowrap;
-}
-
-.pi-agent-message-diff-stat:hover,
-.pi-agent-message-diff-stat:focus {
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.pi-agent-diff-files {
-  color: var(--text-muted);
-}
-
-.pi-agent-diff-additions {
-  color: var(--text-success);
-}
-
-.pi-agent-diff-deletions {
-  color: var(--text-error);
-}
-
 .pi-agent-setting-error {
   color: var(--text-error);
   font-size: var(--font-ui-smaller);
@@ -728,17 +689,17 @@
   gap: 12px;
 }
 
-.pi-agent-diff {
+.pi-agent-change-preview {
   display: grid;
   gap: 8px;
 }
 
-.pi-agent-diff h3 {
+.pi-agent-change-preview h3 {
   font-size: 13px;
   margin: 0;
 }
 
-.pi-agent-diff pre {
+.pi-agent-change-preview pre {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
@@ -746,97 +707,6 @@
   overflow: auto;
   padding: 10px;
   white-space: pre-wrap;
-}
-
-.modal.pi-agent-change-review-modal {
-  height: min(860px, 86vh);
-  max-height: 86vh;
-  max-width: 92vw;
-  min-height: 460px;
-  min-width: min(760px, 92vw);
-  resize: both;
-  width: min(1040px, 92vw);
-}
-
-.modal.pi-agent-change-review-modal .modal-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.pi-agent-change-review {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.pi-agent-change-review h2,
-.pi-agent-change-review p,
-.pi-agent-change-files {
-  margin: 0;
-}
-
-.pi-agent-change-files {
-  padding-inline-start: 1.4em;
-}
-
-.pi-agent-change-summary {
-  font-variant-numeric: tabular-nums;
-}
-
-.pi-agent-change-diff {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  flex: 1 1 auto;
-  font-family: var(--font-monospace);
-  font-size: var(--font-ui-small);
-  min-height: 240px;
-  overflow: auto;
-  padding: 10px;
-}
-
-.pi-agent-diff-line {
-  display: grid;
-  grid-template-columns: 4ch minmax(0, 1fr);
-  gap: 10px;
-  border-radius: 3px;
-  min-height: 1.35em;
-  padding: 0 4px;
-  white-space: normal;
-}
-
-.pi-agent-diff-line-number {
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  user-select: none;
-}
-
-.pi-agent-diff-line-text {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
-.pi-agent-diff-line-add {
-  background: color-mix(in srgb, var(--text-success) 14%, transparent);
-  color: var(--text-success);
-}
-
-.pi-agent-diff-line-delete {
-  background: color-mix(in srgb, var(--text-error) 14%, transparent);
-  color: var(--text-error);
-}
-
-.pi-agent-diff-line-hunk,
-.pi-agent-diff-line-meta {
-  color: var(--text-muted);
 }
 
 .pi-agent-thread-list-header {

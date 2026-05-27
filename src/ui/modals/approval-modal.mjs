@@ -17,11 +17,11 @@ export class ApprovalModal extends Modal {
     new Setting(contentEl).setName("Approve vault change").setHeading();
     contentEl.createEl("p", { text: `${this.change.path} - ${this.change.reason}` });
 
-    const diffEl = contentEl.createEl("div", { cls: "pi-agent-diff" });
-    diffEl.createEl("h3", { text: "Before" });
-    diffEl.createEl("pre", { text: this.change.before || "(new file)" });
-    diffEl.createEl("h3", { text: "After" });
-    diffEl.createEl("pre", { text: this.change.after });
+    const previewEl = contentEl.createEl("div", { cls: "pi-agent-change-preview" });
+    previewEl.createEl("h3", { text: "Before" });
+    previewEl.createEl("pre", { text: this.change.before || "(new file)" });
+    previewEl.createEl("h3", { text: "After" });
+    previewEl.createEl("pre", { text: this.change.after });
 
     const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
     actionsEl.createEl("button", { text: "Reject" }).addEventListener("click", () => {

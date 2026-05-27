@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import * as P from "obsidian";
-import { ChangeTracker } from "../changes/change-tracker.mjs";
 import { ContextBuilder } from "../context/context-builder.mjs";
 import { normalizeSkillFolderList } from "../context/skills.mjs";
 import { VaultGraph } from "../context/vault-graph.mjs";
@@ -340,9 +339,8 @@ export class PiAgentPlugin extends P.Plugin {
     var p;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     if (
-      ((!this.graph || !this.contextBuilder || !this.pi || !this.changeTracker) &&
-        this.rebuildServices(),
-      !this.graph || !this.contextBuilder || !this.pi || !this.changeTracker)
+      ((!this.graph || !this.contextBuilder || !this.pi) && this.rebuildServices(),
+      !this.graph || !this.contextBuilder || !this.pi)
     )
       throw new Error("Pi services are not available.");
     let s = this.getEditorSelection(),
@@ -351,8 +349,7 @@ export class PiAgentPlugin extends P.Plugin {
     let o = n ? this.threadHistory.getThread(n) : this.threadHistory.getCurrentThread();
     if (!o) throw new Error("Chat thread no longer exists.");
     if (!i) throw new Error("Pi runner is not available.");
-    let l = getPriorThreadHistory(o.messages, e),
-      d = this.shouldTrackPiChanges() ? await this.prepareChangeTrackingRun() : void 0;
+    let l = getPriorThreadHistory(o.messages, e);
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||
@@ -363,52 +360,15 @@ export class PiAgentPlugin extends P.Plugin {
             linkedNeighborhood: a.linkedNeighborhood.length
           }
         }));
-    let h,
-      u,
-      m = d ? wrapChangeTrackingCallbacks(t, d) : t;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
-    try {
-      h = await i.run(e, a, o.piSessionId, l, m);
-    } catch (c) {
-      d == null || d.stop();
-      throw c;
-    }
-    if (d)
-      try {
-        u = await d.finish();
-      } catch (c) {
-        let g = c instanceof Error ? c.message : String(c);
-        h = {
-          ...h,
-          finalResponse:
-            `${h.finalResponse}\n\nWarning: Pi Agent could not summarize vault changes after this run: ${g}`.trim()
-        };
-        console.warn("Pi Agent: failed to summarize post-run vault changes", c);
-      }
-    let y = u ? mergeRunChanges(h, u) : h;
+    let h = await i.run(e, a, o.piSessionId, l, t);
     return (
       h.sessionId &&
         (this.threadHistory.setThreadPiSessionId(o.id, h.sessionId),
         this.syncCurrentThreadState(),
         this.saveThreadHistory()),
-      y
+      h
     );
-  }
-  async prepareChangeTrackingRun() {
-    try {
-      return await this.changeTracker.beginRun({
-        useFullSnapshot: this.settings.sandboxMode === "full-agent"
-      });
-    } catch (t) {
-      let n = t instanceof Error ? t.message : String(t);
-      new P.Notice(`Pi Agent change review skipped: ${n}`);
-      console.warn("Pi Agent: skipped pre-run change tracking", t);
-      return void 0;
-    }
-  }
-  shouldTrackPiChanges() {
-    let e = this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
-    return e === "edit" || e === "full-agent";
   }
   getSelectedModelInfo() {
     let e = this.settings.model === b ? this.settings.customModel : this.settings.model;
@@ -446,7 +406,6 @@ export class PiAgentPlugin extends P.Plugin {
         this.getVaultBasePath()
       )),
       (this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings)),
-      (this.changeTracker = new ChangeTracker(this.app, this.settings, this.getVaultBasePath())),
       (this.pi = new PiRunner(
         this.settings,
         this.contextBuilder,
@@ -574,46 +533,7 @@ export class PiAgentPlugin extends P.Plugin {
 function isLegacyBareModelId(model) {
   return !model.includes("/") && model !== "__custom";
 }
-function wrapChangeTrackingCallbacks(callbacks, changeRun) {
-  return {
-    ...callbacks,
-    onEvent: (event) => {
-      changeRun.handlePiEvent(event);
-      callbacks?.onEvent?.(event);
-    }
-  };
-}
-function mergeRunChanges(r, i) {
-  var n, s;
-  let e = [...((n = r.changes) != null ? n : []), i],
-    t = mergeChangedFiles([...((s = r.changedFiles) != null ? s : []), ...i.files]);
-  return {
-    ...r,
-    changes: e,
-    changedFiles: t,
-    changeStats: {
-      filesChanged: t.length,
-      additions: t.reduce((a, o) => a + o.additions, 0),
-      deletions: t.reduce((a, o) => a + o.deletions, 0)
-    }
-  };
-}
 function getPriorThreadHistory(r, i) {
   let e = r[r.length - 1];
   return (e == null ? void 0 : e.role) === "user" && e.content === i ? r.slice(0, -1) : r;
-}
-function mergeChangedFiles(r) {
-  let i = new Map();
-  for (let e of r) {
-    let t = i.get(e.path);
-    if (!t) {
-      i.set(e.path, { ...e });
-      continue;
-    }
-    ((t.additions = Math.max(t.additions, e.additions)),
-      (t.deletions = Math.max(t.deletions, e.deletions)),
-      t.status === "unknown" && (t.status = e.status),
-      e.previousPath && (t.previousPath = e.previousPath));
-  }
-  return [...i.values()];
 }

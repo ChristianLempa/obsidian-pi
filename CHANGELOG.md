@@ -5,6 +5,7 @@
 - Fixed Windows Pi CLI launches on Node.js 24+ by routing `pi`/`pi.cmd` through `cmd.exe` without Node's deprecated shell-args path. ([#17](https://github.com/ChristianLempa/obsidian-pi/issues/17))
 - Updated CI and release workflows to Node.js 24-compatible GitHub Actions. ([#11](https://github.com/ChristianLempa/obsidian-pi/issues/11))
 - Added vault prompt-template support for `.pi/prompts/*.md`, including slash-command discovery and Pi-style template arguments. ([#19](https://github.com/ChristianLempa/obsidian-pi/issues/19))
+- Removed the built-in change diff/review feature and its related local snapshot tracking code. ([#13](https://github.com/ChristianLempa/obsidian-pi/issues/13))
 
 ## 0.0.5
 
@@ -46,4 +47,3 @@ Initial Pi Agent release:
 - Review mode for read/search-only workflows.
 - Edit and Full agent modes for controlled vault/project changes through Pi.
 - Chat history and Pi session persistence.
-- Change summaries and diff review for edited files.

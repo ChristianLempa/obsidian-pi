@@ -47,11 +47,7 @@ export class PiRunner {
           finalResponse: this.formatDryRunResponse(prompt, context),
           sessionId,
           threadId: sessionId,
-          pendingChanges: [],
-          events: [],
-          changes: [],
-          changedFiles: [],
-          changeStats: emptyChangeStats()
+          events: []
         }
       : this.runPiCli(formattedPrompt, sessionId, callbacks);
   }
@@ -195,14 +191,10 @@ export class PiRunner {
           ),
           sessionId: resolvedSessionId,
           threadId: resolvedSessionId,
-          pendingChanges: [],
           events,
           contextUsage: this.getRunContextUsage(runState?.tokenUsage, events),
           contextCompacted: this.didCompactContext(events),
-          tokenUsage: runState?.tokenUsage ?? undefined,
-          changes: [],
-          changedFiles: [],
-          changeStats: emptyChangeStats()
+          tokenUsage: runState?.tokenUsage ?? undefined
         });
       });
 
@@ -254,14 +246,10 @@ export class PiRunner {
             : `Context compaction failed: ${response.error ?? "Unknown error"}`,
           sessionId: resolvedSessionId,
           threadId: resolvedSessionId,
-          pendingChanges: [],
           events,
           contextUsage: undefined,
           contextCompacted: response.success === true,
           tokenUsage: undefined,
-          changes: [],
-          changedFiles: [],
-          changeStats: emptyChangeStats(),
           compactionResult: result
         });
       };
@@ -454,12 +442,8 @@ export class PiRunner {
       finalResponse: "Dry run: context would be compacted.",
       sessionId,
       threadId: sessionId,
-      pendingChanges: [],
       events: [],
-      contextCompacted: true,
-      changes: [],
-      changedFiles: [],
-      changeStats: emptyChangeStats()
+      contextCompacted: true
     };
   }
 
@@ -511,10 +495,6 @@ export class PiRunner {
 
     return lines.join("\n");
   }
-}
-
-export function emptyChangeStats() {
-  return { filesChanged: 0, additions: 0, deletions: 0 };
 }
 
 function createSessionId() {

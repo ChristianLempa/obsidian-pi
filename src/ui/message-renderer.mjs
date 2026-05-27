@@ -1,6 +1,5 @@
 import * as f from "obsidian";
 import { segmentMessageLinks } from "./links.mjs";
-import { ChangeReviewModal } from "./modals/change-review-modal.mjs";
 import { formatToolStatus } from "./activity.mjs";
 
 export function renderMessages() {
@@ -104,7 +103,6 @@ export function renderActivityDetails(e, t) {
 }
 
 export function renderRoleLabel(e, t, n, s) {
-  var d;
   let a = e.createDiv({ cls: "pi-agent-message-role" }),
     o = a.createSpan({ cls: "pi-agent-message-role-title" }),
     l = o.createSpan({
@@ -125,43 +123,6 @@ export function renderRoleLabel(e, t, n, s) {
       })));
   }
   if (n && s !== void 0) {
-    let h =
-      n.role === "assistant"
-        ? (d = this.messageActions) == null
-          ? void 0
-          : d.getMessageChangeStats(n)
-        : void 0;
-    if (h) {
-      let g = a.createSpan({
-          cls: "pi-agent-message-diff-stat",
-          attr: {
-            role: "button",
-            tabindex: "0",
-            title: "Review changed files and diff lines",
-            "aria-label": "Review changed files and diff lines"
-          }
-        }),
-        m = (p) => {
-          (p.preventDefault(), p.stopPropagation(), new ChangeReviewModal(this.plugin, n).open());
-        };
-      (h.filesChanged &&
-        g.createSpan({
-          cls: "pi-agent-diff-files",
-          text: `${h.filesChanged} files`
-        }),
-        g.createSpan({
-          cls: "pi-agent-diff-additions",
-          text: `+${h.additions}`
-        }),
-        g.createSpan({
-          cls: "pi-agent-diff-deletions",
-          text: `-${h.deletions}`
-        }),
-        g.addEventListener("click", m),
-        g.addEventListener("keydown", (p) => {
-          (p.key === "Enter" || p.key === " ") && m(p);
-        }));
-    }
     let u = a.createEl("button", {
       cls: "clickable-icon pi-agent-message-actions",
       attr: { "aria-label": "Message actions" }
