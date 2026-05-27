@@ -698,11 +698,10 @@ var BUILTIN_SLASH_COMMANDS = [
     implemented: true
   },
   {
-    command: "/context",
+    command: "/context show",
     label: "Show context",
     detail: "Display the current Obsidian context packet without calling Pi.",
-    insertText: "/context show",
-    argumentHint: "show",
+    insertText: "/context show ",
     implemented: true
   }
 ];
