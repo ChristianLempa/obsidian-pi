@@ -1,0 +1,31 @@
+tests/runner.test.mjs
+  s_e4703b1cb849d9::t_2e32dfff1a6995 95,103-112,114-115,125,129-145
+src/plugin/PiAgentPlugin.mjs
+  s_e4703b1cb849d9::t_2f5e5d59656bdf 277-278,281
+main.js
+  s_e4703b1cb849d9::t_f9da3a4b5262d9 2309,2318,2418-2424
+  s_e4703b1cb849d9::t_a40f6c49254704 2001-2002,2103-2104,2118-2119,2157-2158,2292-2294,2296,2303-2307,2310-2317,2319-2333,2349,2361,5792-5793,5796,5798-5799,5804-5805,5807
+CHANGELOG.md
+  s_e4703b1cb849d9::t_8b2f0407123faf 11
+src/pi/runner.mjs
+  s_e4703b1cb849d9::t_35722243dd5e90 86-87,192-193,210-211,247-248
+  s_e4703b1cb849d9::t_f9da3a4b5262d9 538-542
+  s_e4703b1cb849d9::t_3bb6059cb071e0 415,427,537
+  s_e4703b1cb849d9::t_66fea65ac284fd 400-403,405,411-414,416-426,428-444,462,474
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7f0748785ac3c5c4dc44c1a1cdee51aaa2e5de81",
+  "prompts": {},
+  "sessions": {
+    "s_e4703b1cb849d9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e682c-71f8-7720-800f-440d23c9b627",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
