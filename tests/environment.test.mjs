@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildPiProcessEnv,
+  buildPiProcessInvocation,
   buildPiProcessOptions,
   findPiExecutable
 } from "../src/pi/environment.mjs";
@@ -24,7 +25,7 @@ afterEach(() => {
 });
 
 function setPlatform(platform) {
-  Object.defineProperty(process, "platform", { value: platform });
+  Object.defineProperty(process, "platform", { configurable: true, value: platform });
 }
 
 describe("Pi process environment", () => {
@@ -61,13 +62,17 @@ describe("Pi process environment", () => {
     );
   });
 
-  it("runs Pi through the Windows shell so .cmd launchers work on Node 24+", () => {
+  it("runs Pi .cmd launchers through cmd.exe on Windows so they work on Node 24+", () => {
     setPlatform("win32");
 
-    expect(buildPiProcessOptions("pi.cmd", { timeout: 1000 })).toMatchObject({
-      env: process.env,
-      shell: true,
-      timeout: 1000
+    expect(buildPiProcessInvocation("pi.cmd", ["--version"], { timeout: 1000 })).toMatchObject({
+      command: process.env.ComSpec || "cmd.exe",
+      args: ["/d", "/s", "/c", '"pi.cmd" "--version"'],
+      options: {
+        env: process.env,
+        timeout: 1000,
+        windowsVerbatimArguments: true
+      }
     });
   });
 

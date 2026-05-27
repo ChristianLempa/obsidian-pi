@@ -5,7 +5,7 @@ import { getConfiguredSkillPaths } from "../context/skills.mjs";
 import { CUSTOM_MODEL_VALUE } from "../plugin/settings.mjs";
 import { calculateContextTokens } from "./token-usage.mjs";
 import { createPiCliError, formatPiCliFailure } from "./diagnostics.mjs";
-import { buildPiProcessOptions, findPiExecutable } from "./environment.mjs";
+import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
 import { handlePiJsonEventLine } from "./events.mjs";
 
 export function isPiCliCommandPrompt(prompt) {
@@ -88,14 +88,11 @@ export class PiRunner {
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
       const piExecutable = findPiExecutable(this.settings.piExecutablePath);
-      const child = spawn(
-        piExecutable,
-        args,
-        buildPiProcessOptions(piExecutable, {
-          cwd: this.workingDirectory ?? this.pluginDirectory,
-          detached: process.platform !== "win32"
-        })
-      );
+      const invocation = buildPiProcessInvocation(piExecutable, args, {
+        cwd: this.workingDirectory ?? this.pluginDirectory,
+        detached: process.platform !== "win32"
+      });
+      const child = spawn(invocation.command, invocation.args, invocation.options);
       this.activeChild = child;
       callbacks?.onEvent?.({
         type: "pi_start",
@@ -219,14 +216,11 @@ export class PiRunner {
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
       const piExecutable = findPiExecutable(this.settings.piExecutablePath);
-      const child = spawn(
-        piExecutable,
-        args,
-        buildPiProcessOptions(piExecutable, {
-          cwd: this.workingDirectory ?? this.pluginDirectory,
-          detached: process.platform !== "win32"
-        })
-      );
+      const invocation = buildPiProcessInvocation(piExecutable, args, {
+        cwd: this.workingDirectory ?? this.pluginDirectory,
+        detached: process.platform !== "win32"
+      });
+      const child = spawn(invocation.command, invocation.args, invocation.options);
       this.activeChild = child;
       callbacks?.onEvent?.({
         type: "pi_start",

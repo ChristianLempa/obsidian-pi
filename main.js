@@ -1589,11 +1589,27 @@ function findPiNodeExecutable() {
   }
   return null;
 }
+function buildPiProcessInvocation(piExecutable, args = [], options = {}) {
+  const processOptions = buildPiProcessOptions(piExecutable, options);
+  return shouldUseWindowsCommandShell(piExecutable)
+    ? {
+        command: process.env.ComSpec || "cmd.exe",
+        args: ["/d", "/s", "/c", quoteWindowsCommand([piExecutable, ...args])],
+        options: {
+          ...processOptions,
+          windowsVerbatimArguments: true
+        }
+      }
+    : {
+        command: piExecutable,
+        args,
+        options: processOptions
+      };
+}
 function buildPiProcessOptions(piExecutable = findPiExecutable(), options = {}) {
   return {
     ...options,
-    env: buildPiProcessEnv(piExecutable),
-    ...(process.platform === "win32" ? { shell: true } : {})
+    env: buildPiProcessEnv(piExecutable)
   };
 }
 function buildPiProcessEnv(piExecutable = findPiExecutable()) {
@@ -1602,6 +1618,12 @@ function buildPiProcessEnv(piExecutable = findPiExecutable()) {
     ...process.env,
     PATH: buildPosixPath(piExecutable)
   };
+}
+function shouldUseWindowsCommandShell(piExecutable) {
+  return process.platform === "win32" && /\.(?:cmd|bat)$/i.test(piExecutable);
+}
+function quoteWindowsCommand(parts) {
+  return parts.map((part) => `"${String(part).replace(/"/g, '\\"')}"`).join(" ");
 }
 function buildPosixPath(piExecutable) {
   return uniqueExistingDirectories([
@@ -1676,13 +1698,14 @@ function uniqueExistingDirectories(directories) {
 // src/pi/health.mjs
 function checkPiInstallation(piExecutablePath = "") {
   const piExecutable = findPiExecutable(piExecutablePath);
+  const invocation = buildPiProcessInvocation(piExecutable, ["--version"], {
+    encoding: "utf8",
+    timeout: 5e3
+  });
   const result = (0, import_node_child_process.spawnSync)(
-    piExecutable,
-    ["--version"],
-    buildPiProcessOptions(piExecutable, {
-      encoding: "utf8",
-      timeout: 5e3
-    })
+    invocation.command,
+    invocation.args,
+    invocation.options
   );
   if (result.error) {
     const diagnostic = diagnosePiCliFailure({ error: result.error });
@@ -1733,10 +1756,11 @@ var PiModelCatalog = class {
   }
   execPi(command, args) {
     return new Promise((resolve, reject) => {
+      const invocation = buildPiProcessInvocation(command, args, { timeout: 2e4 });
       (0, import_node_child_process2.execFile)(
-        command,
-        args,
-        buildPiProcessOptions(command, { timeout: 2e4 }),
+        invocation.command,
+        invocation.args,
+        invocation.options,
         (error, stdout, stderr) => {
           if (error) {
             reject(
@@ -2114,13 +2138,14 @@ var PiRunner = class {
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
       const piExecutable = findPiExecutable(this.settings.piExecutablePath);
+      const invocation = buildPiProcessInvocation(piExecutable, args, {
+        cwd: this.workingDirectory ?? this.pluginDirectory,
+        detached: process.platform !== "win32"
+      });
       const child = (0, import_node_child_process3.spawn)(
-        piExecutable,
-        args,
-        buildPiProcessOptions(piExecutable, {
-          cwd: this.workingDirectory ?? this.pluginDirectory,
-          detached: process.platform !== "win32"
-        })
+        invocation.command,
+        invocation.args,
+        invocation.options
       );
       this.activeChild = child;
       callbacks?.onEvent?.({
@@ -2234,13 +2259,14 @@ var PiRunner = class {
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
       const piExecutable = findPiExecutable(this.settings.piExecutablePath);
+      const invocation = buildPiProcessInvocation(piExecutable, args, {
+        cwd: this.workingDirectory ?? this.pluginDirectory,
+        detached: process.platform !== "win32"
+      });
       const child = (0, import_node_child_process3.spawn)(
-        piExecutable,
-        args,
-        buildPiProcessOptions(piExecutable, {
-          cwd: this.workingDirectory ?? this.pluginDirectory,
-          detached: process.platform !== "win32"
-        })
+        invocation.command,
+        invocation.args,
+        invocation.options
       );
       this.activeChild = child;
       callbacks?.onEvent?.({

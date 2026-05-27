@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { formatPiCliFailure } from "./diagnostics.mjs";
-import { buildPiProcessOptions, findPiExecutable } from "./environment.mjs";
+import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
 
 const REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 const ESCAPE_CHARACTER = String.fromCharCode(27);
@@ -26,28 +26,24 @@ export class PiModelCatalog {
 
   execPi(command, args) {
     return new Promise((resolve, reject) => {
-      execFile(
-        command,
-        args,
-        buildPiProcessOptions(command, { timeout: 20_000 }),
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(
-              new Error(
-                formatPiCliFailure({
-                  context: "Could not query Pi model registry",
-                  error,
-                  stderr,
-                  stdout
-                })
-              )
-            );
-            return;
-          }
-
-          resolve(stdout || stderr);
+      const invocation = buildPiProcessInvocation(command, args, { timeout: 20_000 });
+      execFile(invocation.command, invocation.args, invocation.options, (error, stdout, stderr) => {
+        if (error) {
+          reject(
+            new Error(
+              formatPiCliFailure({
+                context: "Could not query Pi model registry",
+                error,
+                stderr,
+                stdout
+              })
+            )
+          );
+          return;
         }
-      );
+
+        resolve(stdout || stderr);
+      });
     });
   }
 }
