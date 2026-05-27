@@ -1,0 +1,31 @@
+src/pi/runner.mjs
+  s_e4703b1cb849d9::t_fff6e76a07198e 6,332-333
+src/ui/run-activity-state.mjs
+  s_e4703b1cb849d9::t_d2e9fba75444f0 3,122-123
+main.js
+  s_e4703b1cb849d9::t_f5dad89804dd02 1739,1745-1756,1761-1765,1777-1781,2253-2254,4050-4051
+src/pi/token-usage.mjs
+  s_e4703b1cb849d9::t_75bc75eaa81e2e 10-11,17-18,24-25,27-31,37-43,57-61
+CHANGELOG.md
+  s_e4703b1cb849d9::t_0decdf5a520232 12
+tests/token-usage.test.mjs
+  s_e4703b1cb849d9::t_ba14cf68a4f4ca 40-58
+tests/runner.test.mjs
+  s_e4703b1cb849d9::t_caea198c748aad 95-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "603bb2d04599af140b895fe6206ca1cddce7f9ad",
+  "prompts": {},
+  "sessions": {
+    "s_e4703b1cb849d9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e682c-71f8-7720-800f-440d23c9b627",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
