@@ -64,6 +64,13 @@ export function renderThreadListRow(e, t, n) {
     });
     (0, f.setIcon)(h, "loader");
   }
+  if (t.favorite) {
+    let h = o.createSpan({
+      cls: "pi-agent-thread-list-favorite-indicator",
+      attr: { title: "Favorite chat" }
+    });
+    (0, f.setIcon)(h, "star");
+  }
   o.createSpan({ text: t.title });
   (s.addEventListener("click", () => {
     (this.plugin.switchThread(t.id), this.renderChatView());
@@ -71,12 +78,23 @@ export function renderThreadListRow(e, t, n) {
     a.createDiv({ cls: "pi-agent-thread-list-meta", text: this.formatThreadMeta(t, n) }));
   let l = s.createDiv({ cls: "pi-agent-thread-list-actions" }),
     d = l.createEl("button", {
+      cls: `clickable-icon pi-agent-thread-list-action pi-agent-thread-favorite${t.favorite ? " is-favorite" : ""}`,
+      attr: {
+        "aria-label": t.favorite ? "Remove favorite" : "Mark as favorite",
+        title: t.favorite ? "Remove favorite" : "Mark as favorite"
+      }
+    }),
+    h = l.createEl("button", {
       cls: "clickable-icon pi-agent-thread-list-action",
       attr: { "aria-label": "Thread actions", title: "Thread actions" }
     });
-  ((0, f.setIcon)(d, "more-horizontal"),
-    d.addEventListener("click", (h) => {
-      (h.preventDefault(), h.stopPropagation(), this.showThreadRowMenu(h, t, n, o));
+  ((0, f.setIcon)(d, t.favorite ? "star" : "star"),
+    d.addEventListener("click", (u) => {
+      (u.preventDefault(), u.stopPropagation(), this.toggleThreadFavorite(t));
+    }),
+    (0, f.setIcon)(h, "more-horizontal"),
+    h.addEventListener("click", (u) => {
+      (u.preventDefault(), u.stopPropagation(), this.showThreadRowMenu(u, t, n, o));
     }));
 }
 
@@ -91,6 +109,12 @@ export function showThreadRowMenu(e, t, n, s) {
         (this.plugin.switchThread(t.id), this.renderChatView());
       })
   ),
+    a.addItem((o) =>
+      o
+        .setTitle(t.favorite ? "Remove favorite" : "Mark as favorite")
+        .setIcon("star")
+        .onClick(() => this.toggleThreadFavorite(t))
+    ),
     a.addItem((o) =>
       o
         .setTitle("Rename")
@@ -127,6 +151,12 @@ export function startThreadListRename(e, t) {
     n.addEventListener("blur", () => s(!0)),
     n.focus(),
     n.select());
+}
+
+export function toggleThreadFavorite(e) {
+  this.plugin.toggleThreadFavorite(e.id)
+    ? this.renderThreadList()
+    : new f.Notice("Chat thread was not found.");
 }
 
 export async function deleteThreadFromList(e) {

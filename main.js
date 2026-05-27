@@ -3138,7 +3138,8 @@ __export(thread_list_view_exports, {
   renderThreadListRow: () => renderThreadListRow,
   showThreadList: () => showThreadList,
   showThreadRowMenu: () => showThreadRowMenu,
-  startThreadListRename: () => startThreadListRename
+  startThreadListRename: () => startThreadListRename,
+  toggleThreadFavorite: () => toggleThreadFavorite
 });
 var f2 = __toESM(require("obsidian"), 1);
 function showThreadList() {
@@ -3196,11 +3197,18 @@ function renderThreadListRow(e, t, n) {
       attr: { title: "Open chat" }
     });
   if (this.isThreadRunning(t.id)) {
-    let h = o.createSpan({
+    let h2 = o.createSpan({
       cls: "pi-agent-thread-list-running",
       attr: { title: "Agent is running in this chat" }
     });
-    (0, f2.setIcon)(h, "loader");
+    (0, f2.setIcon)(h2, "loader");
+  }
+  if (t.favorite) {
+    let h2 = o.createSpan({
+      cls: "pi-agent-thread-list-favorite-indicator",
+      attr: { title: "Favorite chat" }
+    });
+    (0, f2.setIcon)(h2, "star");
   }
   o.createSpan({ text: t.title });
   (s.addEventListener("click", () => {
@@ -3209,12 +3217,23 @@ function renderThreadListRow(e, t, n) {
     a.createDiv({ cls: "pi-agent-thread-list-meta", text: this.formatThreadMeta(t, n) }));
   let l = s.createDiv({ cls: "pi-agent-thread-list-actions" }),
     d = l.createEl("button", {
+      cls: `clickable-icon pi-agent-thread-list-action pi-agent-thread-favorite${t.favorite ? " is-favorite" : ""}`,
+      attr: {
+        "aria-label": t.favorite ? "Remove favorite" : "Mark as favorite",
+        title: t.favorite ? "Remove favorite" : "Mark as favorite"
+      }
+    }),
+    h = l.createEl("button", {
       cls: "clickable-icon pi-agent-thread-list-action",
       attr: { "aria-label": "Thread actions", title: "Thread actions" }
     });
-  ((0, f2.setIcon)(d, "more-horizontal"),
-    d.addEventListener("click", (h) => {
-      (h.preventDefault(), h.stopPropagation(), this.showThreadRowMenu(h, t, n, o));
+  ((0, f2.setIcon)(d, t.favorite ? "star" : "star"),
+    d.addEventListener("click", (u) => {
+      (u.preventDefault(), u.stopPropagation(), this.toggleThreadFavorite(t));
+    }),
+    (0, f2.setIcon)(h, "more-horizontal"),
+    h.addEventListener("click", (u) => {
+      (u.preventDefault(), u.stopPropagation(), this.showThreadRowMenu(u, t, n, o));
     }));
 }
 function showThreadRowMenu(e, t, n, s) {
@@ -3228,6 +3247,12 @@ function showThreadRowMenu(e, t, n, s) {
         (this.plugin.switchThread(t.id), this.renderChatView());
       })
   ),
+    a.addItem((o) =>
+      o
+        .setTitle(t.favorite ? "Remove favorite" : "Mark as favorite")
+        .setIcon("star")
+        .onClick(() => this.toggleThreadFavorite(t))
+    ),
     a.addItem((o) =>
       o
         .setTitle("Rename")
@@ -3263,6 +3288,11 @@ function startThreadListRename(e, t) {
     n.addEventListener("blur", () => s(true)),
     n.focus(),
     n.select());
+}
+function toggleThreadFavorite(e) {
+  this.plugin.toggleThreadFavorite(e.id)
+    ? this.renderThreadList()
+    : new f2.Notice("Chat thread was not found.");
 }
 async function deleteThreadFromList(e) {
   if (this.isThreadRunning(e.id)) {
@@ -5200,7 +5230,7 @@ var ThreadStore = class {
     const includeArchived = options.includeArchived ?? false;
     return this.history.threads
       .filter((thread) => includeArchived || !thread.archived)
-      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .sort(compareThreadsForList)
       .map(cloneThread);
   }
   startNewThread(title) {
@@ -5271,6 +5301,17 @@ var ThreadStore = class {
       thread.title = nextTitle;
       thread.updatedAt = now;
     });
+  }
+  setThreadFavorite(threadId, favorite) {
+    return this.updateThread(threadId, (thread, now) => {
+      thread.favorite = favorite === true;
+      thread.updatedAt = now;
+    });
+  }
+  toggleThreadFavorite(threadId) {
+    const thread = this.history.threads.find((item) => item.id === threadId);
+    if (!thread) return false;
+    return this.setThreadFavorite(threadId, !thread.favorite);
   }
   addMessage(message) {
     return this.addMessageToThread(this.history.currentThreadId, message);
@@ -5364,6 +5405,7 @@ function normalizeThread(thread, seenIds) {
     createdAt,
     updatedAt,
     archived: thread.archived === true,
+    favorite: thread.favorite === true,
     piSessionId: normalizeOptionalString(thread.piSessionId ?? thread.piThreadId)
   };
 }
@@ -5388,6 +5430,7 @@ function createThread(options) {
     createdAt,
     updatedAt,
     archived: false,
+    favorite: options.favorite === true,
     piSessionId: options.piSessionId
   };
 }
@@ -5420,6 +5463,7 @@ function cloneThread(thread) {
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
     archived: thread.archived,
+    favorite: thread.favorite === true,
     piSessionId: thread.piSessionId
   };
 }
@@ -5444,6 +5488,10 @@ function createThreadId(now) {
 }
 function getMostRecentThread(threads) {
   return [...threads].sort((left, right) => right.updatedAt - left.updatedAt)[0];
+}
+function compareThreadsForList(left, right) {
+  if (left.favorite !== right.favorite) return left.favorite ? -1 : 1;
+  return right.updatedAt - left.updatedAt;
 }
 function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -5748,6 +5796,11 @@ var PiAgentPlugin = class extends P.Plugin {
   }
   renameThread(e, t) {
     return this.threadHistory.renameThread(e, t)
+      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
+      : false;
+  }
+  toggleThreadFavorite(e) {
+    return this.threadHistory.toggleThreadFavorite(e)
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
       : false;
   }

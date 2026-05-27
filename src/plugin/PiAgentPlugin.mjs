@@ -324,6 +324,11 @@ export class PiAgentPlugin extends P.Plugin {
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
       : !1;
   }
+  toggleThreadFavorite(e) {
+    return this.threadHistory.toggleThreadFavorite(e)
+      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
+      : !1;
+  }
   async activateView() {
     var n;
     let t = (n = this.app.workspace.getLeavesOfType(T)[0]) != null ? n : null;
