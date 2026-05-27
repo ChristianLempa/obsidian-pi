@@ -1,0 +1,29 @@
+CHANGELOG.md
+  s_e4703b1cb849d9::t_e39fe7c0087043 9
+src/context/slash-commands.mjs
+  s_e4703b1cb849d9::t_20d592a477f1d1 41-42,44-45,48
+src/context/context-show.mjs
+  s_e4703b1cb849d9::t_00f6383da70b2e 1-13
+main.js
+  s_e4703b1cb849d9::t_92f17b718b8a38 699-700,702-703,706,1026-1039,5778-5788
+src/plugin/PiAgentPlugin.mjs
+  s_e4703b1cb849d9::t_7c98761c13b014 4,350-360
+tests/context-show.test.mjs
+  s_e4703b1cb849d9::t_2996e57683b319 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d80989792bdc8f8ef98832806e7bed2cd9d1abfc",
+  "prompts": {},
+  "sessions": {
+    "s_e4703b1cb849d9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e682c-71f8-7720-800f-440d23c9b627",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
