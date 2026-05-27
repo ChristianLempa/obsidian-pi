@@ -1736,19 +1736,33 @@ function calculateContextTokens(usage) {
 }
 function normalizeTokenUsage(usage) {
   if (!usage) return void 0;
+  const contextWindow = Number(usage.contextWindow || usage.context_window || 0);
   return {
     input: Number(usage.input || 0),
     output: Number(usage.output || 0),
     cacheRead: Number(usage.cacheRead || 0),
     cacheWrite: Number(usage.cacheWrite || 0),
-    totalTokens: Number(usage.totalTokens || 0)
+    totalTokens: Number(usage.totalTokens || 0),
+    ...(contextWindow > 0 ? { contextWindow } : {})
+  };
+}
+function createContextUsage(usage, contextWindow) {
+  const tokens = calculateContextTokens(usage);
+  const windowSize = Number(contextWindow || usage?.contextWindow || 0);
+  if (tokens <= 0) return void 0;
+  return {
+    tokens,
+    contextWindow: windowSize,
+    percent: windowSize > 0 ? (tokens / windowSize) * 100 : void 0
   };
 }
 function formatContextUsageBadge(contextUsage, tokenUsage) {
   if (!contextUsage) return void 0;
-  const base = `ctx ${formatPercent(contextUsage.percent)} \xB7 ${formatTokenCount(
-    contextUsage.tokens
-  )}/${formatTokenCount(contextUsage.contextWindow)}`;
+  const usageText = `${formatTokenCount(contextUsage.tokens)}/${contextUsage.contextWindow > 0 ? formatTokenCount(contextUsage.contextWindow) : "?"}`;
+  const base =
+    contextUsage.contextWindow > 0
+      ? `ctx ${formatPercent(contextUsage.percent)} \xB7 ${usageText}`
+      : `ctx ${usageText}`;
   return {
     label: tokenUsage
       ? `${base} \xB7 \u2191${formatTokenCount(calculateContextTokens(tokenUsage))} \u2193${formatTokenCount(
@@ -1760,9 +1774,11 @@ function formatContextUsageBadge(contextUsage, tokenUsage) {
 }
 function formatContextUsageTitle(contextUsage, tokenUsage) {
   const lines = [
-    `Context used: ${formatPercent(contextUsage.percent)} (${formatTokenCount(
-      contextUsage.tokens
-    )} of ${formatTokenCount(contextUsage.contextWindow)} tokens)`
+    contextUsage.contextWindow > 0
+      ? `Context used: ${formatPercent(contextUsage.percent)} (${formatTokenCount(
+          contextUsage.tokens
+        )} of ${formatTokenCount(contextUsage.contextWindow)} tokens)`
+      : `Context used: ${formatTokenCount(contextUsage.tokens)} tokens (context window unknown)`
   ];
   if (tokenUsage) {
     lines.push(
@@ -1900,13 +1916,20 @@ function getAssistantRunState(messageOrMessages) {
     ? findLatestAssistantMessage(messageOrMessages)
     : messageOrMessages;
   if (!message || message.role !== "assistant") return void 0;
+  const tokenUsage = normalizeTokenUsage(message.usage);
+  if (tokenUsage) {
+    tokenUsage.provider = typeof message.provider === "string" ? message.provider : "";
+    tokenUsage.model = typeof message.model === "string" ? message.model : "";
+    tokenUsage.modelId =
+      tokenUsage.provider && tokenUsage.model ? `${tokenUsage.provider}/${tokenUsage.model}` : "";
+  }
   return {
     fallbackText: extractAssistantText(message).trim(),
     errorMessage:
       message.stopReason === "error" || message.stopReason === "aborted"
         ? message.errorMessage || `Request ${message.stopReason}`
         : void 0,
-    tokenUsage: normalizeTokenUsage(message.usage)
+    tokenUsage
   };
 }
 function extractEventTokenUsage(event) {
@@ -2233,16 +2256,9 @@ var PiRunner = class {
   }
   getRunContextUsage(tokenUsage, events = []) {
     if (this.didCompactContext(events)) return void 0;
-    const model = this.getSelectedModelInfo();
-    const contextWindow = model?.contextWindow ?? 0;
-    const tokens = calculateContextTokens(tokenUsage);
-    return contextWindow > 0 && tokens > 0
-      ? {
-          tokens,
-          contextWindow,
-          percent: (tokens / contextWindow) * 100
-        }
-      : void 0;
+    const model = this.getModelInfoForTokenUsage(tokenUsage) ?? this.getSelectedModelInfo();
+    const contextWindow = model?.contextWindow ?? tokenUsage?.contextWindow ?? 0;
+    return createContextUsage(tokenUsage, contextWindow);
   }
   didCompactContext(events = []) {
     return events.some((event) => {
@@ -2256,6 +2272,19 @@ var PiRunner = class {
       : type === "auto_compaction_end" || type === "session_compact"
         ? "compaction_end"
         : type;
+  }
+  getModelInfoForTokenUsage(tokenUsage) {
+    if (!tokenUsage) return void 0;
+    const modelId =
+      tokenUsage.modelId ||
+      (tokenUsage.provider && tokenUsage.model ? `${tokenUsage.provider}/${tokenUsage.model}` : "");
+    if (modelId) {
+      const exactMatch = this.settings.availableModels.find((model) => model.slug === modelId);
+      if (exactMatch) return exactMatch;
+    }
+    return tokenUsage.model
+      ? this.settings.availableModels.find((model) => model.slug.endsWith(`/${tokenUsage.model}`))
+      : void 0;
   }
   getSelectedModelInfo() {
     let modelId =
@@ -4037,10 +4066,9 @@ function captureContextUsage(e) {
 function getContextUsageForTokens(e) {
   var a;
   if (!e) return;
-  let t = this.plugin.getSelectedModelInfo(),
-    n = (a = t == null ? void 0 : t.contextWindow) != null ? a : 0,
-    s = calculateContextTokens(e);
-  return n > 0 && s > 0 ? { tokens: s, contextWindow: n, percent: (s / n) * 100 } : void 0;
+  let t = this.plugin.getSelectedModelInfo(e),
+    n = (a = t == null ? void 0 : t.contextWindow) != null ? a : e?.contextWindow;
+  return createContextUsage(e, n);
 }
 function handleRunEvent(e) {
   let t = this.normalizeRunEventType(e.type);
@@ -5884,6 +5912,8 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!i) throw new Error("Pi runner is not available.");
     let l = getPriorThreadHistory(o.messages, e);
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
+    await this.ensureModelCatalogLoaded();
+    if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||
         p.call(t, {
@@ -5903,11 +5933,27 @@ var PiAgentPlugin = class extends P.Plugin {
       h
     );
   }
-  getSelectedModelInfo() {
-    let e =
+  async ensureModelCatalogLoaded() {
+    this.settings.availableModels.length === 0 && (await this.refreshModelCatalog(false));
+  }
+  getModelInfoForTokenUsage(e) {
+    if (!e) return;
+    let t = e.modelId || (e.provider && e.model ? `${e.provider}/${e.model}` : "");
+    if (t) {
+      let n = this.settings.availableModels.find((s) => s.slug === t);
+      if (n) return n;
+    }
+    return e.model
+      ? this.settings.availableModels.find((n) => n.slug.endsWith(`/${e.model}`))
+      : void 0;
+  }
+  getSelectedModelInfo(e) {
+    let t = this.getModelInfoForTokenUsage(e);
+    if (t) return t;
+    let n =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
-    e || (e = this.settings.effectiveModel);
-    return e ? this.settings.availableModels.find((t) => t.slug === e) : void 0;
+    n || (n = this.settings.effectiveModel);
+    return n ? this.settings.availableModels.find((s) => s.slug === n) : void 0;
   }
   async inspectPiContext(e) {
     if (((!this.graph || !this.contextBuilder) && this.rebuildServices(), !this.contextBuilder))

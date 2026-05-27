@@ -27,11 +27,22 @@ describe("Pi event helpers", () => {
       getAssistantRunState({
         role: "assistant",
         content: "done",
-        usage: { input: 10, output: 2, cacheRead: 3 }
+        usage: { input: 10, output: 2, cacheRead: 3 },
+        provider: "openai-codex",
+        model: "gpt-5.5"
       })
     ).toMatchObject({
       fallbackText: "done",
-      tokenUsage: { input: 10, output: 2, cacheRead: 3, cacheWrite: 0, totalTokens: 0 }
+      tokenUsage: {
+        input: 10,
+        output: 2,
+        cacheRead: 3,
+        cacheWrite: 0,
+        totalTokens: 0,
+        provider: "openai-codex",
+        model: "gpt-5.5",
+        modelId: "openai-codex/gpt-5.5"
+      }
     });
     expect(
       extractEventTokenUsage({ message: { role: "assistant", usage: { input: 1 } } })

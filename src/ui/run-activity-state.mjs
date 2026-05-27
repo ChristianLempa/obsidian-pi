@@ -1,6 +1,6 @@
 import { extractEventTokenUsage } from "../pi/events.mjs";
 import {
-  calculateContextTokens,
+  createContextUsage,
   formatContextUsageTitle,
   formatTokenCount
 } from "../pi/token-usage.mjs";
@@ -118,10 +118,9 @@ export function captureContextUsage(e) {
 export function getContextUsageForTokens(e) {
   var a;
   if (!e) return;
-  let t = this.plugin.getSelectedModelInfo(),
-    n = (a = t == null ? void 0 : t.contextWindow) != null ? a : 0,
-    s = calculateContextTokens(e);
-  return n > 0 && s > 0 ? { tokens: s, contextWindow: n, percent: (s / n) * 100 } : void 0;
+  let t = this.plugin.getSelectedModelInfo(e),
+    n = (a = t == null ? void 0 : t.contextWindow) != null ? a : e?.contextWindow;
+  return createContextUsage(e, n);
 }
 
 export function handleRunEvent(e) {

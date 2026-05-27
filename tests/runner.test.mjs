@@ -92,6 +92,35 @@ describe("PiRunner", () => {
     expect(result).not.toHaveProperty("changeStats");
   });
 
+  it("uses Pi-returned provider and model to resolve the matching context window", () => {
+    expect(
+      createRunner({
+        availableModels: [
+          { slug: "cloudflare-ai-gateway/gpt-5.5", contextWindow: 1_100_000 },
+          { slug: "openai-codex/gpt-5.5", contextWindow: 272_000 }
+        ]
+      }).getRunContextUsage({
+        input: 3000,
+        output: 50,
+        provider: "openai-codex",
+        model: "gpt-5.5",
+        modelId: "openai-codex/gpt-5.5"
+      })
+    ).toEqual({
+      tokens: 3000,
+      contextWindow: 272_000,
+      percent: (3000 / 272_000) * 100
+    });
+  });
+
+  it("returns Pi token usage as context usage even when model metadata is unavailable", () => {
+    expect(createRunner().getRunContextUsage({ input: 3000, output: 50 })).toEqual({
+      tokens: 3000,
+      contextWindow: 0,
+      percent: undefined
+    });
+  });
+
   it("creates forked session files with portable session references", () => {
     const tempDir = createTempDir();
     const runner = new PiRunner(

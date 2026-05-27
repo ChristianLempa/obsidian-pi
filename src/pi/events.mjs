@@ -126,13 +126,21 @@ export function getAssistantRunState(messageOrMessages) {
     : messageOrMessages;
   if (!message || message.role !== "assistant") return undefined;
 
+  const tokenUsage = normalizeTokenUsage(message.usage);
+  if (tokenUsage) {
+    tokenUsage.provider = typeof message.provider === "string" ? message.provider : "";
+    tokenUsage.model = typeof message.model === "string" ? message.model : "";
+    tokenUsage.modelId =
+      tokenUsage.provider && tokenUsage.model ? `${tokenUsage.provider}/${tokenUsage.model}` : "";
+  }
+
   return {
     fallbackText: extractAssistantText(message).trim(),
     errorMessage:
       message.stopReason === "error" || message.stopReason === "aborted"
         ? message.errorMessage || `Request ${message.stopReason}`
         : undefined,
-    tokenUsage: normalizeTokenUsage(message.usage)
+    tokenUsage
   };
 }
 

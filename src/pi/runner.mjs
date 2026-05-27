@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getConfiguredSkillPaths } from "../context/skills.mjs";
 import { CUSTOM_MODEL_VALUE } from "../plugin/settings.mjs";
-import { calculateContextTokens } from "./token-usage.mjs";
+import { createContextUsage } from "./token-usage.mjs";
 import { createPiCliError, formatPiCliFailure } from "./diagnostics.mjs";
 import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
 import { handlePiJsonEventLine } from "./events.mjs";
@@ -328,17 +328,9 @@ export class PiRunner {
   getRunContextUsage(tokenUsage, events = []) {
     if (this.didCompactContext(events)) return undefined;
 
-    const model = this.getSelectedModelInfo();
-    const contextWindow = model?.contextWindow ?? 0;
-    const tokens = calculateContextTokens(tokenUsage);
-
-    return contextWindow > 0 && tokens > 0
-      ? {
-          tokens,
-          contextWindow,
-          percent: (tokens / contextWindow) * 100
-        }
-      : undefined;
+    const model = this.getModelInfoForTokenUsage(tokenUsage) ?? this.getSelectedModelInfo();
+    const contextWindow = model?.contextWindow ?? tokenUsage?.contextWindow ?? 0;
+    return createContextUsage(tokenUsage, contextWindow);
   }
 
   didCompactContext(events = []) {
@@ -354,6 +346,22 @@ export class PiRunner {
       : type === "auto_compaction_end" || type === "session_compact"
         ? "compaction_end"
         : type;
+  }
+
+  getModelInfoForTokenUsage(tokenUsage) {
+    if (!tokenUsage) return undefined;
+
+    const modelId =
+      tokenUsage.modelId ||
+      (tokenUsage.provider && tokenUsage.model ? `${tokenUsage.provider}/${tokenUsage.model}` : "");
+    if (modelId) {
+      const exactMatch = this.settings.availableModels.find((model) => model.slug === modelId);
+      if (exactMatch) return exactMatch;
+    }
+
+    return tokenUsage.model
+      ? this.settings.availableModels.find((model) => model.slug.endsWith(`/${tokenUsage.model}`))
+      : undefined;
   }
 
   getSelectedModelInfo() {

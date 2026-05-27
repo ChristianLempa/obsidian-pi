@@ -37,6 +37,25 @@ describe("token usage helpers", () => {
     });
   });
 
+  it("formats context usage when the context window is unknown", () => {
+    const contextUsage = createContextUsage({ input: 1000, cacheRead: 500 }, 0);
+
+    expect(contextUsage).toEqual({ tokens: 1500, contextWindow: 0, percent: undefined });
+    expect(
+      formatContextUsageBadge(contextUsage, { input: 1000, output: 250, cacheRead: 500 })
+    ).toMatchObject({
+      label: "ctx 1.5K/? · ↑1.5K ↓250",
+      title: expect.stringContaining("context window unknown")
+    });
+  });
+
+  it("normalizes context windows when Pi returns them with usage", () => {
+    expect(normalizeTokenUsage({ input: 1000, contextWindow: 20_000 })).toMatchObject({
+      input: 1000,
+      contextWindow: 20_000
+    });
+  });
+
   it("formats compact token counts", () => {
     expect(formatTokenCount(999)).toBe("999");
     expect(formatTokenCount(1500)).toBe("1.5K");

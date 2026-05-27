@@ -369,6 +369,8 @@ export class PiAgentPlugin extends P.Plugin {
     if (!i) throw new Error("Pi runner is not available.");
     let l = getPriorThreadHistory(o.messages, e);
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
+    await this.ensureModelCatalogLoaded();
+    if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||
         p.call(t, {
@@ -388,10 +390,26 @@ export class PiAgentPlugin extends P.Plugin {
       h
     );
   }
-  getSelectedModelInfo() {
-    let e = this.settings.model === b ? this.settings.customModel : this.settings.model;
-    e || (e = this.settings.effectiveModel);
-    return e ? this.settings.availableModels.find((t) => t.slug === e) : void 0;
+  async ensureModelCatalogLoaded() {
+    this.settings.availableModels.length === 0 && (await this.refreshModelCatalog(!1));
+  }
+  getModelInfoForTokenUsage(e) {
+    if (!e) return;
+    let t = e.modelId || (e.provider && e.model ? `${e.provider}/${e.model}` : "");
+    if (t) {
+      let n = this.settings.availableModels.find((s) => s.slug === t);
+      if (n) return n;
+    }
+    return e.model
+      ? this.settings.availableModels.find((n) => n.slug.endsWith(`/${e.model}`))
+      : void 0;
+  }
+  getSelectedModelInfo(e) {
+    let t = this.getModelInfoForTokenUsage(e);
+    if (t) return t;
+    let n = this.settings.model === b ? this.settings.customModel : this.settings.model;
+    n || (n = this.settings.effectiveModel);
+    return n ? this.settings.availableModels.find((s) => s.slug === n) : void 0;
   }
   async inspectPiContext(e) {
     if (((!this.graph || !this.contextBuilder) && this.rebuildServices(), !this.contextBuilder))

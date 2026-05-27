@@ -7,34 +7,40 @@ export function calculateContextTokens(usage) {
 export function normalizeTokenUsage(usage) {
   if (!usage) return undefined;
 
+  const contextWindow = Number(usage.contextWindow || usage.context_window || 0);
+
   return {
     input: Number(usage.input || 0),
     output: Number(usage.output || 0),
     cacheRead: Number(usage.cacheRead || 0),
     cacheWrite: Number(usage.cacheWrite || 0),
-    totalTokens: Number(usage.totalTokens || 0)
+    totalTokens: Number(usage.totalTokens || 0),
+    ...(contextWindow > 0 ? { contextWindow } : {})
   };
 }
 
 export function createContextUsage(usage, contextWindow) {
   const tokens = calculateContextTokens(usage);
-  const windowSize = Number(contextWindow || 0);
+  const windowSize = Number(contextWindow || usage?.contextWindow || 0);
+  if (tokens <= 0) return undefined;
 
-  return windowSize > 0 && tokens > 0
-    ? {
-        tokens,
-        contextWindow: windowSize,
-        percent: (tokens / windowSize) * 100
-      }
-    : undefined;
+  return {
+    tokens,
+    contextWindow: windowSize,
+    percent: windowSize > 0 ? (tokens / windowSize) * 100 : undefined
+  };
 }
 
 export function formatContextUsageBadge(contextUsage, tokenUsage) {
   if (!contextUsage) return undefined;
 
-  const base = `ctx ${formatPercent(contextUsage.percent)} · ${formatTokenCount(
-    contextUsage.tokens
-  )}/${formatTokenCount(contextUsage.contextWindow)}`;
+  const usageText = `${formatTokenCount(contextUsage.tokens)}/${
+    contextUsage.contextWindow > 0 ? formatTokenCount(contextUsage.contextWindow) : "?"
+  }`;
+  const base =
+    contextUsage.contextWindow > 0
+      ? `ctx ${formatPercent(contextUsage.percent)} · ${usageText}`
+      : `ctx ${usageText}`;
 
   return {
     label: tokenUsage
@@ -48,9 +54,11 @@ export function formatContextUsageBadge(contextUsage, tokenUsage) {
 
 export function formatContextUsageTitle(contextUsage, tokenUsage) {
   const lines = [
-    `Context used: ${formatPercent(contextUsage.percent)} (${formatTokenCount(
-      contextUsage.tokens
-    )} of ${formatTokenCount(contextUsage.contextWindow)} tokens)`
+    contextUsage.contextWindow > 0
+      ? `Context used: ${formatPercent(contextUsage.percent)} (${formatTokenCount(
+          contextUsage.tokens
+        )} of ${formatTokenCount(contextUsage.contextWindow)} tokens)`
+      : `Context used: ${formatTokenCount(contextUsage.tokens)} tokens (context window unknown)`
   ];
 
   if (tokenUsage) {
