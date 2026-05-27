@@ -29,6 +29,33 @@ describe("ThreadStore", () => {
     ]);
   });
 
+  it("prioritizes and toggles favorite threads", () => {
+    const store = new ThreadStore({
+      currentThreadId: "older",
+      threads: [
+        {
+          id: "older",
+          title: "Older",
+          messages: [],
+          createdAt: 1,
+          updatedAt: 1,
+          favorite: true
+        },
+        {
+          id: "newer",
+          title: "Newer",
+          messages: [],
+          createdAt: 2,
+          updatedAt: 2
+        }
+      ]
+    });
+
+    expect(store.listThreads().map((thread) => thread.id)).toEqual(["older", "newer"]);
+    expect(store.toggleThreadFavorite("older")).toBe(true);
+    expect(store.listThreads()[0]).toMatchObject({ id: "older", favorite: false });
+  });
+
   it("forks, switches, archives, and deletes threads", () => {
     const store = new ThreadStore();
     const originalId = store.getCurrentThread().id;

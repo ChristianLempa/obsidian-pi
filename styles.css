@@ -796,9 +796,15 @@
   flex: 0 0 auto;
 }
 
-.pi-agent-thread-list-running svg {
+.pi-agent-thread-list-running svg,
+.pi-agent-thread-list-favorite-indicator svg {
   height: 13px;
   width: 13px;
+}
+
+.pi-agent-thread-list-favorite-indicator,
+.pi-agent-thread-favorite.is-favorite {
+  color: var(--text-accent);
 }
 
 @keyframes pi-agent-thread-running-spin {

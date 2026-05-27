@@ -22,7 +22,7 @@ export class ThreadStore {
 
     return this.history.threads
       .filter((thread) => includeArchived || !thread.archived)
-      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .sort(compareThreadsForList)
       .map(cloneThread);
   }
 
@@ -113,6 +113,20 @@ export class ThreadStore {
       thread.title = nextTitle;
       thread.updatedAt = now;
     });
+  }
+
+  setThreadFavorite(threadId, favorite) {
+    return this.updateThread(threadId, (thread, now) => {
+      thread.favorite = favorite === true;
+      thread.updatedAt = now;
+    });
+  }
+
+  toggleThreadFavorite(threadId) {
+    const thread = this.history.threads.find((item) => item.id === threadId);
+    if (!thread) return false;
+
+    return this.setThreadFavorite(threadId, !thread.favorite);
   }
 
   addMessage(message) {
@@ -227,6 +241,7 @@ function normalizeThread(thread, seenIds) {
     createdAt,
     updatedAt,
     archived: thread.archived === true,
+    favorite: thread.favorite === true,
     piSessionId: normalizeOptionalString(thread.piSessionId ?? thread.piThreadId)
   };
 }
@@ -255,6 +270,7 @@ function createThread(options) {
     createdAt,
     updatedAt,
     archived: false,
+    favorite: options.favorite === true,
     piSessionId: options.piSessionId
   };
 }
@@ -291,6 +307,7 @@ function cloneThread(thread) {
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
     archived: thread.archived,
+    favorite: thread.favorite === true,
     piSessionId: thread.piSessionId
   };
 }
@@ -322,6 +339,11 @@ function createThreadId(now) {
 
 function getMostRecentThread(threads) {
   return [...threads].sort((left, right) => right.updatedAt - left.updatedAt)[0];
+}
+
+function compareThreadsForList(left, right) {
+  if (left.favorite !== right.favorite) return left.favorite ? -1 : 1;
+  return right.updatedAt - left.updatedAt;
 }
 
 function isPlainObject(value) {
