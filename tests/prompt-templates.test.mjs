@@ -37,7 +37,7 @@ describe("prompt templates", () => {
     });
   });
 
-  it("expands a vault prompt template before Pi receives the prompt", () => {
+  it("expands a vault prompt template before Pi receives the prompt", async () => {
     const vault = createVault();
     fs.writeFileSync(
       path.join(vault, ".pi", "prompts", "component.md"),
@@ -45,17 +45,17 @@ describe("prompt templates", () => {
       "utf8"
     );
 
-    expect(expandPromptTemplate('/component Button "click handler"\nUse TypeScript.', vault)).toBe(
-      "Create Button with Button click handler and click handler\n\nUse TypeScript."
-    );
+    await expect(
+      expandPromptTemplate('/component Button "click handler"\nUse TypeScript.', vault)
+    ).resolves.toBe("Create Button with Button click handler and click handler\n\nUse TypeScript.");
   });
 
-  it("leaves unknown and built-in slash commands unchanged", () => {
+  it("leaves unknown and built-in slash commands unchanged", async () => {
     const vault = createVault();
     fs.writeFileSync(path.join(vault, ".pi", "prompts", "current.md"), "Template", "utf8");
 
-    expect(expandPromptTemplate("/missing test", vault)).toBe("/missing test");
-    expect(expandPromptTemplate("/current", vault)).toBe("/current");
+    await expect(expandPromptTemplate("/missing test", vault)).resolves.toBe("/missing test");
+    await expect(expandPromptTemplate("/current", vault)).resolves.toBe("/current");
   });
 
   it("ignores filenames that cannot be used as prompt template commands", () => {
@@ -65,10 +65,10 @@ describe("prompt templates", () => {
     expect(getPromptTemplateSlashCommands(vault)).toEqual([]);
   });
 
-  it("does not re-expand placeholders introduced by argument values", () => {
+  it("does not re-expand placeholders introduced by argument values", async () => {
     const vault = createVault();
     fs.writeFileSync(path.join(vault, ".pi", "prompts", "echo.md"), "$ARGUMENTS $1", "utf8");
 
-    expect(expandPromptTemplate("/echo $2 value\\", vault)).toBe("$2 value\\ $2");
+    await expect(expandPromptTemplate("/echo $2 value\\", vault)).resolves.toBe("$2 value\\ $2");
   });
 });

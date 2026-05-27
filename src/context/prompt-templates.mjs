@@ -11,7 +11,7 @@ const RESERVED_SLASH_COMMANDS = new Set([
   "skill"
 ]);
 
-export function expandPromptTemplate(prompt, basePath) {
+export async function expandPromptTemplate(prompt, basePath) {
   const match = String(prompt || "").match(
     /^\/([A-Za-z0-9_-]+)(?:\s+([^\r\n]*))?(?:\r?\n([\s\S]*))?$/
   );
@@ -19,7 +19,7 @@ export function expandPromptTemplate(prompt, basePath) {
 
   if (RESERVED_SLASH_COMMANDS.has(match[1].toLowerCase())) return prompt;
 
-  const template = findPromptTemplate(basePath, match[1]);
+  const template = await findPromptTemplate(basePath, match[1]);
   if (!template) return prompt;
 
   const args = parseTemplateArgs(match[2] ?? "");
@@ -62,28 +62,39 @@ export function discoverPromptTemplates(basePath) {
   }
 }
 
-function findPromptTemplate(basePath, name) {
+async function findPromptTemplate(basePath, name) {
   if (!basePath || !PROMPT_TEMPLATE_NAME_PATTERN.test(name)) return undefined;
 
-  return readPromptTemplate(path.join(basePath, ".pi", "prompts", `${name}.md`), basePath);
+  return readPromptTemplateFile(path.join(basePath, ".pi", "prompts", `${name}.md`), basePath);
 }
 
 function readPromptTemplate(filePath, basePath) {
   try {
-    const raw = fs.readFileSync(filePath, "utf8");
-    const parsed = parsePromptTemplateContent(raw);
-    const name = path.basename(filePath, ".md");
-
-    return {
-      name,
-      command: `/${name}`,
-      path: filePath,
-      relativePath: basePath ? path.relative(basePath, filePath) : filePath,
-      ...parsed
-    };
+    return createPromptTemplate(filePath, basePath, fs.readFileSync(filePath, "utf8"));
   } catch {
     return undefined;
   }
+}
+
+async function readPromptTemplateFile(filePath, basePath) {
+  try {
+    return createPromptTemplate(filePath, basePath, await fs.promises.readFile(filePath, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+function createPromptTemplate(filePath, basePath, raw) {
+  const parsed = parsePromptTemplateContent(raw);
+  const name = path.basename(filePath, ".md");
+
+  return {
+    name,
+    command: `/${name}`,
+    path: filePath,
+    relativePath: basePath ? path.relative(basePath, filePath) : filePath,
+    ...parsed
+  };
 }
 
 function parsePromptTemplateContent(raw) {

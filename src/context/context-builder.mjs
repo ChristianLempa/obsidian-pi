@@ -13,7 +13,7 @@ export class ContextBuilder {
   }
 
   async build(prompt, selection = "") {
-    const userPrompt = expandPromptTemplate(prompt, this.vaultBasePath);
+    const userPrompt = await expandPromptTemplate(prompt, this.vaultBasePath);
     const parsedPrompt = parsePromptReferences(userPrompt);
     const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
     const toolCatalog = this.getToolCatalog();
