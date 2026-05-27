@@ -1,0 +1,25 @@
+main.js
+  s_e4703b1cb849d9::t_2b74bcb9684cd1 515-523,529,553-563,574-578,622-627,630,633-634,669
+src/context/prompt-templates.mjs
+  s_e4703b1cb849d9::t_1c0efee455537e 173
+  s_e4703b1cb849d9::t_9210d1173c8a0a 4,13,20-21,50-56,66-68,122-128,131,134-135
+  s_e4703b1cb849d9::t_2b74bcb9684cd1 5-12
+tests/prompt-templates.test.mjs
+  s_e4703b1cb849d9::t_cd89efd7d581ae 53-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5be62e7ac41f2adb64b571782365d9d7b8c5b5e6",
+  "prompts": {},
+  "sessions": {
+    "s_e4703b1cb849d9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e682c-71f8-7720-800f-440d23c9b627",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
