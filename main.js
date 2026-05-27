@@ -512,11 +512,21 @@ function formatModelOptionLabel(model) {
 // src/context/prompt-templates.mjs
 var import_node_fs = __toESM(require("node:fs"), 1);
 var import_node_path2 = __toESM(require("node:path"), 1);
+var PROMPT_TEMPLATE_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
+var RESERVED_SLASH_COMMANDS = /* @__PURE__ */ new Set([
+  "backlinks",
+  "compact",
+  "current",
+  "links",
+  "search",
+  "skill"
+]);
 function expandPromptTemplate(prompt, basePath) {
   const match = String(prompt || "").match(
     /^\/([A-Za-z0-9_-]+)(?:\s+([^\r\n]*))?(?:\r?\n([\s\S]*))?$/
   );
   if (!match) return prompt;
+  if (RESERVED_SLASH_COMMANDS.has(match[1].toLowerCase())) return prompt;
   const template = findPromptTemplate(basePath, match[1]);
   if (!template) return prompt;
   const args = parseTemplateArgs(match[2] ?? "");
@@ -540,7 +550,17 @@ function discoverPromptTemplates(basePath) {
   try {
     return import_node_fs.default
       .readdirSync(promptsDir, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"))
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          entry.name.toLowerCase().endsWith(".md") &&
+          PROMPT_TEMPLATE_NAME_PATTERN.test(
+            import_node_path2.default.basename(entry.name, ".md")
+          ) &&
+          !RESERVED_SLASH_COMMANDS.has(
+            import_node_path2.default.basename(entry.name, ".md").toLowerCase()
+          )
+      )
       .map((entry) =>
         readPromptTemplate(import_node_path2.default.join(promptsDir, entry.name), basePath)
       )
@@ -551,7 +571,11 @@ function discoverPromptTemplates(basePath) {
   }
 }
 function findPromptTemplate(basePath, name) {
-  return discoverPromptTemplates(basePath).find((template) => template.name === name);
+  if (!basePath || !PROMPT_TEMPLATE_NAME_PATTERN.test(name)) return void 0;
+  return readPromptTemplate(
+    import_node_path2.default.join(basePath, ".pi", "prompts", `${name}.md`),
+    basePath
+  );
 }
 function readPromptTemplate(filePath, basePath) {
   try {
@@ -595,17 +619,19 @@ function firstNonEmptyLine(content) {
 }
 function applyTemplateArguments(content, args) {
   const allArgs = args.join(" ");
-  return content
-    .replace(/\$ARGUMENTS|\$@/g, allArgs)
-    .replace(/\$\{@:(\d+)(?::(\d+))?\}/g, (_match, start, length) => {
-      const startIndex = Number(start) - 1;
+  return content.replace(
+    /\$ARGUMENTS|\$@|\$\{@:(\d+)(?::(\d+))?\}|\$(\d+)/g,
+    (match, sliceStart, sliceLength, positionalIndex) => {
+      if (match === "$ARGUMENTS" || match === "$@") return allArgs;
+      if (positionalIndex) return args[Number(positionalIndex) - 1] ?? "";
+      const startIndex = Number(sliceStart) - 1;
       const selected = args.slice(
         startIndex,
-        length === void 0 ? void 0 : startIndex + Number(length)
+        sliceLength === void 0 ? void 0 : startIndex + Number(sliceLength)
       );
       return selected.join(" ");
-    })
-    .replace(/\$(\d+)/g, (_match, index) => args[Number(index) - 1] ?? "");
+    }
+  );
 }
 function parseTemplateArgs(input) {
   const args = [];
@@ -640,6 +666,7 @@ function parseTemplateArgs(input) {
     }
     current += char;
   }
+  if (escaping) current += "\\";
   if (current) args.push(current);
   return args;
 }

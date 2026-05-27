@@ -1,11 +1,23 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const PROMPT_TEMPLATE_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
+const RESERVED_SLASH_COMMANDS = new Set([
+  "backlinks",
+  "compact",
+  "current",
+  "links",
+  "search",
+  "skill"
+]);
+
 export function expandPromptTemplate(prompt, basePath) {
   const match = String(prompt || "").match(
     /^\/([A-Za-z0-9_-]+)(?:\s+([^\r\n]*))?(?:\r?\n([\s\S]*))?$/
   );
   if (!match) return prompt;
+
+  if (RESERVED_SLASH_COMMANDS.has(match[1].toLowerCase())) return prompt;
 
   const template = findPromptTemplate(basePath, match[1]);
   if (!template) return prompt;
@@ -35,7 +47,13 @@ export function discoverPromptTemplates(basePath) {
   try {
     return fs
       .readdirSync(promptsDir, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"))
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          entry.name.toLowerCase().endsWith(".md") &&
+          PROMPT_TEMPLATE_NAME_PATTERN.test(path.basename(entry.name, ".md")) &&
+          !RESERVED_SLASH_COMMANDS.has(path.basename(entry.name, ".md").toLowerCase())
+      )
       .map((entry) => readPromptTemplate(path.join(promptsDir, entry.name), basePath))
       .filter(Boolean)
       .sort((a, b) => a.command.localeCompare(b.command));
@@ -45,7 +63,9 @@ export function discoverPromptTemplates(basePath) {
 }
 
 function findPromptTemplate(basePath, name) {
-  return discoverPromptTemplates(basePath).find((template) => template.name === name);
+  if (!basePath || !PROMPT_TEMPLATE_NAME_PATTERN.test(name)) return undefined;
+
+  return readPromptTemplate(path.join(basePath, ".pi", "prompts", `${name}.md`), basePath);
 }
 
 function readPromptTemplate(filePath, basePath) {
@@ -99,17 +119,20 @@ function firstNonEmptyLine(content) {
 function applyTemplateArguments(content, args) {
   const allArgs = args.join(" ");
 
-  return content
-    .replace(/\$ARGUMENTS|\$@/g, allArgs)
-    .replace(/\$\{@:(\d+)(?::(\d+))?\}/g, (_match, start, length) => {
-      const startIndex = Number(start) - 1;
+  return content.replace(
+    /\$ARGUMENTS|\$@|\$\{@:(\d+)(?::(\d+))?\}|\$(\d+)/g,
+    (match, sliceStart, sliceLength, positionalIndex) => {
+      if (match === "$ARGUMENTS" || match === "$@") return allArgs;
+      if (positionalIndex) return args[Number(positionalIndex) - 1] ?? "";
+
+      const startIndex = Number(sliceStart) - 1;
       const selected = args.slice(
         startIndex,
-        length === undefined ? undefined : startIndex + Number(length)
+        sliceLength === undefined ? undefined : startIndex + Number(sliceLength)
       );
       return selected.join(" ");
-    })
-    .replace(/\$(\d+)/g, (_match, index) => args[Number(index) - 1] ?? "");
+    }
+  );
 }
 
 function parseTemplateArgs(input) {
@@ -147,6 +170,7 @@ function parseTemplateArgs(input) {
     current += char;
   }
 
+  if (escaping) current += "\\";
   if (current) args.push(current);
   return args;
 }

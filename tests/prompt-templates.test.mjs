@@ -50,7 +50,25 @@ describe("prompt templates", () => {
     );
   });
 
-  it("leaves unknown slash commands unchanged", () => {
-    expect(expandPromptTemplate("/missing test", createVault())).toBe("/missing test");
+  it("leaves unknown and built-in slash commands unchanged", () => {
+    const vault = createVault();
+    fs.writeFileSync(path.join(vault, ".pi", "prompts", "current.md"), "Template", "utf8");
+
+    expect(expandPromptTemplate("/missing test", vault)).toBe("/missing test");
+    expect(expandPromptTemplate("/current", vault)).toBe("/current");
+  });
+
+  it("ignores filenames that cannot be used as prompt template commands", () => {
+    const vault = createVault();
+    fs.writeFileSync(path.join(vault, ".pi", "prompts", "bad.name.md"), "Template", "utf8");
+
+    expect(getPromptTemplateSlashCommands(vault)).toEqual([]);
+  });
+
+  it("does not re-expand placeholders introduced by argument values", () => {
+    const vault = createVault();
+    fs.writeFileSync(path.join(vault, ".pi", "prompts", "echo.md"), "$ARGUMENTS $1", "utf8");
+
+    expect(expandPromptTemplate("/echo $2 value\\", vault)).toBe("$2 value\\ $2");
   });
 });
