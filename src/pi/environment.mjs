@@ -73,6 +73,32 @@ function findPiNodeExecutable() {
   return null;
 }
 
+export function buildPiProcessInvocation(piExecutable, args = [], options = {}) {
+  const processOptions = buildPiProcessOptions(piExecutable, options);
+
+  return shouldUseWindowsCommandShell(piExecutable)
+    ? {
+        command: process.env.ComSpec || "cmd.exe",
+        args: ["/d", "/s", "/c", quoteWindowsCommand([piExecutable, ...args])],
+        options: {
+          ...processOptions,
+          windowsVerbatimArguments: true
+        }
+      }
+    : {
+        command: piExecutable,
+        args,
+        options: processOptions
+      };
+}
+
+export function buildPiProcessOptions(piExecutable = findPiExecutable(), options = {}) {
+  return {
+    ...options,
+    env: buildPiProcessEnv(piExecutable)
+  };
+}
+
 export function buildPiProcessEnv(piExecutable = findPiExecutable()) {
   if (process.platform === "win32") return process.env;
 
@@ -80,6 +106,14 @@ export function buildPiProcessEnv(piExecutable = findPiExecutable()) {
     ...process.env,
     PATH: buildPosixPath(piExecutable)
   };
+}
+
+function shouldUseWindowsCommandShell(piExecutable) {
+  return process.platform === "win32" && !/\.exe$/i.test(piExecutable);
+}
+
+function quoteWindowsCommand(parts) {
+  return parts.map((part) => `"${String(part).replace(/"/g, '""')}"`).join(" ");
 }
 
 function buildPosixPath(piExecutable) {

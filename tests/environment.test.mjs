@@ -2,20 +2,31 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildPiProcessEnv, findPiExecutable } from "../src/pi/environment.mjs";
+import {
+  buildPiProcessEnv,
+  buildPiProcessInvocation,
+  buildPiProcessOptions,
+  findPiExecutable
+} from "../src/pi/environment.mjs";
 
 const originalEnv = {
   HOME: process.env.HOME,
   PATH: process.env.PATH,
   USER: process.env.USER
 };
+const originalPlatform = process.platform;
 
 afterEach(() => {
+  setPlatform(originalPlatform);
   for (const [key, value] of Object.entries(originalEnv)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
 });
+
+function setPlatform(platform) {
+  Object.defineProperty(process, "platform", { configurable: true, value: platform });
+}
 
 describe("Pi process environment", () => {
   it("prepends the Pi executable directory so env can find node for GUI launches", () => {
@@ -49,5 +60,31 @@ describe("Pi process environment", () => {
     expect(findPiExecutable("/etc/profiles/per-user/${USER}/bin/pi")).toBe(
       "/etc/profiles/per-user/tester/bin/pi"
     );
+  });
+
+  it("runs Pi launchers through cmd.exe on Windows so .cmd resolution works on Node 24+", () => {
+    setPlatform("win32");
+
+    expect(buildPiProcessInvocation("pi", ["--version"], { timeout: 1000 })).toMatchObject({
+      command: process.env.ComSpec || "cmd.exe",
+      args: ["/d", "/s", "/c", '"pi" "--version"'],
+      options: {
+        env: process.env,
+        timeout: 1000,
+        windowsVerbatimArguments: true
+      }
+    });
+  });
+
+  it("quotes Windows command arguments without backslash-escaped quotes", () => {
+    setPlatform("win32");
+
+    expect(buildPiProcessInvocation("pi.cmd", ['say "hi"']).args[3]).toBe('"pi.cmd" "say ""hi"""');
+  });
+
+  it("does not use a shell for Pi processes on POSIX", () => {
+    setPlatform("darwin");
+
+    expect(buildPiProcessOptions("pi", { timeout: 1000 })).not.toHaveProperty("shell");
   });
 });
