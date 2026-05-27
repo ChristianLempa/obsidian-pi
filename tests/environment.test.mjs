@@ -62,18 +62,24 @@ describe("Pi process environment", () => {
     );
   });
 
-  it("runs Pi .cmd launchers through cmd.exe on Windows so they work on Node 24+", () => {
+  it("runs Pi launchers through cmd.exe on Windows so .cmd resolution works on Node 24+", () => {
     setPlatform("win32");
 
-    expect(buildPiProcessInvocation("pi.cmd", ["--version"], { timeout: 1000 })).toMatchObject({
+    expect(buildPiProcessInvocation("pi", ["--version"], { timeout: 1000 })).toMatchObject({
       command: process.env.ComSpec || "cmd.exe",
-      args: ["/d", "/s", "/c", '"pi.cmd" "--version"'],
+      args: ["/d", "/s", "/c", '"pi" "--version"'],
       options: {
         env: process.env,
         timeout: 1000,
         windowsVerbatimArguments: true
       }
     });
+  });
+
+  it("quotes Windows command arguments without backslash-escaped quotes", () => {
+    setPlatform("win32");
+
+    expect(buildPiProcessInvocation("pi.cmd", ['say "hi"']).args[3]).toBe('"pi.cmd" "say ""hi"""');
   });
 
   it("does not use a shell for Pi processes on POSIX", () => {

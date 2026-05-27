@@ -109,11 +109,11 @@ export function buildPiProcessEnv(piExecutable = findPiExecutable()) {
 }
 
 function shouldUseWindowsCommandShell(piExecutable) {
-  return process.platform === "win32" && /\.(?:cmd|bat)$/i.test(piExecutable);
+  return process.platform === "win32" && !/\.exe$/i.test(piExecutable);
 }
 
 function quoteWindowsCommand(parts) {
-  return parts.map((part) => `"${String(part).replace(/"/g, '\\"')}"`).join(" ");
+  return parts.map((part) => `"${String(part).replace(/"/g, '""')}"`).join(" ");
 }
 
 function buildPosixPath(piExecutable) {
