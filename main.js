@@ -1998,8 +1998,8 @@ var PiRunner = class {
   runPiCli(prompt, sessionId, callbacks) {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
-    const resolvedSessionId = sessionId ?? this.createSessionFilePath();
-    const args = this.buildPiArgs(resolvedSessionId, "json");
+    const session = this.resolveOrCreateSession(sessionId);
+    const args = this.buildPiArgs(session.path, "json");
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
       const piExecutable = findPiExecutable(this.settings.piExecutablePath);
@@ -2100,8 +2100,8 @@ var PiRunner = class {
             events,
             isPiCliCommandPrompt(prompt)
           ),
-          sessionId: resolvedSessionId,
-          threadId: resolvedSessionId,
+          sessionId: session.reference,
+          threadId: session.reference,
           events,
           contextUsage: this.getRunContextUsage(runState?.tokenUsage, events),
           contextCompacted: this.didCompactContext(events),
@@ -2115,8 +2115,8 @@ var PiRunner = class {
   runPiRpcCompact(sessionId, customInstructions = "", callbacks) {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
-    const resolvedSessionId = sessionId ?? this.createSessionFilePath();
-    const args = this.buildPiArgs(resolvedSessionId, "rpc");
+    const session = this.resolveOrCreateSession(sessionId);
+    const args = this.buildPiArgs(session.path, "rpc");
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
       const piExecutable = findPiExecutable(this.settings.piExecutablePath);
@@ -2154,8 +2154,8 @@ var PiRunner = class {
           finalResponse: response.success
             ? "Context compacted."
             : `Context compaction failed: ${response.error ?? "Unknown error"}`,
-          sessionId: resolvedSessionId,
-          threadId: resolvedSessionId,
+          sessionId: session.reference,
+          threadId: session.reference,
           events,
           contextUsage: void 0,
           contextCompacted: response.success === true,
@@ -2289,15 +2289,48 @@ var PiRunner = class {
     }
     return args;
   }
+  getSessionDirectory() {
+    return import_node_path5.default.resolve(this.pluginDirectory ?? ".", "pi-sessions");
+  }
   createSessionFilePath() {
-    const sessionDir = import_node_path5.default.join(this.pluginDirectory ?? ".", "pi-sessions");
+    const sessionDir = this.getSessionDirectory();
     import_node_fs5.default.mkdirSync(sessionDir, { recursive: true });
     return import_node_path5.default.join(
       sessionDir,
       `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
     );
   }
-  createForkSessionFile(sessionPath) {
+  createSessionReference(sessionPath) {
+    const sessionDir = this.getSessionDirectory();
+    const relativePath = import_node_path5.default.relative(
+      sessionDir,
+      import_node_path5.default.resolve(sessionPath)
+    );
+    return relativePath && isSafeRelativePath(relativePath) ? relativePath : void 0;
+  }
+  resolveSessionPath(sessionReference) {
+    if (!sessionReference) return void 0;
+    const sessionDir = this.getSessionDirectory();
+    const resolvedPath = import_node_path5.default.isAbsolute(sessionReference)
+      ? import_node_path5.default.resolve(sessionReference)
+      : import_node_path5.default.resolve(sessionDir, sessionReference);
+    const relativePath = import_node_path5.default.relative(sessionDir, resolvedPath);
+    if (!relativePath || !isSafeRelativePath(relativePath)) return void 0;
+    return resolvedPath;
+  }
+  resolveOrCreateSession(sessionReference) {
+    const existingPath = this.resolveSessionPath(sessionReference);
+    const sessionPath =
+      existingPath && import_node_fs5.default.existsSync(existingPath)
+        ? existingPath
+        : this.createSessionFilePath();
+    return {
+      path: sessionPath,
+      reference: this.createSessionReference(sessionPath) ?? sessionPath
+    };
+  }
+  createForkSessionFile(sessionReference) {
+    const sessionPath = this.resolveSessionPath(sessionReference);
     if (!sessionPath || !import_node_fs5.default.existsSync(sessionPath)) return void 0;
     const events = import_node_fs5.default
       .readFileSync(sessionPath, "utf8")
@@ -2313,7 +2346,7 @@ var PiRunner = class {
       id: createSessionId(),
       timestamp: /* @__PURE__ */ new Date().toISOString(),
       cwd: this.workingDirectory || sessionEvent.cwd,
-      parentSession: sessionPath
+      parentSession: this.createSessionReference(sessionPath) ?? sessionPath
     };
     import_node_fs5.default.writeFileSync(
       forkSessionPath,
@@ -2325,7 +2358,7 @@ ${events
 `,
       "utf8"
     );
-    return forkSessionPath;
+    return this.createSessionReference(forkSessionPath) ?? forkSessionPath;
   }
   formatDryRunCompactResponse(sessionId) {
     return {
@@ -2382,6 +2415,13 @@ ${events
     return lines.join("\n");
   }
 };
+function isSafeRelativePath(relativePath) {
+  return (
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${import_node_path5.default.sep}`) &&
+    !import_node_path5.default.isAbsolute(relativePath)
+  );
+}
 function createSessionId() {
   const randomUUID = globalThis.crypto?.randomUUID;
   return randomUUID
@@ -5749,21 +5789,22 @@ var PiAgentPlugin = class extends P.Plugin {
     return Math.max(t, n);
   }
   countPiSessionChatMessages(e) {
-    if (!e || !import_node_fs6.default.existsSync(e)) return 0;
+    let t = this.pi?.resolveSessionPath(e);
+    if (!t || !import_node_fs6.default.existsSync(t)) return 0;
     try {
       return import_node_fs6.default
-        .readFileSync(e, "utf8")
+        .readFileSync(t, "utf8")
         .split(/\r?\n/)
-        .reduce((t, n) => {
-          if (!n.trim()) return t;
+        .reduce((t2, n) => {
+          if (!n.trim()) return t2;
           try {
             let s = JSON.parse(n),
               a = s == null ? void 0 : s.message;
             return s.type === "message" && (a?.role === "user" || a?.role === "assistant")
-              ? t + 1
-              : t;
+              ? t2 + 1
+              : t2;
           } catch {
-            return t;
+            return t2;
           }
         }, 0);
     } catch {

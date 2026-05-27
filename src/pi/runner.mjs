@@ -83,8 +83,8 @@ export class PiRunner {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
 
-    const resolvedSessionId = sessionId ?? this.createSessionFilePath();
-    const args = this.buildPiArgs(resolvedSessionId, "json");
+    const session = this.resolveOrCreateSession(sessionId);
+    const args = this.buildPiArgs(session.path, "json");
 
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
@@ -189,8 +189,8 @@ export class PiRunner {
             events,
             isPiCliCommandPrompt(prompt)
           ),
-          sessionId: resolvedSessionId,
-          threadId: resolvedSessionId,
+          sessionId: session.reference,
+          threadId: session.reference,
           events,
           contextUsage: this.getRunContextUsage(runState?.tokenUsage, events),
           contextCompacted: this.didCompactContext(events),
@@ -207,8 +207,8 @@ export class PiRunner {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
 
-    const resolvedSessionId = sessionId ?? this.createSessionFilePath();
-    const args = this.buildPiArgs(resolvedSessionId, "rpc");
+    const session = this.resolveOrCreateSession(sessionId);
+    const args = this.buildPiArgs(session.path, "rpc");
 
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
@@ -244,8 +244,8 @@ export class PiRunner {
           finalResponse: response.success
             ? "Context compacted."
             : `Context compaction failed: ${response.error ?? "Unknown error"}`,
-          sessionId: resolvedSessionId,
-          threadId: resolvedSessionId,
+          sessionId: session.reference,
+          threadId: session.reference,
           events,
           contextUsage: undefined,
           contextCompacted: response.success === true,
@@ -397,14 +397,51 @@ export class PiRunner {
     return args;
   }
 
+  getSessionDirectory() {
+    return path.resolve(this.pluginDirectory ?? ".", "pi-sessions");
+  }
+
   createSessionFilePath() {
-    const sessionDir = path.join(this.pluginDirectory ?? ".", "pi-sessions");
+    const sessionDir = this.getSessionDirectory();
     fs.mkdirSync(sessionDir, { recursive: true });
 
     return path.join(sessionDir, `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`);
   }
 
-  createForkSessionFile(sessionPath) {
+  createSessionReference(sessionPath) {
+    const sessionDir = this.getSessionDirectory();
+    const relativePath = path.relative(sessionDir, path.resolve(sessionPath));
+
+    return relativePath && isSafeRelativePath(relativePath) ? relativePath : undefined;
+  }
+
+  resolveSessionPath(sessionReference) {
+    if (!sessionReference) return undefined;
+
+    const sessionDir = this.getSessionDirectory();
+    const resolvedPath = path.isAbsolute(sessionReference)
+      ? path.resolve(sessionReference)
+      : path.resolve(sessionDir, sessionReference);
+    const relativePath = path.relative(sessionDir, resolvedPath);
+
+    if (!relativePath || !isSafeRelativePath(relativePath)) return undefined;
+
+    return resolvedPath;
+  }
+
+  resolveOrCreateSession(sessionReference) {
+    const existingPath = this.resolveSessionPath(sessionReference);
+    const sessionPath =
+      existingPath && fs.existsSync(existingPath) ? existingPath : this.createSessionFilePath();
+
+    return {
+      path: sessionPath,
+      reference: this.createSessionReference(sessionPath) ?? sessionPath
+    };
+  }
+
+  createForkSessionFile(sessionReference) {
+    const sessionPath = this.resolveSessionPath(sessionReference);
     if (!sessionPath || !fs.existsSync(sessionPath)) return undefined;
 
     const events = fs
@@ -422,7 +459,7 @@ export class PiRunner {
       id: createSessionId(),
       timestamp: new Date().toISOString(),
       cwd: this.workingDirectory || sessionEvent.cwd,
-      parentSession: sessionPath
+      parentSession: this.createSessionReference(sessionPath) ?? sessionPath
     };
 
     fs.writeFileSync(
@@ -434,7 +471,7 @@ export class PiRunner {
       "utf8"
     );
 
-    return forkSessionPath;
+    return this.createSessionReference(forkSessionPath) ?? forkSessionPath;
   }
 
   formatDryRunCompactResponse(sessionId) {
@@ -495,6 +532,14 @@ export class PiRunner {
 
     return lines.join("\n");
   }
+}
+
+function isSafeRelativePath(relativePath) {
+  return (
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath)
+  );
 }
 
 function createSessionId() {

@@ -92,23 +92,27 @@ describe("PiRunner", () => {
     expect(result).not.toHaveProperty("changeStats");
   });
 
-  it("creates forked session files", () => {
+  it("creates forked session files with portable session references", () => {
     const tempDir = createTempDir();
-    const sessionPath = path.join(tempDir, "session.jsonl");
-    fs.writeFileSync(
-      sessionPath,
-      `${JSON.stringify({ type: "session", id: "old", cwd: "/old" })}\n${JSON.stringify({ type: "message", text: "hi" })}\n`,
-      "utf8"
-    );
     const runner = new PiRunner(
       DEFAULT_SETTINGS,
       { formatPrompt: (prompt) => prompt },
       "/new",
       tempDir
     );
-    const forkPath = runner.createForkSessionFile(sessionPath);
+    const sessionPath = path.join(runner.getSessionDirectory(), "session.jsonl");
+    fs.mkdirSync(path.dirname(sessionPath), { recursive: true });
+    fs.writeFileSync(
+      sessionPath,
+      `${JSON.stringify({ type: "session", id: "old", cwd: "/old" })}\n${JSON.stringify({ type: "message", text: "hi" })}\n`,
+      "utf8"
+    );
 
-    expect(forkPath).toBeTruthy();
+    const forkReference = runner.createForkSessionFile(sessionPath);
+    const forkPath = runner.resolveSessionPath(forkReference);
+
+    expect(forkReference).toMatch(/\.jsonl$/);
+    expect(path.isAbsolute(forkReference)).toBe(false);
     const forkedEvents = fs
       .readFileSync(forkPath, "utf8")
       .trim()
@@ -118,8 +122,26 @@ describe("PiRunner", () => {
     expect(forkedEvents[0]).toMatchObject({
       type: "session",
       cwd: "/new",
-      parentSession: sessionPath
+      parentSession: "session.jsonl"
     });
     expect(forkedEvents[1]).toEqual({ type: "message", text: "hi" });
+  });
+
+  it("resolves only local Pi session references", () => {
+    const tempDir = createTempDir();
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { formatPrompt: (prompt) => prompt },
+      "/new",
+      tempDir
+    );
+    const localSessionPath = path.join(runner.getSessionDirectory(), "local.jsonl");
+    const foreignSessionPath = path.join(createTempDir(), "foreign.jsonl");
+
+    expect(runner.createSessionReference(localSessionPath)).toBe("local.jsonl");
+    expect(runner.resolveSessionPath("local.jsonl")).toBe(localSessionPath);
+    expect(runner.resolveSessionPath(localSessionPath)).toBe(localSessionPath);
+    expect(runner.resolveSessionPath(foreignSessionPath)).toBeUndefined();
+    expect(runner.resolveSessionPath("../foreign.jsonl")).toBeUndefined();
   });
 });

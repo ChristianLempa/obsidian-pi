@@ -274,10 +274,11 @@ export class PiAgentPlugin extends P.Plugin {
     return Math.max(t, n);
   }
   countPiSessionChatMessages(e) {
-    if (!e || !fs.existsSync(e)) return 0;
+    let t = this.pi?.resolveSessionPath(e);
+    if (!t || !fs.existsSync(t)) return 0;
     try {
       return fs
-        .readFileSync(e, "utf8")
+        .readFileSync(t, "utf8")
         .split(/\r?\n/)
         .reduce((t, n) => {
           if (!n.trim()) return t;
