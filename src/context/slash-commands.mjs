@@ -1,3 +1,4 @@
+import { getPromptTemplateSlashCommands } from "./prompt-templates.mjs";
 import { getSkillSlashCommands } from "./skills.mjs";
 
 export const BUILTIN_SLASH_COMMANDS = [
@@ -43,6 +44,7 @@ export const BUILTIN_SLASH_COMMANDS = [
 export function getSlashCommands(settings, basePath) {
   return [
     ...BUILTIN_SLASH_COMMANDS.map((command) => ({ ...command })),
+    ...getPromptTemplateSlashCommands(basePath),
     ...getSkillSlashCommands(settings, basePath)
   ];
 }

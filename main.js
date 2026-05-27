@@ -42,7 +42,7 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 
 // src/plugin/PiAgentPlugin.mjs
-var import_node_fs5 = __toESM(require("node:fs"), 1);
+var import_node_fs6 = __toESM(require("node:fs"), 1);
 var P = __toESM(require("obsidian"), 1);
 
 // src/changes/change-tracker.mjs
@@ -86,10 +86,10 @@ function diffLines(beforeLines, afterLines) {
   }
   return changes.reverse();
 }
-function formatUnifiedDiff(path6, changes) {
+function formatUnifiedDiff(path7, changes) {
   return [
-    `--- a/${path6}`,
-    `+++ b/${path6}`,
+    `--- a/${path7}`,
+    `+++ b/${path7}`,
     "@@",
     ...changes.map((change) =>
       change.kind === "add"
@@ -509,6 +509,141 @@ function formatModelOptionLabel(model) {
   return details.length > 0 ? `${model.displayName} - ${details.join(", ")}` : model.displayName;
 }
 
+// src/context/prompt-templates.mjs
+var import_node_fs = __toESM(require("node:fs"), 1);
+var import_node_path2 = __toESM(require("node:path"), 1);
+function expandPromptTemplate(prompt, basePath) {
+  const match = String(prompt || "").match(
+    /^\/([A-Za-z0-9_-]+)(?:\s+([^\r\n]*))?(?:\r?\n([\s\S]*))?$/
+  );
+  if (!match) return prompt;
+  const template = findPromptTemplate(basePath, match[1]);
+  if (!template) return prompt;
+  const args = parseTemplateArgs(match[2] ?? "");
+  const expanded = applyTemplateArguments(template.content, args).trim();
+  const remainder = (match[3] ?? "").trim();
+  return [expanded, remainder].filter(Boolean).join("\n\n");
+}
+function getPromptTemplateSlashCommands(basePath) {
+  return discoverPromptTemplates(basePath).map((template) => ({
+    command: `/${template.name}`,
+    label: "Prompt template",
+    detail: template.description || `Expand ${template.relativePath}`,
+    insertText: `/${template.name} `,
+    argumentHint: template.argumentHint,
+    implemented: true
+  }));
+}
+function discoverPromptTemplates(basePath) {
+  const promptsDir = basePath ? import_node_path2.default.join(basePath, ".pi", "prompts") : "";
+  if (!promptsDir) return [];
+  try {
+    return import_node_fs.default
+      .readdirSync(promptsDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"))
+      .map((entry) =>
+        readPromptTemplate(import_node_path2.default.join(promptsDir, entry.name), basePath)
+      )
+      .filter(Boolean)
+      .sort((a, b) => a.command.localeCompare(b.command));
+  } catch {
+    return [];
+  }
+}
+function findPromptTemplate(basePath, name) {
+  return discoverPromptTemplates(basePath).find((template) => template.name === name);
+}
+function readPromptTemplate(filePath, basePath) {
+  try {
+    const raw = import_node_fs.default.readFileSync(filePath, "utf8");
+    const parsed = parsePromptTemplateContent(raw);
+    const name = import_node_path2.default.basename(filePath, ".md");
+    return {
+      name,
+      command: `/${name}`,
+      path: filePath,
+      relativePath: basePath ? import_node_path2.default.relative(basePath, filePath) : filePath,
+      ...parsed
+    };
+  } catch {
+    return void 0;
+  }
+}
+function parsePromptTemplateContent(raw) {
+  const frontmatter = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  const metadata = frontmatter ? parseFrontmatter(frontmatter[1]) : {};
+  const content = frontmatter ? raw.slice(frontmatter[0].length) : raw;
+  return {
+    content,
+    description: metadata.description || firstNonEmptyLine(content),
+    argumentHint: metadata["argument-hint"] || ""
+  };
+}
+function parseFrontmatter(frontmatter) {
+  const metadata = {};
+  for (const line of frontmatter.split(/\r?\n/)) {
+    const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (match) metadata[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, "");
+  }
+  return metadata;
+}
+function firstNonEmptyLine(content) {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+}
+function applyTemplateArguments(content, args) {
+  const allArgs = args.join(" ");
+  return content
+    .replace(/\$ARGUMENTS|\$@/g, allArgs)
+    .replace(/\$\{@:(\d+)(?::(\d+))?\}/g, (_match, start, length) => {
+      const startIndex = Number(start) - 1;
+      const selected = args.slice(
+        startIndex,
+        length === void 0 ? void 0 : startIndex + Number(length)
+      );
+      return selected.join(" ");
+    })
+    .replace(/\$(\d+)/g, (_match, index) => args[Number(index) - 1] ?? "");
+}
+function parseTemplateArgs(input) {
+  const args = [];
+  let current = "";
+  let quote = "";
+  let escaping = false;
+  for (const char of input.trim()) {
+    if (escaping) {
+      current += char;
+      escaping = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaping = true;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) quote = "";
+      else current += char;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (/\s/.test(char)) {
+      if (current) {
+        args.push(current);
+        current = "";
+      }
+      continue;
+    }
+    current += char;
+  }
+  if (current) args.push(current);
+  return args;
+}
+
 // src/context/prompt-references.mjs
 function parsePromptReferences(prompt) {
   const references = [];
@@ -562,8 +697,8 @@ function dedupeReferences(references) {
 }
 
 // src/context/skills.mjs
-var import_node_fs = __toESM(require("node:fs"), 1);
-var import_node_path2 = __toESM(require("node:path"), 1);
+var import_node_fs2 = __toESM(require("node:fs"), 1);
+var import_node_path3 = __toESM(require("node:path"), 1);
 
 // src/shared/paths.mjs
 function normalizeVaultFolder(value, fallback = "Pi") {
@@ -640,8 +775,8 @@ function discoverSkills(settings, basePath) {
   }
   if (!settings || settings.includeDefaultSkills !== false) {
     if (basePath) {
-      addRoot(import_node_path2.default.join(basePath, ".pi", "skills"), 1);
-      addRoot(import_node_path2.default.join(basePath, ".agents", "skills"), 1);
+      addRoot(import_node_path3.default.join(basePath, ".pi", "skills"), 1);
+      addRoot(import_node_path3.default.join(basePath, ".agents", "skills"), 1);
     }
     for (const skillPath of getSettingsSkillPaths(basePath)) addRoot(skillPath, 1);
   }
@@ -660,15 +795,15 @@ function findSkillByName(settings, basePath, name) {
   return discoverSkills(settings, basePath).find((skill) => skill.name === name);
 }
 function readSkillContent(skillPath) {
-  return import_node_fs.default.readFileSync(skillPath, "utf8");
+  return import_node_fs2.default.readFileSync(skillPath, "utf8");
 }
 function resolveSkillPath(skillPath, basePath) {
   let resolved = String(skillPath || "").trim();
   if (!resolved) return "";
   if (resolved.startsWith("~")) return "";
-  return import_node_path2.default.isAbsolute(resolved)
+  return import_node_path3.default.isAbsolute(resolved)
     ? resolved
-    : import_node_path2.default.join(basePath || "", resolved);
+    : import_node_path3.default.join(basePath || "", resolved);
 }
 function findSkillFiles(
   skillPath,
@@ -679,7 +814,7 @@ function findSkillFiles(
   if (!skillPath || results.length >= DEFAULT_SKILL_SEARCH_LIMIT) return results;
   let stats;
   try {
-    stats = import_node_fs.default.statSync(skillPath);
+    stats = import_node_fs2.default.statSync(skillPath);
   } catch {
     return results;
   }
@@ -688,19 +823,19 @@ function findSkillFiles(
     return results;
   }
   if (!stats.isDirectory() || depth < 0) return results;
-  const directSkillFile = import_node_path2.default.join(skillPath, "SKILL.md");
+  const directSkillFile = import_node_path3.default.join(skillPath, "SKILL.md");
   try {
-    if (import_node_fs.default.existsSync(directSkillFile)) results.push(directSkillFile);
+    if (import_node_fs2.default.existsSync(directSkillFile)) results.push(directSkillFile);
   } catch {}
   let entries;
   try {
-    entries = import_node_fs.default.readdirSync(skillPath, { withFileTypes: true });
+    entries = import_node_fs2.default.readdirSync(skillPath, { withFileTypes: true });
   } catch {
     return results;
   }
   for (const entry of entries) {
     if (results.length >= DEFAULT_SKILL_SEARCH_LIMIT) break;
-    const childPath = import_node_path2.default.join(skillPath, entry.name);
+    const childPath = import_node_path3.default.join(skillPath, entry.name);
     if (entry.isDirectory()) {
       findSkillFiles(childPath, depth - 1, false, results);
     } else if (
@@ -714,7 +849,7 @@ function findSkillFiles(
   return results;
 }
 function parseSkillFile(skillPath, sourceRank = 1) {
-  const content = import_node_fs.default.readFileSync(skillPath, "utf8").slice(0, 8192);
+  const content = import_node_fs2.default.readFileSync(skillPath, "utf8").slice(0, 8192);
   const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   const frontmatter = frontmatterMatch ? parseSkillFrontmatter(frontmatterMatch[1]) : {};
   const name = normalizeSkillName(frontmatter.name || inferSkillNameFromPath(skillPath));
@@ -783,15 +918,15 @@ function getSettingsSkillPaths(basePath) {
   };
   if (basePath)
     collect(
-      readJsonFile(import_node_path2.default.join(basePath, ".pi", "settings.json")),
+      readJsonFile(import_node_path3.default.join(basePath, ".pi", "settings.json")),
       basePath
     );
   return skillPaths.filter(Boolean);
 }
 function readJsonFile(filePath) {
   try {
-    return filePath && import_node_fs.default.existsSync(filePath)
-      ? JSON.parse(import_node_fs.default.readFileSync(filePath, "utf8"))
+    return filePath && import_node_fs2.default.existsSync(filePath)
+      ? JSON.parse(import_node_fs2.default.readFileSync(filePath, "utf8"))
       : {};
   } catch {
     return {};
@@ -804,9 +939,9 @@ function cleanSkillYamlValue(value) {
     .replace(/^["]|["]$/g, "");
 }
 function inferSkillNameFromPath(skillPath) {
-  return import_node_path2.default.basename(skillPath).toLowerCase() === "skill.md"
-    ? import_node_path2.default.basename(import_node_path2.default.dirname(skillPath))
-    : import_node_path2.default.basename(skillPath, import_node_path2.default.extname(skillPath));
+  return import_node_path3.default.basename(skillPath).toLowerCase() === "skill.md"
+    ? import_node_path3.default.basename(import_node_path3.default.dirname(skillPath))
+    : import_node_path3.default.basename(skillPath, import_node_path3.default.extname(skillPath));
 }
 function inferSkillDescription(content, frontmatterMatch) {
   const body = frontmatterMatch ? content.slice(frontmatterMatch[0].length) : content;
@@ -861,6 +996,7 @@ var BUILTIN_SLASH_COMMANDS = [
 function getSlashCommands(settings, basePath) {
   return [
     ...BUILTIN_SLASH_COMMANDS.map((command) => ({ ...command })),
+    ...getPromptTemplateSlashCommands(basePath),
     ...getSkillSlashCommands(settings, basePath)
   ];
 }
@@ -874,7 +1010,8 @@ var ContextBuilder = class {
     this.vaultBasePath = vaultBasePath;
   }
   async build(prompt, selection = "") {
-    const parsedPrompt = parsePromptReferences(prompt);
+    const userPrompt = expandPromptTemplate(prompt, this.vaultBasePath);
+    const parsedPrompt = parsePromptReferences(userPrompt);
     const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
     const toolCatalog = this.getToolCatalog();
     const slashCommands = getSlashCommands(this.settings, this.vaultBasePath);
@@ -887,7 +1024,8 @@ var ContextBuilder = class {
         .join("\n\n"),
       toolCatalog,
       inspection,
-      slashCommands
+      slashCommands,
+      userPrompt
     };
   }
   /**
@@ -1183,10 +1321,10 @@ function tokenizeQuery(query) {
     .map((term) => term.trim())
     .filter((term) => term.length > 1);
 }
-function scoreSearchResult(path6, content, terms) {
-  const normalizedPath = path6.toLowerCase();
+function scoreSearchResult(path7, content, terms) {
+  const normalizedPath = path7.toLowerCase();
   const normalizedContent = content.toLowerCase();
-  const basename = path6.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path6;
+  const basename = path7.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path7;
   let score = 0;
   for (const term of terms) {
     if (basename.includes(term)) score += 12;
@@ -1353,7 +1491,7 @@ var VaultGraph = class {
   }
   async getBacklinks(filePath) {
     const backlinkEntries = Object.entries(this.app.metadataCache.resolvedLinks)
-      .map(([path6, links]) => ({ path: path6, count: links[filePath] || 0 }))
+      .map(([path7, links]) => ({ path: path7, count: links[filePath] || 0 }))
       .filter(
         (backlink) =>
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
@@ -1380,10 +1518,10 @@ var VaultGraph = class {
   getOutgoingLinks(filePath) {
     const links = this.app.metadataCache.resolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .filter(([path6]) => this.isPathAllowed(path6))
-      .map(([path6, count]) => ({
-        path: path6,
-        display: path6.replace(/\.md$/i, ""),
+      .filter(([path7]) => this.isPathAllowed(path7))
+      .map(([path7, count]) => ({
+        path: path7,
+        display: path7.replace(/\.md$/i, ""),
         count
       }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
@@ -1391,7 +1529,7 @@ var VaultGraph = class {
   getUnresolvedLinks(filePath) {
     const links = this.app.metadataCache.unresolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .map(([path6, count]) => ({ path: path6, display: path6, count }))
+      .map(([path7, count]) => ({ path: path7, display: path7, count }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
   }
   async getLinkedNeighborhood(filePath, depth = 1) {
@@ -1400,9 +1538,9 @@ var VaultGraph = class {
     const notes = [];
     for (let index = 0; index < depth; index++) {
       const nextFrontier = /* @__PURE__ */ new Set();
-      for (const path6 of frontier) {
-        const outgoingLinks = this.getOutgoingLinks(path6);
-        const backlinks = await this.getBacklinks(path6);
+      for (const path7 of frontier) {
+        const outgoingLinks = this.getOutgoingLinks(path7);
+        const backlinks = await this.getBacklinks(path7);
         for (const link of [...outgoingLinks, ...backlinks]) {
           if (!seen.has(link.path) && link.path.endsWith(".md")) {
             seen.add(link.path);
@@ -1411,9 +1549,9 @@ var VaultGraph = class {
         }
       }
       const limitedNextFrontier = [...nextFrontier].slice(0, CONTEXT_RESULT_LIMIT);
-      for (const path6 of limitedNextFrontier) {
+      for (const path7 of limitedNextFrontier) {
         try {
-          notes.push(await this.getNoteContext(path6));
+          notes.push(await this.getNoteContext(path7));
         } catch {}
       }
       frontier = limitedNextFrontier;
@@ -1529,8 +1667,8 @@ function getErrorMessage(error) {
 }
 
 // src/pi/environment.mjs
-var import_node_fs2 = __toESM(require("node:fs"), 1);
-var import_node_path3 = __toESM(require("node:path"), 1);
+var import_node_fs3 = __toESM(require("node:fs"), 1);
+var import_node_path4 = __toESM(require("node:path"), 1);
 var POSIX_PI_CANDIDATES = ["/opt/homebrew/bin/pi", "/usr/local/bin/pi", "/usr/bin/pi"];
 var WINDOWS_PI_CANDIDATES = ["pi.cmd", "pi.exe", "pi"];
 var POSIX_PATH_CANDIDATES = [
@@ -1546,7 +1684,7 @@ function findPiExecutable(configuredPath = "") {
   if (configuredExecutable) return configuredExecutable;
   if (process.platform === "win32") return WINDOWS_PI_CANDIDATES[0];
   for (const candidate of POSIX_PI_CANDIDATES) {
-    if (import_node_fs2.default.existsSync(candidate)) return candidate;
+    if (import_node_fs3.default.existsSync(candidate)) return candidate;
   }
   const piNode = findPiNodeExecutable();
   if (piNode) return piNode;
@@ -1561,8 +1699,8 @@ function expandHomeDirectory(executablePath) {
   const home = process.env.HOME;
   if (!home) return executablePath;
   if (executablePath === "~") return home;
-  return executablePath.startsWith(`~${import_node_path3.default.sep}`)
-    ? import_node_path3.default.join(home, executablePath.slice(2))
+  return executablePath.startsWith(`~${import_node_path4.default.sep}`)
+    ? import_node_path4.default.join(home, executablePath.slice(2))
     : executablePath;
 }
 function expandEnvironmentVariables(executablePath) {
@@ -1574,15 +1712,15 @@ function expandEnvironmentVariables(executablePath) {
 function findPiNodeExecutable() {
   const home = process.env.HOME;
   if (!home) return null;
-  const root = import_node_path3.default.join(home, ".local", "share", "pi-node");
+  const root = import_node_path4.default.join(home, ".local", "share", "pi-node");
   try {
-    const versions = import_node_fs2.default
+    const versions = import_node_fs3.default
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => import_node_path3.default.join(root, d.name));
+      .map((d) => import_node_path4.default.join(root, d.name));
     for (const v of versions) {
-      const candidate = import_node_path3.default.join(v, "bin", "pi");
-      if (import_node_fs2.default.existsSync(candidate)) return candidate;
+      const candidate = import_node_path4.default.join(v, "bin", "pi");
+      if (import_node_fs3.default.existsSync(candidate)) return candidate;
     }
   } catch {
     return null;
@@ -1603,55 +1741,55 @@ function buildPosixPath(piExecutable) {
     ...getPiNodePaths(),
     ...getNodeVersionManagerDirectories(),
     ...getExistingPathEntries()
-  ]).join(import_node_path3.default.delimiter);
+  ]).join(import_node_path4.default.delimiter);
 }
 function getPiNodePaths() {
   const home = process.env.HOME;
   if (!home) return [];
-  const root = import_node_path3.default.join(home, ".local", "share", "pi-node");
+  const root = import_node_path4.default.join(home, ".local", "share", "pi-node");
   try {
-    return import_node_fs2.default
+    return import_node_fs3.default
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => import_node_path3.default.join(root, d.name, "bin"));
+      .map((d) => import_node_path4.default.join(root, d.name, "bin"));
   } catch {
     return [];
   }
 }
 function getExistingPathEntries() {
-  return (process.env.PATH ?? "").split(import_node_path3.default.delimiter).filter(Boolean);
+  return (process.env.PATH ?? "").split(import_node_path4.default.delimiter).filter(Boolean);
 }
 function getExecutableDirectory(executable) {
-  return import_node_path3.default.isAbsolute(executable)
-    ? [import_node_path3.default.dirname(executable)]
+  return import_node_path4.default.isAbsolute(executable)
+    ? [import_node_path4.default.dirname(executable)]
     : [];
 }
 function getNodeVersionManagerDirectories() {
   const home = process.env.HOME;
   if (!home) return [];
   return [
-    ...getNvmNodeBinDirectories(import_node_path3.default.join(home, ".nvm", "versions", "node")),
-    ...getFnmNodeBinDirectories(import_node_path3.default.join(home, ".fnm", "node-versions")),
-    import_node_path3.default.join(home, ".asdf", "shims"),
-    import_node_path3.default.join(home, ".volta", "bin")
+    ...getNvmNodeBinDirectories(import_node_path4.default.join(home, ".nvm", "versions", "node")),
+    ...getFnmNodeBinDirectories(import_node_path4.default.join(home, ".fnm", "node-versions")),
+    import_node_path4.default.join(home, ".asdf", "shims"),
+    import_node_path4.default.join(home, ".volta", "bin")
   ];
 }
 function getNvmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path3.default.join(directory, "bin")
+    import_node_path4.default.join(directory, "bin")
   );
 }
 function getFnmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path3.default.join(directory, "installation", "bin")
+    import_node_path4.default.join(directory, "installation", "bin")
   );
 }
 function getChildDirectories(root) {
   try {
-    return import_node_fs2.default
+    return import_node_fs3.default
       .readdirSync(root, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => import_node_path3.default.join(root, entry.name));
+      .map((entry) => import_node_path4.default.join(root, entry.name));
   } catch {
     return [];
   }
@@ -1659,7 +1797,7 @@ function getChildDirectories(root) {
 function uniqueExistingDirectories(directories) {
   const seen = /* @__PURE__ */ new Set();
   return directories.filter((directory) => {
-    if (!directory || seen.has(directory) || !import_node_fs2.default.existsSync(directory))
+    if (!directory || seen.has(directory) || !import_node_fs3.default.existsSync(directory))
       return false;
     seen.add(directory);
     return true;
@@ -1703,8 +1841,8 @@ function checkPiInstallation(piExecutablePath = "") {
 
 // src/pi/model-catalog.mjs
 var import_node_child_process2 = require("node:child_process");
-var import_node_fs3 = __toESM(require("node:fs"), 1);
-var import_node_path4 = __toESM(require("node:path"), 1);
+var import_node_fs4 = __toESM(require("node:fs"), 1);
+var import_node_path5 = __toESM(require("node:path"), 1);
 var REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 var ESCAPE_CHARACTER = String.fromCharCode(27);
 var ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
@@ -1798,7 +1936,7 @@ function normalizeReasoningLevels(value) {
 }
 function getEffectiveConfig(vaultBasePath) {
   const vaultSettingsPath = vaultBasePath
-    ? import_node_path4.default.join(vaultBasePath, ".pi", "settings.json")
+    ? import_node_path5.default.join(vaultBasePath, ".pi", "settings.json")
     : "";
   const settings = readJsonFile2(vaultSettingsPath);
   const defaultModel = settings.defaultModel ? String(settings.defaultModel) : "";
@@ -1817,8 +1955,8 @@ function getEffectiveConfig(vaultBasePath) {
 }
 function readJsonFile2(filePath) {
   try {
-    return filePath && import_node_fs3.default.existsSync(filePath)
-      ? JSON.parse(import_node_fs3.default.readFileSync(filePath, "utf8"))
+    return filePath && import_node_fs4.default.existsSync(filePath)
+      ? JSON.parse(import_node_fs4.default.readFileSync(filePath, "utf8"))
       : {};
   } catch {
     return {};
@@ -1827,8 +1965,8 @@ function readJsonFile2(filePath) {
 
 // src/pi/runner.mjs
 var import_node_child_process3 = require("node:child_process");
-var import_node_fs4 = __toESM(require("node:fs"), 1);
-var import_node_path5 = __toESM(require("node:path"), 1);
+var import_node_fs5 = __toESM(require("node:fs"), 1);
+var import_node_path6 = __toESM(require("node:path"), 1);
 
 // src/pi/token-usage.mjs
 function calculateContextTokens(usage) {
@@ -2060,7 +2198,12 @@ var PiRunner = class {
       return this.settings.dryRun
         ? this.formatDryRunCompactResponse(sessionId)
         : this.runPiRpcCompact(sessionId, compactInstructions, callbacks);
-    const formattedPrompt = this.contextBuilder.formatPrompt(prompt, context, threadHistory);
+    const effectivePrompt = context?.userPrompt ?? prompt;
+    const formattedPrompt = this.contextBuilder.formatPrompt(
+      effectivePrompt,
+      context,
+      threadHistory
+    );
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
     return this.settings.dryRun
       ? {
@@ -2391,16 +2534,16 @@ var PiRunner = class {
     return args;
   }
   createSessionFilePath() {
-    const sessionDir = import_node_path5.default.join(this.pluginDirectory ?? ".", "pi-sessions");
-    import_node_fs4.default.mkdirSync(sessionDir, { recursive: true });
-    return import_node_path5.default.join(
+    const sessionDir = import_node_path6.default.join(this.pluginDirectory ?? ".", "pi-sessions");
+    import_node_fs5.default.mkdirSync(sessionDir, { recursive: true });
+    return import_node_path6.default.join(
       sessionDir,
       `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
     );
   }
   createForkSessionFile(sessionPath) {
-    if (!sessionPath || !import_node_fs4.default.existsSync(sessionPath)) return void 0;
-    const events = import_node_fs4.default
+    if (!sessionPath || !import_node_fs5.default.existsSync(sessionPath)) return void 0;
+    const events = import_node_fs5.default
       .readFileSync(sessionPath, "utf8")
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -2416,7 +2559,7 @@ var PiRunner = class {
       cwd: this.workingDirectory || sessionEvent.cwd,
       parentSession: sessionPath
     };
-    import_node_fs4.default.writeFileSync(
+    import_node_fs5.default.writeFileSync(
       forkSessionPath,
       `${JSON.stringify(forkSessionEvent)}
 ${events
@@ -3298,9 +3441,9 @@ var NoteActions = class {
   }
   async createNoteFromResponse(response) {
     const title = this.getResponseTitle(response);
-    const path6 = await this.getAvailableNotePath(`${title}.md`);
+    const path7 = await this.getAvailableNotePath(`${title}.md`);
     await this.ensureFolder("Pi");
-    const file = await this.plugin.app.vault.create(path6, response);
+    const file = await this.plugin.app.vault.create(path7, response);
     await this.plugin.app.workspace.getLeaf(false).openFile(file);
   }
   async openCitedNotes(text) {
@@ -3360,8 +3503,8 @@ var NoteActions = class {
   }
   async getAvailableNotePath(name, folder = "Pi") {
     const normalizedFolder = normalizeArchiveFolder(folder);
-    const path6 = `${normalizedFolder}/${name}`;
-    if (!this.plugin.app.vault.getAbstractFileByPath(path6)) return path6;
+    const path7 = `${normalizedFolder}/${name}`;
+    if (!this.plugin.app.vault.getAbstractFileByPath(path7)) return path7;
     const basename = name.replace(/\.md$/i, "");
     for (let index = 2; index < 100; index++) {
       const candidate = `${normalizedFolder}/${basename} ${index}.md`;
@@ -4011,8 +4154,8 @@ function formatToolTarget(toolName, toolArgs) {
   if (toolName === "bash") return "command";
   if (toolName === "grep") {
     const pattern = sanitizeActivityDetail(pickNestedString(toolArgs, ["pattern", "query"]));
-    const path6 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
-    return pattern && path6 ? `"${pattern}" in ${path6}` : pattern ? `"${pattern}"` : path6;
+    const path7 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+    return pattern && path7 ? `"${pattern}" in ${path7}` : pattern ? `"${pattern}"` : path7;
   }
   if (toolName === "find") {
     return sanitizeActivityDetail(pickNestedString(toolArgs, ["glob", "pattern", "query", "path"]));
@@ -4034,8 +4177,8 @@ function formatToolTarget(toolName, toolArgs) {
   );
 }
 function formatPathForActivity(value) {
-  const path6 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
-  return path6 ? path6.split("/").pop() || path6 : "";
+  const path7 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
+  return path7 ? path7.split("/").pop() || path7 : "";
 }
 function sanitizeActivityDetail(value) {
   return value ? String(value).replace(/\s+/g, " ").trim() : "";
@@ -6106,9 +6249,9 @@ var PiAgentPlugin = class extends P.Plugin {
     return Math.max(t, n);
   }
   countPiSessionChatMessages(e) {
-    if (!e || !import_node_fs5.default.existsSync(e)) return 0;
+    if (!e || !import_node_fs6.default.existsSync(e)) return 0;
     try {
-      return import_node_fs5.default
+      return import_node_fs6.default
         .readFileSync(e, "utf8")
         .split(/\r?\n/)
         .reduce((t, n) => {

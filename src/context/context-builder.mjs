@@ -1,4 +1,5 @@
 import { getResolvedReasoning, CUSTOM_MODEL_VALUE } from "../plugin/settings.mjs";
+import { expandPromptTemplate } from "./prompt-templates.mjs";
 import { parsePromptReferences } from "./prompt-references.mjs";
 import { getSlashCommands } from "./slash-commands.mjs";
 import { findSkillByName, readSkillContent } from "./skills.mjs";
@@ -12,7 +13,8 @@ export class ContextBuilder {
   }
 
   async build(prompt, selection = "") {
-    const parsedPrompt = parsePromptReferences(prompt);
+    const userPrompt = expandPromptTemplate(prompt, this.vaultBasePath);
+    const parsedPrompt = parsePromptReferences(userPrompt);
     const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
     const toolCatalog = this.getToolCatalog();
     const slashCommands = getSlashCommands(this.settings, this.vaultBasePath);
@@ -26,7 +28,8 @@ export class ContextBuilder {
         .join("\n\n"),
       toolCatalog,
       inspection,
-      slashCommands
+      slashCommands,
+      userPrompt
     };
   }
 

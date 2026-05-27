@@ -34,7 +34,12 @@ export class PiRunner {
         ? this.formatDryRunCompactResponse(sessionId)
         : this.runPiRpcCompact(sessionId, compactInstructions, callbacks);
 
-    const formattedPrompt = this.contextBuilder.formatPrompt(prompt, context, threadHistory);
+    const effectivePrompt = context?.userPrompt ?? prompt;
+    const formattedPrompt = this.contextBuilder.formatPrompt(
+      effectivePrompt,
+      context,
+      threadHistory
+    );
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
 
     return this.settings.dryRun
