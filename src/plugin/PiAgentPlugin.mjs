@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import * as P from "obsidian";
 import { ContextBuilder } from "../context/context-builder.mjs";
+import { formatContextShowResponse, isContextShowPrompt } from "../context/context-show.mjs";
 import { normalizeSkillFolderList } from "../context/skills.mjs";
 import { VaultGraph } from "../context/vault-graph.mjs";
 import { checkPiInstallation } from "../pi/health.mjs";
@@ -346,6 +347,17 @@ export class PiAgentPlugin extends P.Plugin {
     let s = this.getEditorSelection(),
       a = getCompactInstructions(e) === undefined ? await this.contextBuilder.build(e, s) : void 0;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
+    if (isContextShowPrompt(e)) {
+      return {
+        finalResponse: formatContextShowResponse(a?.inspection),
+        sessionId: n,
+        threadId: n,
+        events: [],
+        contextUsage: undefined,
+        contextCompacted: false,
+        tokenUsage: undefined
+      };
+    }
     let o = n ? this.threadHistory.getThread(n) : this.threadHistory.getCurrentThread();
     if (!o) throw new Error("Chat thread no longer exists.");
     if (!i) throw new Error("Pi runner is not available.");

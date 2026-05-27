@@ -696,6 +696,13 @@ var BUILTIN_SLASH_COMMANDS = [
     insertText: "/compact ",
     argumentHint: "instructions",
     implemented: true
+  },
+  {
+    command: "/context show",
+    label: "Show context",
+    detail: "Display the current Obsidian context packet without calling Pi.",
+    insertText: "/context show ",
+    implemented: true
   }
 ];
 function getSlashCommands(settings, basePath) {
@@ -1013,6 +1020,20 @@ function truncateThreadHistoryContent(content, maxLength) {
     ? text
     : `${text.slice(0, Math.max(0, maxLength - 34))}
 [...truncated for context budget...]`;
+}
+
+// src/context/context-show.mjs
+function isContextShowPrompt(prompt) {
+  return /^(?:\/)?context\s+show\s*$/i.test(String(prompt || "").trim());
+}
+function formatContextShowResponse(inspection) {
+  return [
+    "Current Obsidian context:",
+    "",
+    "```json",
+    JSON.stringify(inspection ?? {}, null, 2),
+    "```"
+  ].join("\n");
 }
 
 // src/context/vault-graph.mjs
@@ -5753,6 +5774,17 @@ var PiAgentPlugin = class extends P.Plugin {
     let s = this.getEditorSelection(),
       a = getCompactInstructions(e) === void 0 ? await this.contextBuilder.build(e, s) : void 0;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
+    if (isContextShowPrompt(e)) {
+      return {
+        finalResponse: formatContextShowResponse(a?.inspection),
+        sessionId: n,
+        threadId: n,
+        events: [],
+        contextUsage: void 0,
+        contextCompacted: false,
+        tokenUsage: void 0
+      };
+    }
     let o = n ? this.threadHistory.getThread(n) : this.threadHistory.getCurrentThread();
     if (!o) throw new Error("Chat thread no longer exists.");
     if (!i) throw new Error("Pi runner is not available.");
