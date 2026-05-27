@@ -1589,6 +1589,13 @@ function findPiNodeExecutable() {
   }
   return null;
 }
+function buildPiProcessOptions(piExecutable = findPiExecutable(), options = {}) {
+  return {
+    ...options,
+    env: buildPiProcessEnv(piExecutable),
+    ...(process.platform === "win32" ? { shell: true } : {})
+  };
+}
 function buildPiProcessEnv(piExecutable = findPiExecutable()) {
   if (process.platform === "win32") return process.env;
   return {
@@ -1669,11 +1676,14 @@ function uniqueExistingDirectories(directories) {
 // src/pi/health.mjs
 function checkPiInstallation(piExecutablePath = "") {
   const piExecutable = findPiExecutable(piExecutablePath);
-  const result = (0, import_node_child_process.spawnSync)(piExecutable, ["--version"], {
-    encoding: "utf8",
-    env: buildPiProcessEnv(piExecutable),
-    timeout: 5e3
-  });
+  const result = (0, import_node_child_process.spawnSync)(
+    piExecutable,
+    ["--version"],
+    buildPiProcessOptions(piExecutable, {
+      encoding: "utf8",
+      timeout: 5e3
+    })
+  );
   if (result.error) {
     const diagnostic = diagnosePiCliFailure({ error: result.error });
     return {
@@ -1726,7 +1736,7 @@ var PiModelCatalog = class {
       (0, import_node_child_process2.execFile)(
         command,
         args,
-        { env: buildPiProcessEnv(command), timeout: 2e4 },
+        buildPiProcessOptions(command, { timeout: 2e4 }),
         (error, stdout, stderr) => {
           if (error) {
             reject(
@@ -2104,11 +2114,14 @@ var PiRunner = class {
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
       const piExecutable = findPiExecutable(this.settings.piExecutablePath);
-      const child = (0, import_node_child_process3.spawn)(piExecutable, args, {
-        cwd: this.workingDirectory ?? this.pluginDirectory,
-        detached: process.platform !== "win32",
-        env: buildPiProcessEnv(piExecutable)
-      });
+      const child = (0, import_node_child_process3.spawn)(
+        piExecutable,
+        args,
+        buildPiProcessOptions(piExecutable, {
+          cwd: this.workingDirectory ?? this.pluginDirectory,
+          detached: process.platform !== "win32"
+        })
+      );
       this.activeChild = child;
       callbacks?.onEvent?.({
         type: "pi_start",
@@ -2221,11 +2234,14 @@ var PiRunner = class {
     return new Promise((resolve, reject) => {
       this.cancelRequested = false;
       const piExecutable = findPiExecutable(this.settings.piExecutablePath);
-      const child = (0, import_node_child_process3.spawn)(piExecutable, args, {
-        cwd: this.workingDirectory ?? this.pluginDirectory,
-        detached: process.platform !== "win32",
-        env: buildPiProcessEnv(piExecutable)
-      });
+      const child = (0, import_node_child_process3.spawn)(
+        piExecutable,
+        args,
+        buildPiProcessOptions(piExecutable, {
+          cwd: this.workingDirectory ?? this.pluginDirectory,
+          detached: process.platform !== "win32"
+        })
+      );
       this.activeChild = child;
       callbacks?.onEvent?.({
         type: "pi_start",

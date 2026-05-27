@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { formatPiCliFailure } from "./diagnostics.mjs";
-import { buildPiProcessEnv, findPiExecutable } from "./environment.mjs";
+import { buildPiProcessOptions, findPiExecutable } from "./environment.mjs";
 
 const REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 const ESCAPE_CHARACTER = String.fromCharCode(27);
@@ -29,7 +29,7 @@ export class PiModelCatalog {
       execFile(
         command,
         args,
-        { env: buildPiProcessEnv(command), timeout: 20_000 },
+        buildPiProcessOptions(command, { timeout: 20_000 }),
         (error, stdout, stderr) => {
           if (error) {
             reject(

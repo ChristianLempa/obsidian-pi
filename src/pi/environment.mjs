@@ -73,6 +73,14 @@ function findPiNodeExecutable() {
   return null;
 }
 
+export function buildPiProcessOptions(piExecutable = findPiExecutable(), options = {}) {
+  return {
+    ...options,
+    env: buildPiProcessEnv(piExecutable),
+    ...(process.platform === "win32" ? { shell: true } : {})
+  };
+}
+
 export function buildPiProcessEnv(piExecutable = findPiExecutable()) {
   if (process.platform === "win32") return process.env;
 
