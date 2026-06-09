@@ -1,0 +1,23 @@
+main.js
+  s_6ccea07f32166e::t_8a907a6f5ea721 5688
+CHANGELOG.md
+  s_6ccea07f32166e::t_0e78a090bbe3f7 5-6
+src/plugin/PiAgentPlugin.mjs
+  s_6ccea07f32166e::t_9ea2cf772aaff3 113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "d85afe76f89236a2490265922c0f37b603256014",
+  "prompts": {},
+  "sessions": {
+    "s_6ccea07f32166e": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019eaae3-cc1a-7641-9a98-2f2d8aa77051",
+        "model": "grok-build"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
