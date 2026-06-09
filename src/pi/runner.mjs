@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { getConfiguredSkillPaths } from "../context/skills.mjs";
@@ -67,9 +67,16 @@ export class PiRunner {
     if (!child) return;
 
     try {
-      process.platform !== "win32" && child.pid
-        ? process.kill(-child.pid, signal)
-        : child.kill(signal);
+      if (process.platform === "win32" && child.pid) {
+        execFileSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+          timeout: 2000,
+          windowsHide: true
+        });
+      } else if (child.pid) {
+        process.kill(-child.pid, signal);
+      } else {
+        child.kill(signal);
+      }
     } catch {
       try {
         child.kill(signal);

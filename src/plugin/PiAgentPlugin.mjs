@@ -4,7 +4,7 @@ import { ContextBuilder } from "../context/context-builder.mjs";
 import { formatContextShowResponse, isContextShowPrompt } from "../context/context-show.mjs";
 import { normalizeSkillFolderList } from "../context/skills.mjs";
 import { VaultGraph } from "../context/vault-graph.mjs";
-import { checkPiInstallation } from "../pi/health.mjs";
+import { checkPiInstallation, warmupPiCli } from "../pi/health.mjs";
 import { PiModelCatalog, getEffectiveConfig } from "../pi/model-catalog.mjs";
 import { getCompactInstructions, PiRunner } from "../pi/runner.mjs";
 import { CUSTOM_MODEL_VALUE as b, DEFAULT_SETTINGS as H, normalizeSettings } from "./settings.mjs";
@@ -108,6 +108,8 @@ export class PiAgentPlugin extends P.Plugin {
     }
     ((0, P.addIcon)(I, O),
       this.rebuildServices(),
+      this.settings.dryRun ||
+        warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory()),
       this.refreshCurrentContextFile(),
       this.registerEvent(
         this.app.workspace.on("file-open", (e) => {

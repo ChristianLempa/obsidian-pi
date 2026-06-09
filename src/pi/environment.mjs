@@ -113,7 +113,10 @@ function shouldUseWindowsCommandShell(piExecutable) {
 }
 
 function quoteWindowsCommand(parts) {
-  return parts.map((part) => `"${String(part).replace(/"/g, '""')}"`).join(" ");
+  const command = parts.map((part) => `"${String(part).replace(/"/g, '""')}"`).join(" ");
+  // cmd.exe /s strips the first and last quote from the /c command string.
+  // Add an outer quote pair so the inner executable/argument quotes survive parsing.
+  return `"${command}"`;
 }
 
 function buildPosixPath(piExecutable) {
