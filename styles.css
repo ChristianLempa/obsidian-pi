@@ -376,17 +376,6 @@
   color: color-mix(in srgb, var(--interactive-accent) 82%, var(--text-muted));
 }
 
-.pi-agent-vault-link {
-  color: var(--link-color);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.pi-agent-vault-link:hover {
-  color: var(--link-color-hover);
-  text-decoration: underline;
-}
-
 .pi-agent-composer {
   display: grid;
   gap: 8px;

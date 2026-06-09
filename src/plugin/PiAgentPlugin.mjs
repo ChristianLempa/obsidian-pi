@@ -102,83 +102,90 @@ export class PiAgentPlugin extends P.Plugin {
     this.dataSaveChain = Promise.resolve();
   }
   async onload() {
-    if ((await this.loadSettings(), !P.Platform.isDesktopApp)) {
+    await this.loadSettings();
+
+    if (!P.Platform.isDesktopApp) {
       new P.Notice("Pi Agent is desktop-only.");
       return;
     }
-    ((0, P.addIcon)(I, O),
-      this.rebuildServices(),
-      this.settings.dryRun ||
-        warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory()),
-      this.refreshModelCatalog(false),
-      this.refreshCurrentContextFile(),
-      this.registerEvent(
-        this.app.workspace.on("file-open", (e) => {
-          this.setCurrentContextFile(e);
-        })
-      ),
-      this.registerEvent(
-        this.app.workspace.on("active-leaf-change", () => {
-          this.refreshCurrentContextFile();
-        })
-      ),
-      this.registerView(T, (e) => new PiAgentView(e, this)),
-      this.addRibbonIcon(I, "Open Pi Agent", () => {
+
+    (0, P.addIcon)(I, O);
+    this.rebuildServices();
+
+    if (!this.settings.dryRun) {
+      warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
+    }
+
+    this.refreshModelCatalog(false);
+    this.refreshCurrentContextFile();
+
+    this.registerEvent(
+      this.app.workspace.on("file-open", (e) => {
+        this.setCurrentContextFile(e);
+      })
+    );
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", () => {
+        this.refreshCurrentContextFile();
+      })
+    );
+    this.registerView(T, (e) => new PiAgentView(e, this));
+    this.addRibbonIcon(I, "Open Pi Agent", () => {
+      this.activateView();
+    });
+    this.addCommand({
+      id: "open-pi",
+      name: "Open agent chat",
+      callback: () => {
         this.activateView();
-      }),
-      this.addCommand({
-        id: "open-pi",
-        name: "Open agent chat",
-        callback: () => {
-          this.activateView();
-        }
-      }),
-      this.addCommand({
-        id: "check-pi-installation",
-        name: "Check Pi installation",
-        callback: () => {
-          this.checkPiInstallation(true);
-        }
-      }),
-      this.addCommand({
-        id: "ask-about-current-note",
-        name: "Ask about current note",
-        checkCallback: (e) =>
-          this.runWithActiveMarkdownNote(e, () => {
-            this.runCommandPrompt(
-              "Use the active note as context. Summarize the key facts, assumptions, and useful follow-up questions."
-            );
-          })
-      }),
-      this.addCommand({
-        id: "research-around-current-note",
-        name: "Research around current note",
-        checkCallback: (e) =>
-          this.runWithActiveMarkdownNote(e, () => {
-            this.runCommandPrompt(
-              "Research around the active note using backlinks, outgoing links, unresolved links, tags, and search results. Return concise findings with vault references."
-            );
-          })
-      }),
-      this.addCommand({
-        id: "suggest-frontmatter",
-        name: "Suggest frontmatter for current note",
-        checkCallback: (e) =>
-          this.runWithActiveMarkdownNote(e, () => {
-            this.suggestFrontmatterForCurrentNote();
-          })
-      }),
-      this.addCommand({
-        id: "draft-base-from-current-note",
-        name: "Draft base from current note context",
-        checkCallback: (e) =>
-          this.runWithActiveMarkdownNote(e, () => {
-            this.runCommandPrompt(
-              "Draft an Obsidian Base for notes related to the active note. Infer useful fields from frontmatter, tags, backlinks, and linked notes."
-            );
-          })
-      }),
-      this.addSettingTab(new PiAgentSettingTab(this.app, this)));
+      }
+    });
+    this.addCommand({
+      id: "check-pi-installation",
+      name: "Check Pi installation",
+      callback: () => {
+        this.checkPiInstallation(true);
+      }
+    });
+    this.addCommand({
+      id: "ask-about-current-note",
+      name: "Ask about current note",
+      checkCallback: (e) =>
+        this.runWithActiveMarkdownNote(e, () => {
+          this.runCommandPrompt(
+            "Use the active note as context. Summarize the key facts, assumptions, and useful follow-up questions."
+          );
+        })
+    });
+    this.addCommand({
+      id: "research-around-current-note",
+      name: "Research around current note",
+      checkCallback: (e) =>
+        this.runWithActiveMarkdownNote(e, () => {
+          this.runCommandPrompt(
+            "Research around the active note using backlinks, outgoing links, unresolved links, tags, and search results. Return concise findings with vault references."
+          );
+        })
+    });
+    this.addCommand({
+      id: "suggest-frontmatter",
+      name: "Suggest frontmatter for current note",
+      checkCallback: (e) =>
+        this.runWithActiveMarkdownNote(e, () => {
+          this.suggestFrontmatterForCurrentNote();
+        })
+    });
+    this.addCommand({
+      id: "draft-base-from-current-note",
+      name: "Draft base from current note context",
+      checkCallback: (e) =>
+        this.runWithActiveMarkdownNote(e, () => {
+          this.runCommandPrompt(
+            "Draft an Obsidian Base for notes related to the active note. Infer useful fields from frontmatter, tags, backlinks, and linked notes."
+          );
+        })
+    });
+    this.addSettingTab(new PiAgentSettingTab(this.app, this));
   }
   onunload() {
     this.cancelPiRun();
