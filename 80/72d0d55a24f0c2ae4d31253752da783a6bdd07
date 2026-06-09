@@ -1,0 +1,21 @@
+main.js
+  s_6ccea07f32166e::t_38be10d1611d69 5532-5533,5537-5579,5581-5589,5591-5610
+src/plugin/PiAgentPlugin.mjs
+  s_6ccea07f32166e::t_2cceb3ade19526 105-107,111-157,159-167,169-188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "8072d0d55a24f0c2ae4d31253752da783a6bdd07",
+  "prompts": {},
+  "sessions": {
+    "s_6ccea07f32166e": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019eaae3-cc1a-7641-9a98-2f2d8aa77051",
+        "model": "gpt-5.5"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
