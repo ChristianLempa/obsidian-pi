@@ -3663,65 +3663,10 @@ __export(message_renderer_exports, {
   renderPlainMessageContent: () => renderPlainMessageContent,
   renderRoleLabel: () => renderRoleLabel,
   renderStreamingAssistantMessage: () => renderStreamingAssistantMessage,
-  restoreMessagesScroll: () => restoreMessagesScroll
+  restoreMessagesScroll: () => restoreMessagesScroll,
+  unloadMessageRenderComponents: () => unloadMessageRenderComponents
 });
 var f4 = __toESM(require("obsidian"), 1);
-
-// src/ui/links.mjs
-function segmentMessageLinks(text, callbacks) {
-  const links = [];
-  const addLink = (start, end, label, target) => {
-    if (!target) return;
-    if (links.some((link) => start < link.end && end > link.start)) return;
-    links.push({ start, end, text: label, target });
-  };
-  const addVaultLink = (start, end, label, target) => {
-    addLink(start, end, label, callbacks.parseVaultLinkTarget(target));
-  };
-  for (const match of text.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g)) {
-    if (match.index !== void 0) {
-      addVaultLink(match.index, match.index + match[0].length, match[2] ?? match[1], match[1]);
-    }
-  }
-  for (const match of text.matchAll(/\[([^\]]+)\]\(([^)]+?\.md(?::\d+)?)(?:#[^)]+)?\)/g)) {
-    if (match.index !== void 0)
-      addVaultLink(match.index, match.index + match[0].length, match[1], match[2]);
-  }
-  for (const match of text.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
-    if (match.index !== void 0) {
-      addLink(match.index, match.index + match[0].length, match[1], {
-        url: stripTrailingUrlPunctuation(match[2])
-      });
-    }
-  }
-  for (const match of text.matchAll(/https?:\/\/[^\s<>()]+/g)) {
-    if (match.index === void 0) continue;
-    const url = stripTrailingUrlPunctuation(match[0]);
-    addLink(match.index, match.index + url.length, url, { url });
-  }
-  for (const match of text.matchAll(
-    /(^|\s)((?:\/?[A-Za-z0-9 _.-]+\/)+[A-Za-z0-9 _.-]+\.md(?::\d+)?)/g
-  )) {
-    if (match.index !== void 0) {
-      const start = match.index + match[1].length;
-      const target = match[2];
-      addVaultLink(start, start + target.length, callbacks.getLinkLabel(target), target);
-    }
-  }
-  links.sort((left, right) => left.start - right.start);
-  const segments = [];
-  let offset = 0;
-  for (const link of links) {
-    if (link.start > offset) segments.push({ text: text.slice(offset, link.start) });
-    segments.push({ text: link.text, target: link.target });
-    offset = link.end;
-  }
-  if (offset < text.length) segments.push({ text: text.slice(offset) });
-  return segments;
-}
-function stripTrailingUrlPunctuation(url) {
-  return url.replace(/[.,;:!?]+$/g, "");
-}
 
 // src/ui/activity.mjs
 function isStickyActivityKind(kind) {
@@ -3863,6 +3808,7 @@ function renderMessages() {
     (this.activityItemEl = void 0),
     (this.activityInlineEl = void 0),
     (this.activityInlineTextEl = void 0),
+    this.unloadMessageRenderComponents(),
     (this.activityDetailsEl = void 0),
     (this.activityDetailsSignature = ""),
     e.empty());
@@ -3899,16 +3845,25 @@ function renderMessage(e, t) {
   let s = n.createDiv({ cls: "pi-agent-message-content" });
   this.renderPlainMessageContent(s, e.content);
 }
-function renderPlainMessageContent(e, t) {
-  let n = document.createDocumentFragment();
-  for (let s of segmentMessageLinks(t, {
-    parseVaultLinkTarget: (a) => this.parseVaultLinkTarget(a),
-    getLinkLabel: (a) => this.getLinkLabel(a)
-  }))
-    s.target
-      ? n.appendChild(this.createChatLink(s.text, s.target))
-      : n.appendChild(document.createTextNode(s.text));
-  e.appendChild(n);
+function renderPlainMessageContent(container, content) {
+  container.empty();
+  container.addClass("markdown-rendered");
+  const component = new f4.Component();
+  component.load();
+  this.messageRenderComponents.push(component);
+  f4.MarkdownRenderer.render(
+    this.plugin.app,
+    content || "",
+    container,
+    this.plugin.getCurrentContextFile()?.path ?? "",
+    component
+  ).catch((err) => {
+    console.error("Pi Agent: Markdown render error", err);
+    container.setText(content || "");
+  });
+}
+function unloadMessageRenderComponents() {
+  for (const component of this.messageRenderComponents.splice(0)) component.unload();
 }
 function renderStreamingAssistantMessage() {
   if (!this.messagesEl) return;
@@ -4645,6 +4600,7 @@ var PiAgentView = class extends f5.ItemView {
     this.invalidatedContextThreadIds = /* @__PURE__ */ new Set();
     this.streamingAssistantContent = "";
     this.promptQueue = [];
+    this.messageRenderComponents = [];
     this.activeRuns = /* @__PURE__ */ new Map();
     this.activeEditorScrollSnapshot = void 0;
     this.stickToBottom = true;
@@ -4865,6 +4821,7 @@ var PiAgentView = class extends f5.ItemView {
       (this.threadTitleEl = void 0),
       this.cleanupComposerBarObserver(),
       this.clearPendingActivityTimer(),
+      this.unloadMessageRenderComponents(),
       (this.messageActions = void 0),
       (this.noteActions = void 0),
       (this.threadMenu = void 0),

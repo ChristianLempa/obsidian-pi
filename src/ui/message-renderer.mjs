@@ -1,5 +1,4 @@
 import * as f from "obsidian";
-import { segmentMessageLinks } from "./links.mjs";
 import { formatToolStatus } from "./activity.mjs";
 
 export function renderMessages() {
@@ -12,6 +11,7 @@ export function renderMessages() {
     (this.activityItemEl = void 0),
     (this.activityInlineEl = void 0),
     (this.activityInlineTextEl = void 0),
+    this.unloadMessageRenderComponents(),
     (this.activityDetailsEl = void 0),
     (this.activityDetailsSignature = ""),
     e.empty());
@@ -50,16 +50,28 @@ export function renderMessage(e, t) {
   this.renderPlainMessageContent(s, e.content);
 }
 
-export function renderPlainMessageContent(e, t) {
-  let n = document.createDocumentFragment();
-  for (let s of segmentMessageLinks(t, {
-    parseVaultLinkTarget: (a) => this.parseVaultLinkTarget(a),
-    getLinkLabel: (a) => this.getLinkLabel(a)
-  }))
-    s.target
-      ? n.appendChild(this.createChatLink(s.text, s.target))
-      : n.appendChild(document.createTextNode(s.text));
-  e.appendChild(n);
+export function renderPlainMessageContent(container, content) {
+  container.empty();
+  container.addClass("markdown-rendered");
+
+  const component = new f.Component();
+  component.load();
+  this.messageRenderComponents.push(component);
+
+  f.MarkdownRenderer.render(
+    this.plugin.app,
+    content || "",
+    container,
+    this.plugin.getCurrentContextFile()?.path ?? "",
+    component
+  ).catch((err) => {
+    console.error("Pi Agent: Markdown render error", err);
+    container.setText(content || "");
+  });
+}
+
+export function unloadMessageRenderComponents() {
+  for (const component of this.messageRenderComponents.splice(0)) component.unload();
 }
 
 export function renderStreamingAssistantMessage() {

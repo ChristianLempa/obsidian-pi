@@ -273,9 +273,12 @@
   margin: 0;
   overflow: auto;
   padding: 10px;
-  white-space: pre-wrap;
   -webkit-user-select: text;
   user-select: text;
+}
+
+.pi-agent-message-content.markdown-rendered {
+  white-space: normal;
 }
 
 .pi-agent-message-content-streaming {
@@ -283,6 +286,55 @@
   overflow-x: hidden;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.pi-agent-message-content.markdown-rendered table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.pi-agent-message-content.markdown-rendered th,
+.pi-agent-message-content.markdown-rendered td {
+  border: 1px solid var(--background-modifier-border);
+  padding: 4px 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.pi-agent-message-content.markdown-rendered th {
+  background: var(--background-modifier-hover);
+  font-weight: 600;
+}
+
+.pi-agent-message-content.markdown-rendered tr:nth-child(even) {
+  background: color-mix(in srgb, var(--background-modifier-hover) 30%, transparent);
+}
+
+.pi-agent-message-content.markdown-rendered pre {
+  padding: 0.6rem 0.9rem;
+  margin: 8px 0;
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+}
+
+.pi-agent-message-content.markdown-rendered :not(pre) > code {
+  background: var(--background-modifier-border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.92em;
+  word-break: break-all;
+}
+
+.pi-agent-message-content.markdown-rendered blockquote {
+  border-left: 3px solid var(--interactive-accent);
+  padding-inline-start: 1rem;
+  margin: 8px 0;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .pi-agent-streaming-text {

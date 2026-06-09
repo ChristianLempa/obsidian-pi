@@ -38,6 +38,7 @@ export class PiAgentView extends f.ItemView {
     this.invalidatedContextThreadIds = new Set();
     this.streamingAssistantContent = "";
     this.promptQueue = [];
+    this.messageRenderComponents = [];
     this.activeRuns = new Map();
     this.activeEditorScrollSnapshot = void 0;
     this.stickToBottom = !0;
@@ -258,6 +259,7 @@ export class PiAgentView extends f.ItemView {
       (this.threadTitleEl = void 0),
       this.cleanupComposerBarObserver(),
       this.clearPendingActivityTimer(),
+      this.unloadMessageRenderComponents(),
       (this.messageActions = void 0),
       (this.noteActions = void 0),
       (this.threadMenu = void 0),
