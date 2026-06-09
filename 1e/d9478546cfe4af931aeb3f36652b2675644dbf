@@ -1,0 +1,30 @@
+CHANGELOG.md
+  s_6ccea07f32166e::t_69c734546facf0 6
+main.js
+  s_6ccea07f32166e::t_69c734546facf0 3848-3852
+  s_6ccea07f32166e::t_ffaba6aa56ed2a 3666-3667,3811,3853-3866,4603,4824
+src/ui/PiAgentView.mjs
+  s_6ccea07f32166e::t_0d41d0e507f3a0 41,262
+src/ui/message-renderer.mjs
+  s_6ccea07f32166e::t_e280197bfad62f 14,59,61-74
+  s_6ccea07f32166e::t_69c734546facf0 53-58,60
+styles.css
+  s_6ccea07f32166e::t_695d25a0455d01 282-283
+  s_6ccea07f32166e::t_69c734546facf0 280-281,291-337
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "1ed9478546cfe4af931aeb3f36652b2675644dbf",
+  "prompts": {},
+  "sessions": {
+    "s_6ccea07f32166e": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019eaae3-cc1a-7641-9a98-2f2d8aa77051",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
