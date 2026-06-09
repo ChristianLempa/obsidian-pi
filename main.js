@@ -1487,7 +1487,8 @@ function shouldUseWindowsCommandShell(piExecutable) {
   return process.platform === "win32" && !/\.exe$/i.test(piExecutable);
 }
 function quoteWindowsCommand(parts) {
-  return parts.map((part) => `"${String(part).replace(/"/g, '""')}"`).join(" ");
+  const command = parts.map((part) => `"${String(part).replace(/"/g, '""')}"`).join(" ");
+  return `"${command}"`;
 }
 function buildPosixPath(piExecutable) {
   return uniqueExistingDirectories([
@@ -1560,6 +1561,24 @@ function uniqueExistingDirectories(directories) {
 }
 
 // src/pi/health.mjs
+function warmupPiCli(piExecutablePath = "", cwd) {
+  try {
+    const piExecutable = findPiExecutable(piExecutablePath);
+    const invocation = buildPiProcessInvocation(piExecutable, ["--version"], {
+      ...(cwd ? { cwd } : {}),
+      detached: process.platform !== "win32",
+      stdio: "ignore",
+      windowsHide: true
+    });
+    const child = (0, import_node_child_process.spawn)(
+      invocation.command,
+      invocation.args,
+      invocation.options
+    );
+    child.on("error", () => {});
+    child.unref?.();
+  } catch {}
+}
 function checkPiInstallation(piExecutablePath = "") {
   const piExecutable = findPiExecutable(piExecutablePath);
   const invocation = buildPiProcessInvocation(piExecutable, ["--version"], {
@@ -2009,9 +2028,20 @@ var PiRunner = class {
     const child = this.activeChild;
     if (!child) return;
     try {
-      process.platform !== "win32" && child.pid
-        ? process.kill(-child.pid, signal)
-        : child.kill(signal);
+      if (process.platform === "win32" && child.pid) {
+        (0, import_node_child_process3.execFileSync)(
+          "taskkill",
+          ["/pid", String(child.pid), "/T", "/F"],
+          {
+            timeout: 2e3,
+            windowsHide: true
+          }
+        );
+      } else if (child.pid) {
+        process.kill(-child.pid, signal);
+      } else {
+        child.kill(signal);
+      }
     } catch {
       try {
         child.kill(signal);
@@ -5653,6 +5683,8 @@ var PiAgentPlugin = class extends P.Plugin {
     }
     ((0, P.addIcon)(PI_AGENT_ICON_ID, PI_AGENT_ICON_SVG),
       this.rebuildServices(),
+      this.settings.dryRun ||
+        warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory()),
       this.refreshCurrentContextFile(),
       this.registerEvent(
         this.app.workspace.on("file-open", (e) => {
