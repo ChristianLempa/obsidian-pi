@@ -1,0 +1,27 @@
+CHANGELOG.md
+  s_6ccea07f32166e::t_21f454b3bd19c1 6
+src/ui/message-renderer.mjs
+  s_6ccea07f32166e::t_33610cc751128d 54
+  s_6ccea07f32166e::t_3f006bf2b77075 59-64
+  s_6ccea07f32166e::t_139d99209bde0f 52-53,55-58
+main.js
+  s_6ccea07f32166e::t_edd651e96db1e1 3846-3856
+styles.css
+  s_6ccea07f32166e::t_695d25a0455d01 280-283,291-337
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "658e98fb8e6bdc60894d2a3fdcb315bad06b9ef1",
+  "prompts": {},
+  "sessions": {
+    "s_6ccea07f32166e": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019eaae3-cc1a-7641-9a98-2f2d8aa77051",
+        "model": "grok-build"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
