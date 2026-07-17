@@ -6,12 +6,14 @@ Chat with Pi in Obsidian using context from your current note, links, backlinks,
 
 ## Requirements
 
-Pi Agent is desktop-only and requires the Pi coding agent to be installed separately. The upstream Pi coding agent package is [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), from [`earendil-works/pi-mono`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent):
+Pi Agent is desktop-only and requires Pi coding agent **0.80.0 or newer** to be installed separately (last compatibility test: **0.80.6**). The upstream package is [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), from [`earendil-works/pi-mono`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent):
 
 ```bash
 npm install -g @earendil-works/pi-coding-agent
 pi --version
 ```
+
+Newer Pi versions may add capabilities that Pi Agent does not use yet. Missing required RPC capabilities produce an upgrade diagnostic; optional capabilities must use an explicit, tested fallback rather than failing silently.
 
 If Obsidian cannot find `pi`, restart Obsidian after installation so it picks up your updated PATH. For custom installs such as nix-darwin, set **Pi executable path** in the plugin settings, for example `/etc/profiles/per-user/${USER}/bin/pi`.
 
@@ -95,12 +97,13 @@ npm ci
 npm run build
 npm run build:check
 npm run ci
-npm run dev:install -- /path/to/vault/.obsidian/plugins/pi-agent
+npm run test:pi -- /path/to/dedicated/test-vault
+npm run dev:install -- /path/to/dedicated/test-vault/.obsidian/plugins/pi-agent
 ```
 
-Then reload Obsidian, or disable and re-enable the plugin.
+`test:pi` is an opt-in, offline/no-tool/no-session RPC smoke test. It disables discovered extensions, skills, prompt templates, themes, context files, and project approval, then reads local Pi state, models, and commands without sending a model prompt. No provider request is made, so the command does not incur model-provider charges. Then reload Obsidian, or disable and re-enable the plugin.
 
-See [docs/development.md](docs/development.md) and [docs/architecture.md](docs/architecture.md).
+See [TESTING.md](TESTING.md) for the complete automated and dedicated `ObsidianTesting` manual checklist. Manual validation is pending until every item is explicitly checked; testing does not create a release.
 
 ## Release
 

@@ -22,6 +22,7 @@ Pi may forward this prompt/context to the model provider configured in your Pi s
 ## Network use
 
 The plugin itself does not call model-provider APIs directly and does not include telemetry. Network use happens through the Pi CLI and depends on your Pi provider/model configuration. When annotations are attached to a prompt, the configured provider can receive their plaintext content along with the rest of the prompt; consult that provider's privacy and retention terms.
+The opt-in compatibility smoke command starts Pi with `--offline`, disables discovered resources, and sends no model prompt, so it makes no model-provider request; ordinary chats are not offline unless your Pi configuration makes them so.
 
 ## Local storage
 

@@ -41,6 +41,26 @@ describe("PiRpcClient subprocess integration", () => {
     );
   });
 
+  it("reports required capability gaps and returns declared optional fallbacks", async () => {
+    const client = createClient();
+
+    await expect(client.requestCapability("unsupported_capability")).rejects.toThrow(
+      "requires Pi 0.80.0 or newer"
+    );
+    await expect(
+      client.requestCapability("unsupported_capability", {}, { fallback: { commands: [] } })
+    ).resolves.toMatchObject({
+      available: false,
+      data: { commands: [] },
+      diagnostic: expect.stringContaining("unsupported_capability")
+    });
+
+    await expect(
+      client.requestCapability("failing_capability", {}, { fallback: "must not be used" })
+    ).rejects.toThrow("failed while reading local state");
+    await expect(client.request("get_state")).resolves.toMatchObject({ isStreaming: false });
+  });
+
   it("rejects pending commands when the RPC process exits", async () => {
     const client = createClient();
     const pending = client.request("hang", {}, { timeoutMs: 0 });

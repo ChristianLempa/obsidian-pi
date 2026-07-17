@@ -3,8 +3,25 @@ import { StringDecoder } from "node:string_decoder";
 import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
 import { createPiCliError, formatPiCliFailure } from "./diagnostics.mjs";
 import { isExtensionUiDialog, isExtensionUiMethod } from "./extension-ui.mjs";
+import { MINIMUM_PI_VERSION } from "./health.mjs";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+const UNSUPPORTED_COMMAND_PATTERNS = [
+  /unknown (?:rpc )?command/i,
+  /unsupported (?:rpc )?command/i,
+  /command .+ (?:is )?not supported/i,
+  /invalid command type/i
+];
+
+export function isUnsupportedPiRpcCommandError(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return UNSUPPORTED_COMMAND_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+export function formatPiCapabilityFailure(command, error) {
+  const detail = error instanceof Error ? error.message : String(error || "Unknown RPC error.");
+  return `Installed Pi does not provide the required RPC capability \`${command}\`. Pi Agent requires Pi ${MINIMUM_PI_VERSION} or newer; upgrade Pi and retry. (${detail})`;
+}
 
 /**
  * Persistent client for Pi's LF-delimited RPC protocol.
@@ -127,6 +144,21 @@ export class PiRpcClient {
         pending?.reject(error);
       });
     });
+  }
+
+  /**
+   * Probe a version-dependent RPC command. Optional callers can provide a fallback;
+   * required callers receive an actionable compatibility error instead of Pi's raw error.
+   */
+  async requestCapability(type, payload = {}, options = {}) {
+    try {
+      return { available: true, data: await this.request(type, payload, options) };
+    } catch (error) {
+      if (!isUnsupportedPiRpcCommandError(error)) throw error;
+      const diagnostic = formatPiCapabilityFailure(type, error);
+      if (!Object.hasOwn(options, "fallback")) throw new Error(diagnostic, { cause: error });
+      return { available: false, data: options.fallback, diagnostic };
+    }
   }
 
   notify(type, payload = {}) {

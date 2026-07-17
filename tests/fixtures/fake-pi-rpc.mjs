@@ -27,6 +27,16 @@ function respond(command, data) {
   });
 }
 
+function reject(command, error) {
+  send({
+    id: command.id,
+    type: "response",
+    command: command.type,
+    success: false,
+    error
+  });
+}
+
 function handle(command) {
   if (command.type === "get_state") {
     respond(command, { isStreaming: false, pid: process.pid });
@@ -46,6 +56,10 @@ function handle(command) {
     process.exit(0);
   } else if (command.type === "hang") {
     // Deliberately leave the request pending for process-exit testing.
+  } else if (command.type === "unsupported_capability") {
+    reject(command, "Unknown RPC command: unsupported_capability");
+  } else if (command.type === "failing_capability") {
+    reject(command, "Capability failed while reading local state");
   } else {
     respond(command, {});
   }
