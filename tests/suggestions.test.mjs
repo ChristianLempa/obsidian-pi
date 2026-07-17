@@ -20,6 +20,15 @@ function createPlugin() {
   return {
     settings: { ...DEFAULT_SETTINGS, includeDefaultSkills: false },
     getVaultBasePath: () => "",
+    getPiCommands: () => [
+      {
+        command: "/skill:rpc-skill",
+        label: "rpc-skill",
+        detail: "Discovered by Pi",
+        insertText: "/skill:rpc-skill ",
+        source: "skill"
+      }
+    ],
     app: {
       vault: { getMarkdownFiles: () => files },
       metadataCache: {
@@ -63,6 +72,9 @@ describe("ComposerSuggestions", () => {
     ]);
     expect(suggestions.getCommandSuggestions("search")).toContainEqual(
       expect.objectContaining({ label: "/search" })
+    );
+    expect(suggestions.getCommandSuggestions("rpc-skill")).toContainEqual(
+      expect.objectContaining({ label: "/skill:rpc-skill", detail: "Skill — Discovered by Pi" })
     );
   });
 

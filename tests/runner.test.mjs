@@ -44,13 +44,14 @@ describe("PiRunner", () => {
       "session.jsonl",
       "--no-skills",
       "--skill",
-      path.join("/vault", ".pi/skills"),
-      "--tools",
-      "read,grep,find,ls,edit,write,bash"
+      path.join("/vault", ".pi/skills")
     ]);
 
     expect(createRunner({ sandboxMode: "chat" }).buildPiArgs("session.jsonl")).toContain(
       "--no-tools"
+    );
+    expect(createRunner({ sandboxMode: "review" }).buildPiArgs("session.jsonl")).toContain(
+      "read,grep,find,ls"
     );
   });
 

@@ -10,7 +10,8 @@ When you send a message, the plugin can include:
 - current note content and metadata
 - backlinks, outgoing links, unresolved links, headings, tags, and frontmatter
 - explicit ranked search-result excerpts when you use search attachments or commands
-- explicit `@note`, `#tag`, `/search`, and `/skill:name` attachments
+- explicit `@note`, `#tag`, and `/search` attachments
+- skill and prompt-template content that Pi expands after applying its resource and project-trust rules
 - local chat thread history for continuity
 
 Pi may forward this prompt/context to the model provider configured in your Pi settings.
@@ -25,14 +26,14 @@ The plugin stores settings and trimmed chat history in Obsidian plugin data. Pi 
 
 ## File and shell access
 
-The plugin can read Pi configuration and skill files from vault/project `.pi/` and `.agents/` folders, plus any absolute or vault-relative skill folders you configure. This is used to discover vault/project Pi defaults, available skills, and model settings.
+The plugin asks Pi RPC to discover extension commands, prompt templates, and skills. Pi remains responsible for loading these resources and applying its project-trust decisions; the plugin does not independently read project prompt or skill files for command discovery or expansion. Optional absolute or vault-contained relative skill paths that you explicitly configure are passed to Pi as trusted additional skill paths.
 
 Tool modes control which Pi CLI tools are enabled:
 
 - Chat: no Pi CLI tools.
 - Review: read/search/list tools.
 - Edit: read/search/list plus edit/write tools.
-- Full agent: edit/write tools plus shell commands.
+- Full agent: Pi's complete tool set, including extension/custom tools and shell commands.
 
 Tool modes are not an operating-system sandbox. Only enable Edit or Full agent for vaults and projects you are comfortable letting Pi inspect or modify.
 

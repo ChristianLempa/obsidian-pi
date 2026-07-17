@@ -150,7 +150,7 @@ export class ComposerSuggestions {
   }
 
   getCommandSuggestions(query) {
-    return getSlashCommands(this.plugin.settings, this.plugin.getVaultBasePath())
+    return getSlashCommands(this.plugin.getPiCommands?.() ?? [])
       .map((command) => ({
         label: command.command,
         detail: command.command.startsWith("/skill:")

@@ -2,6 +2,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
 import { createPiCliError, formatPiCliFailure } from "./diagnostics.mjs";
+import { isExtensionUiDialog, isExtensionUiMethod } from "./extension-ui.mjs";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
@@ -175,7 +176,32 @@ export class PiRpcClient {
       return;
     }
 
+    if (message.type === "extension_ui_request") {
+      this.handleExtensionUiRequest(message);
+      return;
+    }
+
     this.emit(message);
+  }
+
+  async handleExtensionUiRequest(request) {
+    const method = String(request.method ?? "");
+    try {
+      if (!isExtensionUiMethod(method))
+        throw new Error(`Unsupported Pi extension UI method: ${method || "unknown"}`);
+      const response = await this.options.extensionUiHandler?.(request);
+      if (isExtensionUiDialog(method)) {
+        this.notify("extension_ui_response", {
+          id: request.id,
+          ...(response ?? { cancelled: true })
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isExtensionUiDialog(method))
+        this.notify("extension_ui_response", { id: request.id, cancelled: true });
+      this.emit({ type: "extension_ui_error", method, error: message, request });
+    }
   }
 
   emit(message) {

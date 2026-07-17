@@ -909,6 +909,30 @@
   color: var(--text-normal);
 }
 
+.pi-agent-extension-widgets:empty {
+  display: none;
+}
+
+.pi-agent-extension-widget {
+  margin: 4px 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  white-space: pre-wrap;
+}
+
+.pi-agent-extension-input {
+  width: 100%;
+  min-height: 36px;
+}
+
+textarea.pi-agent-extension-input {
+  min-height: 160px;
+  resize: vertical;
+}
+
 .pi-agent-modal-actions {
   display: flex;
   gap: 8px;

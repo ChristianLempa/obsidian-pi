@@ -19,12 +19,20 @@ export function getCompactInstructions(prompt) {
 }
 
 export class PiRunner {
-  constructor(settings, contextBuilder, workingDirectory, pluginDirectory, rpcClient) {
+  constructor(
+    settings,
+    contextBuilder,
+    workingDirectory,
+    pluginDirectory,
+    rpcClient,
+    extensionUiHandler
+  ) {
     this.settings = settings;
     this.contextBuilder = contextBuilder;
     this.workingDirectory = workingDirectory;
     this.pluginDirectory = pluginDirectory;
     this.rpcClient = rpcClient;
+    this.extensionUiHandler = extensionUiHandler;
     this.cancelRequested = false;
   }
 
@@ -104,7 +112,8 @@ export class PiRunner {
     const client = new PiRpcClient({
       piExecutablePath: this.settings.piExecutablePath,
       cwd: this.workingDirectory ?? this.pluginDirectory,
-      args: this.buildPiArgs(session.path, "rpc")
+      args: this.buildPiArgs(session.path, "rpc"),
+      extensionUiHandler: this.extensionUiHandler
     });
     this.rpcClient = client;
     this.rpcSession = session;
@@ -456,14 +465,10 @@ export class PiRunner {
       this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
     if (toolMode === "chat") {
       args.push("--no-tools");
-    } else {
+    } else if (toolMode !== "full-agent") {
       args.push(
         "--tools",
-        toolMode === "full-agent"
-          ? "read,grep,find,ls,edit,write,bash"
-          : toolMode === "edit"
-            ? "read,grep,find,ls,edit,write"
-            : "read,grep,find,ls"
+        toolMode === "edit" ? "read,grep,find,ls,edit,write" : "read,grep,find,ls"
       );
     }
 

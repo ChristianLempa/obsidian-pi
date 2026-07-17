@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parsePromptReferences } from "../src/context/prompt-references.mjs";
 
 describe("prompt reference parsing", () => {
-  it("parses note, folder, tag, skill, and command references", () => {
+  it("parses Obsidian references while leaving Pi skill commands untouched", () => {
     const result = parsePromptReferences(`Use @[[Projects/Pi Agent]] @"Folder Name/" #pi/agent
 /skill:review-patterns focus on UI
 /search thread state`);
@@ -12,7 +12,6 @@ describe("prompt reference parsing", () => {
       { type: "note", value: "Projects/Pi Agent" },
       { type: "folder", value: "Folder Name" },
       { type: "tag", value: "#pi/agent" },
-      { type: "skill", value: "review-patterns", argument: "focus on UI" },
       { type: "command", value: "search", argument: "thread state" }
     ]);
   });

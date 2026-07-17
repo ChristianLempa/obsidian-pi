@@ -52,9 +52,9 @@ Short version:
 - The plugin does not include ads, telemetry, or an auto-updater.
 - Chat history and Pi sessions are stored locally by the plugin and Pi.
 - Network access happens through the separately installed Pi CLI and depends on your Pi/model-provider configuration.
-- The plugin reads Pi configuration and skill files from vault/project `.pi/` and `.agents/` folders, plus any absolute or vault-relative skill folders you configure.
+- Pi discovers project/global extensions, prompt templates, and skills through RPC and applies its own project-trust rules. The plugin passes any explicitly configured absolute or vault-contained skill paths to Pi.
 - Edit and Full agent modes can modify files in your vault/project.
-- Full agent mode can run shell commands through Pi.
+- Full agent mode enables Pi's complete tool set, including extension/custom tools and shell commands.
 - Skills can contain instructions or scripts; only enable skill folders you trust.
 
 ## Installation
