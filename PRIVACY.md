@@ -14,6 +14,7 @@ When you send a message, the plugin can include:
 - skill and prompt-template content that Pi expands after applying its resource and project-trust rules
 - local chat thread history for continuity
 - PNG, JPEG, or WebP images that you explicitly select, paste, or drop into the composer
+- UTF-8 text, code, and configuration files that you explicitly select from the vault or local filesystem; content is limited to 64 KiB per file and 192 KiB total, marked when truncated, and sent as delimited untrusted prompt context
 - annotations for the active note, including quoted/source text, rendered-selection text, intent, and the context you wrote
 
 Pi may forward this prompt/context to the model provider configured in your Pi settings.
@@ -25,7 +26,7 @@ The opt-in compatibility smoke command starts Pi with `--offline`, disables disc
 
 ## Local storage
 
-The plugin stores settings, trimmed chat history, and unsent local follow-up queue items in Obsidian plugin data. Queued image data is stored locally as base64 until the item is sent or removed; once sent, Pi and the configured model provider receive it. After the plugin restarts, saved follow-ups remain paused until you explicitly resume or discard them, preventing stale prompts from replaying automatically. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git, but may be included by vault-sync tools.
+The plugin stores settings, trimmed chat history, and unsent local follow-up queue items in Obsidian plugin data. Queued image data is stored locally as base64 and queued text-file content as plaintext until the item is sent or removed; once sent, Pi and the configured model provider receive it. Unsupported binaries, PDFs, office documents, and archives are not attached; Pi RPC is not presented as supporting generic binary files. After the plugin restarts, saved follow-ups remain paused until you explicitly resume or discard them, preventing stale prompts from replaying automatically. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git, but may be included by vault-sync tools.
 
 Deleting a chat removes only its Obsidian plugin history by default. When a chat has a local Pi session, the deletion dialog separately offers to delete that session file; local Pi data is removed only after choosing that explicit option. Session information shows the local storage path, and HTML export writes a separate local file at the path reported by Pi.
 The plugin stores settings, trimmed chat history, and annotations in Obsidian plugin data. Annotation records are plaintext JSON: they include note paths, quoted/source text, optional rendered-selection text, and your annotation context. They are not encrypted by this plugin.

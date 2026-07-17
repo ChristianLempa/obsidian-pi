@@ -22,9 +22,7 @@ describe("plugin settings helpers", () => {
   };
 
   it("builds model options", () => {
-    expect(getModelOptions({ ...DEFAULT_SETTINGS, availableModels: [] })).toEqual({
-      "": "Use Pi configured default"
-    });
+    expect(getModelOptions({ ...DEFAULT_SETTINGS, availableModels: [] })).toEqual({});
     expect(
       getModelOptions({
         ...DEFAULT_SETTINGS,
@@ -32,7 +30,7 @@ describe("plugin settings helpers", () => {
         effectiveModel: "provider/model"
       })
     ).toEqual({
-      "": "Use Pi configured default — provider/model",
+      "": "Pi default — provider: model",
       "provider/model": "provider: model — provider/model · thinking · images · 200K context"
     });
   });

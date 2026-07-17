@@ -1,117 +1,96 @@
-import * as f from "obsidian";
+import { Notice } from "obsidian";
 
-export async function openVaultLink(e, t = !1) {
-  var h, u, g;
-  let n = typeof e == "string" ? this.parseVaultLinkTarget(e) : e;
-  if (!n) {
-    new f.Notice(`Note not found: ${String(e)}`);
-    return;
+const EXTERNAL_LINK_PATTERN = /^(?:[a-z][a-z\d+.-]*:|\/\/)/i;
+const LEGACY_LINE_PATTERN = /^(.*):(\d+)$/;
+
+/**
+ * Classify a link without normalizing its path. Obsidian remains responsible
+ * for aliases, relative paths, case matching, spaces, and subpaths.
+ */
+export function classifyVaultLinkTarget(value) {
+  if (typeof value !== "string") return { kind: "invalid" };
+
+  if (!value.trim()) return { kind: "invalid" };
+  if (EXTERNAL_LINK_PATTERN.test(value.trim())) return { kind: "external", linkText: value };
+
+  const linkText = value;
+  const lineMatch = linkText.match(LEGACY_LINE_PATTERN);
+  if (lineMatch && Number(lineMatch[2]) > 0) {
+    return {
+      kind: "internal",
+      linkText: lineMatch[1],
+      line: Number(lineMatch[2])
+    };
   }
-  let s = n.path,
-    a = s.replace(/\.md$/i, ""),
-    o = this.getLinkSourcePath(),
-    l =
-      (g =
-        (u = (h = this.resolveDirectVaultFile(s)) != null ? h : this.resolveDirectVaultFile(a)) !=
-        null
-          ? u
-          : this.plugin.app.metadataCache.getFirstLinkpathDest(a, o)) != null
-        ? g
-        : this.plugin.app.metadataCache.getFirstLinkpathDest(s, o);
-  if (!l) {
-    new f.Notice(`Note not found: ${this.formatVaultLinkTarget(n)}`);
-    return;
+
+  return { kind: "internal", linkText };
+}
+
+export async function openVaultLink(value, newLeaf = false) {
+  const target =
+    typeof value === "string"
+      ? classifyVaultLinkTarget(value)
+      : value?.path
+        ? { kind: "internal", linkText: value.path, line: value.line }
+        : { kind: "invalid" };
+
+  if (target.kind !== "internal") {
+    if (target.kind === "invalid") new Notice(`Note not found: ${String(value)}`);
+    return false;
   }
-  let d = this.plugin.app.workspace.getLeaf(t);
-  (await d.openFile(l, { active: !0 }), this.revealLine(d, n.line));
+
+  try {
+    await this.plugin.app.workspace.openLinkText(
+      target.linkText,
+      this.getLinkSourcePath(),
+      Boolean(newLeaf)
+    );
+    if (target.line) this.revealLine(this.plugin.app.workspace.activeLeaf, target.line);
+    return true;
+  } catch (error) {
+    console.error("Pi Agent: failed to open vault link", error);
+    new Notice(`Note not found: ${this.formatVaultLinkTarget(target)}`);
+    return false;
+  }
 }
 
-export function parseVaultLinkTarget(e) {
-  let t = e
-      .trim()
-      .replace(/^obsidian:\/\//, "")
-      .replace(/\|.*$/, "")
-      .replace(/#.*$/, ""),
-    n = t.match(/:(\d+)$/),
-    s = n ? Number.parseInt(n[1], 10) : void 0,
-    a = n ? t.slice(0, -n[0].length) : t,
-    o = this.normalizeVaultPath(a);
-  return o ? { path: o, line: s } : void 0;
+export function parseVaultLinkTarget(value) {
+  const target = classifyVaultLinkTarget(value);
+  if (target.kind !== "internal") return undefined;
+  return { path: target.linkText, line: target.line };
 }
 
-export function normalizeVaultPath(e) {
-  let t = e.replace(/\\/g, "/"),
-    n = this.getVaultBasePath();
-  return (n && t.startsWith(`${n}/`) ? t.slice(n.length + 1) : t)
-    .replace(/^\/+/, "")
-    .replace(/\.md$/i, ".md");
+export function formatVaultLinkTarget(target) {
+  const linkText = target?.linkText ?? target?.path ?? "";
+  return target?.line ? `${linkText}:${target.line}` : linkText;
 }
 
-export function formatVaultLinkTarget(e) {
-  return e.line ? `${e.path}:${e.line}` : e.path;
-}
-
-export function getLinkLabel(e) {
-  var s, a;
-  let t = this.parseVaultLinkTarget(e),
-    n = (s = t == null ? void 0 : t.path) != null ? s : e;
-  return (a = n.split("/").pop()) != null ? a : n;
+export function getLinkLabel(value) {
+  const target = classifyVaultLinkTarget(value);
+  const linkText = target.kind === "internal" ? target.linkText : String(value);
+  return linkText.split("/").pop() ?? linkText;
 }
 
 export function getLinkSourcePath() {
-  var e, t, n, s;
-  return (s =
-    (n = (e = this.plugin.getCurrentContextFile()) == null ? void 0 : e.path) != null
-      ? n
-      : (t = this.plugin.app.workspace.getActiveFile()) == null
-        ? void 0
-        : t.path) != null
-    ? s
-    : "";
+  return (
+    this.plugin.getCurrentContextFile()?.path ??
+    this.plugin.app.workspace.getActiveFile()?.path ??
+    ""
+  );
 }
 
-export function getVaultBasePath() {
-  var t, n;
-  let e = this.plugin.app.vault.adapter;
-  return (n = (t = e.getBasePath) == null ? void 0 : t.call(e)) == null
-    ? void 0
-    : n.replace(/\\/g, "/").replace(/\/+$/, "");
+export function revealLine(leaf, line) {
+  if (!leaf || !Number.isInteger(line) || line < 1) return;
+  globalThis.setTimeout(() => {
+    const editor = leaf.view?.editor;
+    if (!editor) return;
+    const position = { line: line - 1, ch: 0 };
+    editor.setCursor?.(position);
+    editor.scrollIntoView?.({ from: position, to: position }, true);
+    editor.focus?.();
+  }, 50);
 }
 
-export function resolveDirectVaultFile(e) {
-  let t = [e, e.endsWith(".md") ? e : `${e}.md`];
-  for (let n of t) {
-    let s = this.plugin.app.vault.getAbstractFileByPath(n);
-    if (s instanceof f.TFile) return s;
-  }
-}
-
-export function revealLine(e, t) {
-  !t ||
-    t < 1 ||
-    window.setTimeout(() => {
-      var o, l, d;
-      let s = e.view.editor;
-      if (!s) return;
-      let a = { line: t - 1, ch: 0 };
-      ((o = s.setCursor) == null || o.call(s, a),
-        (l = s.scrollIntoView) == null || l.call(s, { from: a, to: a }, !0),
-        (d = s.focus) == null || d.call(s));
-    }, 50);
-}
-
-export async function openVaultPath(e, t = "tab") {
-  let n = this.parseVaultLinkTarget(e);
-  if (!n) {
-    new f.Notice(`Note not found: ${e}`);
-    return;
-  }
-  let s = n.path,
-    a = this.plugin.app.vault.getAbstractFileByPath(s);
-  if (a instanceof f.TFile) {
-    let o = this.plugin.app.workspace.getLeaf(t);
-    (await o.openFile(a, { active: !0 }), this.revealLine(o, n.line));
-    return;
-  }
-  await this.openVaultLink(n, t);
+export async function openVaultPath(value, newLeaf = "tab") {
+  return this.openVaultLink(value, newLeaf === true || newLeaf === "tab");
 }
