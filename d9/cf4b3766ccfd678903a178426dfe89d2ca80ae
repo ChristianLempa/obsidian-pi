@@ -1,0 +1,62 @@
+PRIVACY.md
+  s_8893fe5fe6cbbd::t_f0fc67f68f108b 3
+tests/rpc-integration.test.mjs
+  s_8893fe5fe6cbbd::t_7565465bcab3cd 1-50
+src/pi/runner.mjs
+  s_8893fe5fe6cbbd::t_ddcec69a9bf5c6 97
+  s_8893fe5fe6cbbd::t_af7265d33dbbab 183,310,317,331-333,335-336,339-348,353,356-357
+  s_8893fe5fe6cbbd::t_6b3ba530cc2ced 10,22,27,54,59-62,95-96,98-119,124,157,164-174,179,181-182,184,423
+  s_5b7b5a4a134228::t_6db9863fb0f052 120-123,125-156,158-163,175,178,180,314-316,318-319,322,324,338,349,352,354-355
+  s_5b7b5a4a134228::t_654027645cd9fc 176-177,350-351
+  s_b3d65b86d2af53::t_e28332272f1edc 185
+src/pi/rpc-client.mjs
+  s_8893fe5fe6cbbd::t_7565465bcab3cd 1-91,93-237
+  s_5b7b5a4a134228::t_5550ffbbb1e80f 92
+tests/runner.test.mjs
+  s_5b7b5a4a134228::t_2deb1fdcc502fe 189-190
+  s_8893fe5fe6cbbd::t_6a54b4f597d7d6 4,42,95-144
+  s_5b7b5a4a134228::t_01b0a56d2d7992 145,147-188,191-196
+  s_b3d65b86d2af53::t_1932d072acc812 146
+tests/fixtures/fake-pi-rpc.mjs
+  s_8893fe5fe6cbbd::t_7565465bcab3cd 1-52
+tests/rpc-client.test.mjs
+  s_8893fe5fe6cbbd::t_7565465bcab3cd 1-53
+CHANGELOG.md
+  s_8893fe5fe6cbbd::t_af721ccaaed243 5-6
+src/ui/PiAgentView.mjs
+  s_8893fe5fe6cbbd::t_19dd47c412ab68 504,595
+src/plugin/PiAgentPlugin.mjs
+  s_8893fe5fe6cbbd::t_20a528d6801907 103,193,213-224,338-340,452,455-457,463-468,471
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d9cf4b3766ccfd678903a178426dfe89d2ca80ae",
+  "prompts": {},
+  "sessions": {
+    "s_5b7b5a4a134228": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fe3-4a44-74c3-b7bb-d13790ac58c6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_8893fe5fe6cbbd": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fdf-5591-734f-a833-d0e3e5533c45",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
