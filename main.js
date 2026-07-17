@@ -2323,7 +2323,7 @@ var PiRunner = class {
     return modelId ? this.settings.availableModels.find((model) => model.slug === modelId) : void 0;
   }
   buildPiArgs(sessionId, mode = "json") {
-    const args = ["--mode", mode, "--session", sessionId];
+    const args = ["--mode", mode, "--session", sessionId, "--no-extensions"];
     const model =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
     if (model) args.push("--model", model);

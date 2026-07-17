@@ -42,6 +42,7 @@ describe("PiRunner", () => {
       "json",
       "--session",
       "session.jsonl",
+      "--no-extensions",
       "--model",
       "provider/model",
       "--thinking",

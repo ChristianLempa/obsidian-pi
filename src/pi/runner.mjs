@@ -382,7 +382,7 @@ export class PiRunner {
   }
 
   buildPiArgs(sessionId, mode = "json") {
-    const args = ["--mode", mode, "--session", sessionId];
+    const args = ["--mode", mode, "--session", sessionId, "--no-extensions"];
     const model =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
 
