@@ -1,0 +1,58 @@
+src/ui/prompt-payload.mjs
+  s_b3d65b86d2af53::t_dfb3d0361c8a8e 1-2,101,109,117,124-129
+  s_b3d65b86d2af53::t_a809205679a0de 130-131
+src/context/context-builder.mjs
+  s_b3d65b86d2af53::t_eb90c3a5e6c043 23,51,58-67,75-81
+  s_b3d65b86d2af53::t_db67a62b3ccb80 26
+tests/editor-file-refresh.test.mjs
+  s_b3d65b86d2af53::t_db67a62b3ccb80 24-26,39-41
+  s_b3d65b86d2af53::t_32518e6700a663 1-23,27-38,42-44
+TESTING.md
+  s_b3d65b86d2af53::t_4fd76284fcde45 122,128-129
+src/ui/PiAgentView.mjs
+  s_b3d65b86d2af53::t_886175fbd9f77a 35,483,811-812,814-821,833,840,890,1097-1098
+  s_b3d65b86d2af53::t_ab25513a149ec0 67,1057,1059-1060,1084-1089,1091-1096
+  s_b3d65b86d2af53::t_6853824a4ec7c3 823
+  s_b3d65b86d2af53::t_99a91bd4db8418 822,824,850,867,878,919,921,1020
+src/ui/prompt-queue.mjs
+  s_b3d65b86d2af53::t_0fab93f83231d8 19-20,22-28,52-59,77
+main.js
+  s_b3d65b86d2af53::t_566cf3ae24e428 831-841,945-948,952-955,973,977,981-984,989,1007,1011-1014,1021,1028,1668,1671,1694,1700-1709,1716-1722,3499,3507,3515,3521-3527,5430-5431,5433-5439,5462-5469,5485,7066-7079,7529,7858-7859,7861-7871,7880,7887,7897,7914,7925,7937,7966,7968,8067,8144-8145,9253,9256-9257,9265-9266,9385-9415
+  s_b3d65b86d2af53::t_a023ee1c5254c0 7113,8104,8106-8107,8131-8136,8138-8143
+  s_b3d65b86d2af53::t_3a982e7a3a7fdd 7080-7081
+CHANGELOG.md
+  s_b3d65b86d2af53::t_97507b88e7ccc5 5
+src/plugin/PiAgentPlugin.mjs
+  s_b3d65b86d2af53::t_db67a62b3ccb80 725
+  s_b3d65b86d2af53::t_e6396b0161b8c4 722,726,734-735,853-883
+tests/markdown-annotations-controller.test.mjs
+  s_b3d65b86d2af53::t_0515dfee6e073f 36-82
+src/annotations/markdown-annotations-controller.mjs
+  s_b3d65b86d2af53::t_d1425c6dccb21e 52-62,173-176,180-183,202,206,211-215,220,238,243-247,252,259
+tests/local-prompt-queue.test.mjs
+  s_b3d65b86d2af53::t_db67a62b3ccb80 57-66,69-76
+  s_b3d65b86d2af53::t_a1189cfa7f3e98 2,86-112
+  s_b3d65b86d2af53::t_c1cd43d45f4227 113-114
+tests/context-builder.test.mjs
+  s_b3d65b86d2af53::t_db169debef703f 167-184
+  s_b3d65b86d2af53::t_db67a62b3ccb80 93-111,150-157,190-196,200-202,205-207
+  s_b3d65b86d2af53::t_a5f2e2f6242f7b 1
+src/ui/editor-file-refresh.mjs
+  s_b3d65b86d2af53::t_95cae141673e7c 1-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "e7820ee0db3840bd664f2c355f6fe67c2ad0f2ec",
+  "prompts": {},
+  "sessions": {
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
