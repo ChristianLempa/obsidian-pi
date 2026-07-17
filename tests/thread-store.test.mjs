@@ -61,8 +61,12 @@ describe("ThreadStore", () => {
     const originalId = store.getCurrentThread().id;
     store.addMessage({ role: "user", content: "Original", createdAt: 1 });
 
-    const fork = store.forkCurrentThread("fork-session");
-    expect(fork).toMatchObject({ title: "Original (fork)", piSessionId: "fork-session" });
+    const fork = store.forkCurrentThread("portable-clone.jsonl");
+    expect(fork).toMatchObject({
+      title: "Original (fork)",
+      piSessionId: "portable-clone.jsonl",
+      messages: [{ role: "user", content: "Original", createdAt: 1 }]
+    });
     expect(store.switchThread(originalId)).toBe(true);
     expect(store.archiveThread(originalId)).toBe(true);
     expect(store.listThreads().map((thread) => thread.id)).not.toContain(originalId);

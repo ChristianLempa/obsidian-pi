@@ -1,5 +1,5 @@
 import * as f from "obsidian";
-import { confirmWithModal } from "./modals/confirm-modal.mjs";
+import { chooseThreadDeletion } from "./modals/delete-thread-modal.mjs";
 
 export function showThreadList() {
   ((this.showingThreadList = !0), this.renderThreadList());
@@ -121,6 +121,42 @@ export function showThreadRowMenu(e, t, n, s) {
         .setIcon("pencil")
         .onClick(() => this.startThreadListRename(t, s))
     ),
+    t.piSessionId &&
+      a.addItem((o) =>
+        o
+          .setTitle("Pi session info")
+          .setIcon("info")
+          .onClick(async () => {
+            try {
+              const [stats, tree] = await Promise.all([
+                this.plugin.getThreadSessionStats(t.id),
+                this.plugin.getThreadSessionTree(t.id)
+              ]);
+              const entryCount = countSessionEntries(tree?.tree ?? []);
+              new f.Notice(
+                stats
+                  ? `${stats.sessionFile}\n${stats.totalMessages} messages · ${entryCount} tree entries · ${stats.tokens?.total ?? 0} tokens · $${Number(stats.cost ?? 0).toFixed(4)}`
+                  : "No Pi session information is available."
+              );
+            } catch (error) {
+              new f.Notice(error instanceof Error ? error.message : String(error));
+            }
+          })
+      ),
+    t.piSessionId &&
+      a.addItem((o) =>
+        o
+          .setTitle("Export Pi session to HTML")
+          .setIcon("download")
+          .onClick(async () => {
+            try {
+              const result = await this.plugin.exportThreadSession(t.id);
+              new f.Notice(result?.path ? `Exported to ${result.path}` : "Session export failed.");
+            } catch (error) {
+              new f.Notice(error instanceof Error ? error.message : String(error));
+            }
+          })
+      ),
     a.addSeparator(),
     a.addItem((o) =>
       o
@@ -164,16 +200,12 @@ export async function deleteThreadFromList(e) {
     new f.Notice("Wait for the agent run to finish before deleting this chat.");
     return;
   }
-  let t = await confirmWithModal(this.plugin.app, {
-    title: "Delete chat?",
-    message: `Delete chat "${e.title}" from plugin history?`,
-    confirmText: "Delete",
-    warning: true
-  });
-  if (!t) return;
-  this.plugin.deleteThread(e.id)
-    ? (new f.Notice("Chat deleted."), this.renderThreadList())
-    : new f.Notice("Chat thread was not found.");
+  const choice = await chooseThreadDeletion(this.plugin.app, e);
+  if (choice === "cancel") return;
+  this.plugin.deleteThread(e.id, { deletePiSession: choice === "both" })
+    ? (new f.Notice(choice === "both" ? "Chat and local Pi session deleted." : "Chat deleted."),
+      this.renderThreadList())
+    : new f.Notice("Chat or local Pi session could not be deleted.");
 }
 
 export function formatThreadMeta(e, t) {
@@ -182,6 +214,14 @@ export function formatThreadMeta(e, t) {
       : e.messages.length,
     s = `${n} message${n === 1 ? "" : "s"} • Updated ${this.formatThreadDate(e.updatedAt)}`;
   return t ? `Current • ${s}` : s;
+}
+
+export function countSessionEntries(nodes) {
+  return nodes.reduce(
+    (count, node) =>
+      count + 1 + countSessionEntries(Array.isArray(node.children) ? node.children : []),
+    0
+  );
 }
 
 export function formatThreadDate(e) {

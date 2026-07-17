@@ -537,38 +537,51 @@ export class PiRunner {
     };
   }
 
-  createForkSessionFile(sessionReference) {
+  async getExistingSessionRpcClient(sessionReference) {
     const sessionPath = this.resolveSessionPath(sessionReference);
-    if (!sessionPath || !fs.existsSync(sessionPath)) return undefined;
+    if (!sessionPath || !fs.existsSync(sessionPath)) {
+      throw new Error("The local Pi session file is not available.");
+    }
+    return this.getOrCreateRpcClient(sessionReference);
+  }
 
-    const events = fs
-      .readFileSync(sessionPath, "utf8")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => JSON.parse(line));
-    const sessionEvent = events.find((event) => event.type === "session");
-    if (!sessionEvent) return undefined;
+  async cloneSession(sessionReference) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    const result = await client.request("clone");
+    if (result?.cancelled) return undefined;
 
-    const forkSessionPath = this.createSessionFilePath();
-    const forkSessionEvent = {
-      ...sessionEvent,
-      id: createSessionId(),
-      timestamp: new Date().toISOString(),
-      cwd: this.workingDirectory || sessionEvent.cwd,
-      parentSession: this.createSessionReference(sessionPath) ?? sessionPath
-    };
+    const state = await client.request("get_state");
+    const cloneReference = this.createSessionReference(state?.sessionFile);
+    const clonePath = this.resolveSessionPath(cloneReference);
+    if (!clonePath || !fs.existsSync(clonePath)) {
+      throw new Error("Pi did not return a portable local clone session.");
+    }
+    return cloneReference;
+  }
 
-    fs.writeFileSync(
-      forkSessionPath,
-      `${JSON.stringify(forkSessionEvent)}\n${events
-        .filter((event) => event.type !== "session")
-        .map((event) => JSON.stringify(event))
-        .join("\n")}\n`,
-      "utf8"
-    );
+  async getSessionStats(sessionReference) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("get_session_stats");
+  }
 
-    return this.createSessionReference(forkSessionPath) ?? forkSessionPath;
+  async setSessionName(sessionReference, name) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("set_session_name", { name });
+  }
+
+  async exportSession(sessionReference, outputPath) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("export_html", outputPath ? { outputPath } : {});
+  }
+
+  async getSessionTree(sessionReference) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("get_tree");
+  }
+
+  async getSessionEntries(sessionReference, since) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("get_entries", since ? { since } : {});
   }
 
   formatDryRunCompactResponse(sessionId) {
@@ -637,11 +650,4 @@ function isSafeRelativePath(relativePath) {
     !relativePath.startsWith(`..${path.sep}`) &&
     !path.isAbsolute(relativePath)
   );
-}
-
-function createSessionId() {
-  const randomUUID = globalThis.crypto?.randomUUID;
-  return randomUUID
-    ? randomUUID.call(globalThis.crypto)
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

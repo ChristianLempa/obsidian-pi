@@ -374,39 +374,85 @@ describe("PiRunner", () => {
     });
   });
 
-  it("creates forked session files with portable session references", () => {
+  it("uses Pi RPC clone and returns a portable session reference", async () => {
     const tempDir = createTempDir();
+    const sessionPath = path.join(tempDir, "pi-sessions", "session.jsonl");
+    const clonedPath = path.join(tempDir, "pi-sessions", "clone.jsonl");
+    fs.mkdirSync(path.dirname(sessionPath), { recursive: true });
+    fs.writeFileSync(sessionPath, "{}\n", "utf8");
+    fs.writeFileSync(clonedPath, "{}\n", "utf8");
+    const requests = [];
+    const rpcClient = {
+      start: vi.fn(async () => {}),
+      request: vi.fn(async (type) => {
+        requests.push(type);
+        return type === "get_state" ? { sessionFile: clonedPath } : { cancelled: false };
+      })
+    };
     const runner = new PiRunner(
       DEFAULT_SETTINGS,
       { formatPrompt: (prompt) => prompt },
       "/new",
-      tempDir
+      tempDir,
+      rpcClient
     );
-    const sessionPath = path.join(runner.getSessionDirectory(), "session.jsonl");
+
+    await expect(runner.cloneSession("session.jsonl")).resolves.toBe("clone.jsonl");
+    expect(requests).toEqual(["clone", "get_state"]);
+    expect(path.isAbsolute("clone.jsonl")).toBe(false);
+  });
+
+  it("rejects native operations for missing sessions instead of creating replacement files", async () => {
+    const tempDir = createTempDir();
+    const rpcClient = {
+      start: vi.fn(async () => {}),
+      request: vi.fn()
+    };
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      tempDir,
+      rpcClient
+    );
+
+    await expect(runner.getSessionStats("missing.jsonl")).rejects.toThrow(
+      "local Pi session file is not available"
+    );
+    expect(rpcClient.start).not.toHaveBeenCalled();
+    expect(fs.existsSync(path.join(tempDir, "pi-sessions"))).toBe(false);
+  });
+
+  it("delegates session metadata, naming, entry, tree, and export operations to RPC", async () => {
+    const tempDir = createTempDir();
+    const sessionPath = path.join(tempDir, "pi-sessions", "session.jsonl");
     fs.mkdirSync(path.dirname(sessionPath), { recursive: true });
-    fs.writeFileSync(
-      sessionPath,
-      `${JSON.stringify({ type: "session", id: "old", cwd: "/old" })}\n${JSON.stringify({ type: "message", text: "hi" })}\n`,
-      "utf8"
+    fs.writeFileSync(sessionPath, "{}\n", "utf8");
+    const rpcClient = {
+      start: vi.fn(async () => {}),
+      request: vi.fn(async (type) => ({ type }))
+    };
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      tempDir,
+      rpcClient
     );
 
-    const forkReference = runner.createForkSessionFile(sessionPath);
-    const forkPath = runner.resolveSessionPath(forkReference);
+    await runner.getSessionStats("session.jsonl");
+    await runner.setSessionName("session.jsonl", "Named chat");
+    await runner.getSessionEntries("session.jsonl", "entry-1");
+    await runner.getSessionTree("session.jsonl");
+    await runner.exportSession("session.jsonl", "/tmp/session.html");
 
-    expect(forkReference).toMatch(/\.jsonl$/);
-    expect(path.isAbsolute(forkReference)).toBe(false);
-    const forkedEvents = fs
-      .readFileSync(forkPath, "utf8")
-      .trim()
-      .split(/\r?\n/)
-      .map((line) => JSON.parse(line));
-
-    expect(forkedEvents[0]).toMatchObject({
-      type: "session",
-      cwd: "/new",
-      parentSession: "session.jsonl"
-    });
-    expect(forkedEvents[1]).toEqual({ type: "message", text: "hi" });
+    expect(rpcClient.request.mock.calls).toEqual([
+      ["get_session_stats"],
+      ["set_session_name", { name: "Named chat" }],
+      ["get_entries", { since: "entry-1" }],
+      ["get_tree"],
+      ["export_html", { outputPath: "/tmp/session.html" }]
+    ]);
   });
 
   it("resolves only local Pi session references", () => {
