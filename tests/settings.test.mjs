@@ -44,8 +44,8 @@ describe("plugin settings helpers", () => {
         model: "provider/model",
         availableModels: [model]
       })
-    ).toMatchObject({
-      "": "Use Pi/model default",
+    ).toEqual({
+      "": "Use Pi/model default — Medium",
       low: "Low",
       medium: "Medium",
       high: "High",
@@ -59,6 +59,19 @@ describe("plugin settings helpers", () => {
     ).toEqual({ "": "Use Pi/model default — High" });
   });
 
+  it("does not offer another model's thinking levels for an unknown custom slug", () => {
+    expect(
+      getReasoningOptions({
+        ...DEFAULT_SETTINGS,
+        model: CUSTOM_MODEL_VALUE,
+        customModel: "unknown/model",
+        effectiveModel: "provider/model",
+        effectiveReasoning: "high",
+        availableModels: [model]
+      })
+    ).toEqual({ "": "Use Pi/model default" });
+  });
+
   it("resolves reasoning defaults", () => {
     expect(getResolvedReasoning({ ...DEFAULT_SETTINGS, reasoningEffort: "high" })).toBe("high");
     expect(
@@ -69,6 +82,14 @@ describe("plugin settings helpers", () => {
       })
     ).toBe("medium");
     expect(getResolvedReasoning({ ...DEFAULT_SETTINGS, effectiveReasoning: "low" })).toBe("low");
+    expect(
+      getResolvedReasoning({
+        ...DEFAULT_SETTINGS,
+        effectiveModel: "provider/model",
+        effectiveReasoning: "high",
+        availableModels: [model]
+      })
+    ).toBe("high");
   });
 
   it("normalizes loaded settings", () => {

@@ -73,10 +73,13 @@ export function getModelOptions(settings) {
 }
 
 export function getReasoningOptions(settings) {
-  const model = getSelectedModelInfo(settings) ?? getEffectiveModelInfo(settings);
+  const model = getReasoningModelInfo(settings);
   const supportedReasoningLevels = model?.supportedReasoningLevels ?? [];
-  const effective = settings.effectiveReasoning
-    ? ` — ${REASONING_LABELS[settings.effectiveReasoning] ?? settings.effectiveReasoning}`
+  const resolvedDefault = settings.model
+    ? model?.defaultReasoningLevel
+    : settings.effectiveReasoning || model?.defaultReasoningLevel;
+  const effective = resolvedDefault
+    ? ` — ${REASONING_LABELS[resolvedDefault] ?? resolvedDefault}`
     : "";
 
   if (supportedReasoningLevels.length === 0) return { "": `Use Pi/model default${effective}` };
@@ -92,8 +95,10 @@ export function getReasoningOptions(settings) {
 export function getResolvedReasoning(settings) {
   if (settings.reasoningEffort) return settings.reasoningEffort;
 
-  const model = getSelectedModelInfo(settings) ?? getEffectiveModelInfo(settings);
-  return model?.defaultReasoningLevel ?? settings.effectiveReasoning ?? "pi-default";
+  const model = getReasoningModelInfo(settings);
+  return settings.model
+    ? model?.defaultReasoningLevel || "pi-default"
+    : settings.effectiveReasoning || model?.defaultReasoningLevel || "pi-default";
 }
 
 export function getEffectiveModelInfo(settings) {
@@ -105,6 +110,12 @@ export function getEffectiveModelInfo(settings) {
 export function getSelectedModelInfo(settings) {
   const modelId = settings.model === CUSTOM_MODEL_VALUE ? settings.customModel : settings.model;
   return settings.availableModels.find((model) => model.slug === modelId);
+}
+
+function getReasoningModelInfo(settings) {
+  return (
+    getSelectedModelInfo(settings) ?? (settings.model ? undefined : getEffectiveModelInfo(settings))
+  );
 }
 
 export function getToolModeOptions() {

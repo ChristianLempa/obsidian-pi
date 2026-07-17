@@ -1,12 +1,12 @@
-import { Menu, Notice, setIcon } from "obsidian";
+import { Menu, setIcon } from "obsidian";
 import {
   CUSTOM_MODEL_VALUE,
-  getModelOptions,
-  getReasoningOptions,
   getResolvedReasoning,
+  getSelectedModelInfo,
   getToolModeOptions
 } from "../plugin/settings.mjs";
 import { confirmWithModal } from "./modals/confirm-modal.mjs";
+import { ModelPickerModal, ThinkingPickerModal } from "./modals/model-picker-modal.mjs";
 
 export class RunSettingsControls {
   constructor(plugin) {
@@ -26,33 +26,21 @@ export class RunSettingsControls {
   }
 
   populate(containerEl) {
-    this.addRunSetting(
-      containerEl,
-      "Model",
-      "sparkles",
-      getModelOptions(this.plugin.settings),
-      this.plugin.settings.model,
-      async (value) => {
+    this.addPickerSetting(containerEl, "Model", "sparkles", this.getModelLabel(), () =>
+      new ModelPickerModal(this.plugin.app, this.plugin.settings, async (value) => {
         this.plugin.settings.model = value;
         this.plugin.settings.reasoningEffort = "";
-        if (value === CUSTOM_MODEL_VALUE && !this.plugin.settings.customModel) {
-          new Notice("Set custom model ID in plugin settings.");
-        }
         await this.plugin.saveSettings();
         this.refresh();
-      }
+      }).open()
     );
 
-    this.addRunSetting(
-      containerEl,
-      "Think",
-      "brain",
-      getReasoningOptions(this.plugin.settings),
-      this.plugin.settings.reasoningEffort,
-      async (value) => {
+    this.addPickerSetting(containerEl, "Think", "brain", this.formatDefaultReasoningLabel(), () =>
+      new ThinkingPickerModal(this.plugin.app, this.plugin.settings, async (value) => {
         this.plugin.settings.reasoningEffort = value;
         await this.plugin.saveSettings();
-      }
+        this.refresh();
+      }).open()
     );
 
     this.addRunSetting(
@@ -84,6 +72,19 @@ export class RunSettingsControls {
         await this.plugin.saveSettings();
       }
     );
+  }
+
+  addPickerSetting(containerEl, name, icon, label, onClick) {
+    const buttonEl = containerEl.createEl("button", {
+      cls: "clickable-icon pi-agent-run-setting",
+      attr: { "aria-label": `${name}: ${label}`, title: `${name}: ${label}` }
+    });
+    setIcon(buttonEl, icon);
+    buttonEl.createSpan({ cls: "pi-agent-control-label", text: label });
+    buttonEl.addEventListener("click", (event) => {
+      event.preventDefault();
+      onClick();
+    });
   }
 
   addRunSetting(containerEl, name, icon, options, value, onChange) {
@@ -140,16 +141,25 @@ export class RunSettingsControls {
           : label;
   }
 
+  getModelLabel() {
+    if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) {
+      return this.plugin.settings.customModel.trim() || "Custom";
+    }
+    const model = getSelectedModelInfo(this.plugin.settings);
+    if (model) return model.displayName;
+    const effective = this.plugin.settings.availableModels.find(
+      (candidate) => candidate.slug === this.plugin.settings.effectiveModel
+    );
+    return effective?.displayName || this.formatDefaultModelLabel();
+  }
+
   formatDefaultModelLabel() {
     const model = this.plugin.settings.effectiveModel;
     return model ? model.split("/").pop() || model : "Default";
   }
 
   formatDefaultReasoningLabel() {
-    const reasoning = this.plugin.settings.effectiveReasoning;
-    return reasoning
-      ? this.formatReasoningLabel(reasoning)
-      : this.formatReasoningLabel(getResolvedReasoning(this.plugin.settings));
+    return this.formatReasoningLabel(getResolvedReasoning(this.plugin.settings));
   }
 
   formatReasoningLabel(reasoning) {

@@ -991,3 +991,142 @@ textarea.pi-agent-extension-input {
   gap: 8px;
   justify-content: flex-end;
 }
+
+.pi-agent-picker-modal {
+  display: flex;
+  flex-direction: column;
+  max-height: min(75vh, 720px);
+  min-height: 360px;
+}
+
+.pi-agent-picker-search-label {
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-ui-small);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.pi-agent-picker-search {
+  font-size: var(--font-ui-medium);
+  width: 100%;
+}
+
+.pi-agent-picker-status {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-bottom: 4px;
+}
+
+.pi-agent-picker-empty {
+  color: var(--text-muted);
+  padding: 16px 10px;
+  text-align: center;
+}
+
+.pi-agent-picker-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.pi-agent-picker-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pi-agent-picker-group-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  padding: 12px 10px 4px;
+  text-transform: uppercase;
+}
+
+.pi-agent-picker-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.pi-agent-picker-option:hover,
+.pi-agent-picker-option:focus-visible,
+.pi-agent-picker-option.is-active {
+  background: var(--background-modifier-hover);
+}
+
+.pi-agent-picker-option-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pi-agent-picker-primary {
+  font-weight: var(--font-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-agent-picker-secondary {
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-agent-picker-capabilities {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.pi-agent-picker-capabilities span {
+  background: var(--background-modifier-hover);
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  padding: 2px 6px;
+}
+
+.pi-agent-picker-check {
+  color: var(--interactive-accent);
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.pi-agent-picker-check svg {
+  height: 16px;
+  width: 16px;
+}
+
+.pi-agent-thinking-picker {
+  min-height: 0;
+}
+
+@media (max-width: 600px) {
+  .pi-agent-picker-modal {
+    max-height: 80vh;
+  }
+
+  .pi-agent-picker-capabilities {
+    display: none;
+  }
+}
