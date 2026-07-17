@@ -1,0 +1,29 @@
+scripts/check-version.mjs
+  s_21ef6700c1954f::t_56ffb3bbadf647 16-20
+CHANGELOG.md
+  s_21ef6700c1954f::t_4de42b16ad443a 5,9
+package.json
+  s_21ef6700c1954f::t_b50fe84f3bd05e 3
+versions.json
+  s_21ef6700c1954f::t_a71ea9c4e16357 11
+manifest.json
+  s_21ef6700c1954f::t_48c9eecd0b1903 4
+package-lock.json
+  s_21ef6700c1954f::t_bf41e6f96c4204 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "06fcaaf8ecd35d972c95055c023db5f033ab1839",
+  "prompts": {},
+  "sessions": {
+    "s_21ef6700c1954f": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7109-edbd-75e1-81e2-ca2b3a1a4051",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
