@@ -1,0 +1,40 @@
+tests/context-builder.test.mjs
+  s_a5a5866b4aad9b::t_9d23063acb9348 46-47,65,67-70,72,74-80
+  s_255f3f3f00cef4::t_dd8f33c427b832 2
+src/context/context-builder.mjs
+  s_a5a5866b4aad9b::t_f6b126c88774da 60-67
+src/pi/runner.mjs
+  s_a5a5866b4aad9b::t_db031f49a98ecb 421-422
+  s_255f3f3f00cef4::t_59aa7b5e2b1465 40
+  s_255f3f3f00cef4::t_f78d09e806c320 31
+tests/runner.test.mjs
+  s_a5a5866b4aad9b::t_f0751a3810e71d 61-73,75-76,78-79,81-83,88-89
+  s_255f3f3f00cef4::t_cfcbf0dc191f5e 77,84-87
+  s_255f3f3f00cef4::t_70776a5b48f7b2 74,80
+CHANGELOG.md
+  s_a5a5866b4aad9b::t_a7f55b768a52fb 5-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "4b0a43c3d5c0f0905f33bf6f7b08338104698fb4",
+  "prompts": {},
+  "sessions": {
+    "s_255f3f3f00cef4": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6ff2-a9b1-70ff-9a42-7fd2025f8b43",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_a5a5866b4aad9b": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fef-e67f-7ba4-8290-b85b5635e4f1",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
