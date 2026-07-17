@@ -1,0 +1,21 @@
+main.js
+  s_b3d65b86d2af53::t_4c58275e161130 5025-5027,5045,5047
+  s_b3d65b86d2af53::t_9cfa339a186bd2 5024,5029-5044,5054-5056
+  s_b3d65b86d2af53::t_e589b0cc756b42 2014,2017-2020,2030,5006,5028,5046,5048-5053,5057-5096,5120-5124,5163,5432,5439-5442,7325-7338,7358-7359,7390-7406,7410-7412,7634,7650-7652
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "c7fdde6699262a2b81e578fbaaff580fdd2df025",
+  "prompts": {},
+  "sessions": {
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
