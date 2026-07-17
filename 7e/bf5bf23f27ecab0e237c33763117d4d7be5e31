@@ -1,0 +1,43 @@
+CHANGELOG.md
+  s_f72892f98dcdd3::t_558e08cee71013 5
+PRIVACY.md
+  s_f72892f98dcdd3::t_94ac960c9b5477 16,26
+src/pi/runner.mjs
+  s_f72892f98dcdd3::t_d89285a2da5d16 11,40,63,148,197-204,227-235
+src/plugin/PiAgentPlugin.mjs
+  s_f72892f98dcdd3::t_831f3a5f4fab9a 26-33,120-123,219-227,229-231,486,528,537-580,673-675
+src/ui/PiAgentView.mjs
+  s_f72892f98dcdd3::t_26f141883e362c 20-25,46-49,206,210-211,226-230,254-261,265,286-287,415,418-424,426-427,431-433,439-443,528-587,628-682,684-692,695-717,739,748-749,752-753,755-756,773-779,805,815,876
+src/ui/local-prompt-queue.mjs
+  s_f72892f98dcdd3::t_e028743e139eca 1-83
+src/ui/prompt-payload.mjs
+  s_f72892f98dcdd3::t_45f57ee96e7abc 1-106
+src/ui/prompt-queue.mjs
+  s_f72892f98dcdd3::t_d0b9f1d39e7a62 2-9,11-22,26-45,48-56,59-88,93-101,103-119,122-196
+src/ui/run-activity-state.mjs
+  s_f72892f98dcdd3::t_2a8c2b0e292e5d 129-136
+styles.css
+  s_f72892f98dcdd3::t_03c99816ed2b58 497-500,522-526,533-576
+tests/local-prompt-queue.test.mjs
+  s_f72892f98dcdd3::t_52c55ff59f3238 1-61
+tests/prompt-payload.test.mjs
+  s_f72892f98dcdd3::t_95f41790aaa95c 1-75
+tests/runner.test.mjs
+  s_f72892f98dcdd3::t_1a830493f15b61 163-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "7ebf5bf23f27ecab0e237c33763117d4d7be5e31",
+  "prompts": {},
+  "sessions": {
+    "s_f72892f98dcdd3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7010-17b0-738c-8bf7-476562995acc",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
