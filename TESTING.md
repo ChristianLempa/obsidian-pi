@@ -118,8 +118,12 @@ Use non-sensitive PNG, JPEG, and WebP files.
 
 ## Links, rendering, and accessibility
 
-- [ ] **Pending:** Verify headings, lists, tables, code, blockquotes, emphasis, wikilinks, relative Markdown links, and external HTTPS links.
-- [ ] **Pending:** Click internal links normally and with Ctrl/Cmd; confirm expected leaf behavior and no unsafe external scheme opens.
+> **Native navigation diagnostic:** A File Explorer failure is not evidence of a Pi-rendered-link bug. Reproduce it again with Pi Agent disabled, perform a full Obsidian reload, and retain the Developer Console error/stack plus the exact Notice text before attributing the failure to this plugin.
+
+- [ ] **Pending:** With Pi Agent enabled, test an existing and newly created note from File Explorer, Quick Switcher, a native `[[wikilink]]`, and a Pi message; capture console and Notice evidence for any failure.
+- [ ] **Pending:** Disable Pi Agent, fully reload Obsidian, repeat every failing native File Explorer/Quick Switcher/wiki-link case, and record whether the failure remains.
+- [ ] **Pending:** Verify headings, lists, tables, code, blockquotes, emphasis, aliases, relative links, links with spaces/case differences, heading/block references, and external HTTPS links.
+- [ ] **Pending:** Click internal links normally and with Ctrl/Cmd; confirm expected leaf behavior, one navigation per click, and no unsafe external scheme opens.
 - [ ] **Pending:** Keyboard-test model, thinking, queue/Steer now, activity, image, thread, favorite/archive-all, annotation, and message controls with visible focus and useful labels.
 - [ ] **Pending:** Test narrow/wide sidebars, light/dark themes, retry errors, and empty/loading states.
 

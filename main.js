@@ -1380,12 +1380,12 @@ var ChangeDesc = class _ChangeDesc {
   provides the position of the range in the old document, `posB`
   the new position in the changed document.
   */
-  iterGaps(f6) {
+  iterGaps(f5) {
     for (let i = 0, posA = 0, posB = 0; i < this.sections.length; ) {
       let len = this.sections[i++],
         ins = this.sections[i++];
       if (ins < 0) {
-        f6(posA, posB, len);
+        f5(posA, posB, len);
         posB += len;
       } else {
         posB += ins;
@@ -1405,8 +1405,8 @@ var ChangeDesc = class _ChangeDesc {
   separate for [position mapping](https://codemirror.net/6/docs/ref/#state.ChangeDesc.mapPos)) are
   reported separately.
   */
-  iterChangedRanges(f6, individual = false) {
-    iterChanges(this, f6, individual);
+  iterChangedRanges(f5, individual = false) {
+    iterChanges(this, f5, individual);
   }
   /**
   Get a description of the inverted form of these changes.
@@ -1595,8 +1595,8 @@ var ChangeSet = class _ChangeSet extends ChangeDesc {
   When `individual` is true, adjacent changes are reported
   separately.
   */
-  iterChanges(f6, individual = false) {
-    iterChanges(this, f6, individual);
+  iterChanges(f5, individual = false) {
+    iterChanges(this, f5, individual);
   }
   /**
   Get a [change description](https://codemirror.net/6/docs/ref/#state.ChangeDesc) for this change
@@ -1767,7 +1767,7 @@ function addInsert(values, sections, value) {
     values.push(value);
   }
 }
-function iterChanges(desc, f6, individual) {
+function iterChanges(desc, f5, individual) {
   let inserted = desc.inserted;
   for (let posA = 0, posB = 0, i = 0; i < desc.sections.length; ) {
     let len = desc.sections[i++],
@@ -1787,7 +1787,7 @@ function iterChanges(desc, f6, individual) {
         len = desc.sections[i++];
         ins = desc.sections[i++];
       }
-      f6(posA, endA, posB, endB, text);
+      f5(posA, endA, posB, endB, text);
       posA = endA;
       posB = endB;
     }
@@ -2604,7 +2604,7 @@ var Configuration = class _Configuration {
         dynamicSlots.push((a) => dynamicFacetSlot(a, facet, providers));
       }
     }
-    let dynamic = dynamicSlots.map((f6) => f6(address));
+    let dynamic = dynamicSlots.map((f5) => f5(address));
     return new _Configuration(base2, newCompartments, dynamic, address, staticValues, facets);
   }
 };
@@ -3148,14 +3148,14 @@ var EditorState = class _EditorState {
   spec](https://codemirror.net/6/docs/ref/#state.TransactionSpec), which can be passed to
   [`update`](https://codemirror.net/6/docs/ref/#state.EditorState.update).
   */
-  changeByRange(f6) {
+  changeByRange(f5) {
     let sel = this.selection;
-    let result1 = f6(sel.ranges[0]);
+    let result1 = f5(sel.ranges[0]);
     let changes = this.changes(result1.changes),
       ranges = [result1.range];
     let effects = asArray(result1.effects);
     for (let i = 1; i < sel.ranges.length; i++) {
-      let result = f6(sel.ranges[i]);
+      let result = f5(sel.ranges[i]);
       let newChanges = this.changes(result.changes),
         newMapped = newChanges.map(changes);
       for (let j = 0; j < i; j++) ranges[j] = ranges[j].map(newMapped);
@@ -3465,13 +3465,13 @@ var Chunk = class _Chunk {
       else lo = mid + 1;
     }
   }
-  between(offset, from, to, f6) {
+  between(offset, from, to, f5) {
     for (
       let i = this.findIndex(from, -1e9, true), e = this.findIndex(to, 1e9, false, i);
       i < e;
       i++
     )
-      if (f6(this.from[i] + offset, this.to[i] + offset, this.value[i]) === false) return false;
+      if (f5(this.from[i] + offset, this.to[i] + offset, this.value[i]) === false) return false;
   }
   map(offset, changes) {
     let value = [],
@@ -3635,7 +3635,7 @@ var RangeSet = class _RangeSet {
   be reported in any specific order. When the callback returns
   `false`, iteration stops.
   */
-  between(from, to, f6) {
+  between(from, to, f5) {
     if (this.isEmpty) return;
     for (let i = 0; i < this.chunk.length; i++) {
       let start = this.chunkPos[i],
@@ -3643,11 +3643,11 @@ var RangeSet = class _RangeSet {
       if (
         to >= start &&
         from <= start + chunk.length &&
-        chunk.between(start, from - start, to - start, f6) === false
+        chunk.between(start, from - start, to - start, f5) === false
       )
         return;
     }
-    this.nextLayer.between(from, to, f6);
+    this.nextLayer.between(from, to, f5);
   }
   /**
   Iterate over the ranges in this set, in order, including all
@@ -8303,7 +8303,7 @@ function skipAtomsForSelection(atoms, sel) {
 }
 function skipAtoms(view, oldPos, pos) {
   let newPos = skipAtomicRanges(
-    view.state.facet(atomicRanges).map((f6) => f6(view)),
+    view.state.facet(atomicRanges).map((f5) => f5(view)),
     pos.from,
     oldPos.head > pos.from ? -1 : 1
   );
@@ -8572,7 +8572,7 @@ function applyDOMChange(view, domChange) {
       userEvent = view.inputState.lastSelectionOrigin;
       if (userEvent == "select.pointer")
         newSel = skipAtomsForSelection(
-          view.state.facet(atomicRanges).map((f6) => f6(view)),
+          view.state.facet(atomicRanges).map((f5) => f5(view)),
           newSel
         );
     }
@@ -8624,7 +8624,7 @@ function applyDefaultInsert(view, change, newSel) {
     let side = change.from < sel.from ? -1 : 1,
       pos = side < 0 ? sel.from : sel.to;
     let moved = skipAtomicRanges(
-      startState.facet(atomicRanges).map((f6) => f6(view)),
+      startState.facet(atomicRanges).map((f5) => f5(view)),
       pos,
       side
     );
@@ -8933,13 +8933,13 @@ function computeHandlers(plugins) {
       observers2 = spec && spec.plugin.domEventObservers;
     if (handlers2)
       for (let type in handlers2) {
-        let f6 = handlers2[type];
-        if (f6) record(type).handlers.push(bindHandler(plugin.value, f6));
+        let f5 = handlers2[type];
+        if (f5) record(type).handlers.push(bindHandler(plugin.value, f5));
       }
     if (observers2)
       for (let type in observers2) {
-        let f6 = observers2[type];
-        if (f6) record(type).observers.push(bindHandler(plugin.value, f6));
+        let f5 = observers2[type];
+        if (f5) record(type).observers.push(bindHandler(plugin.value, f5));
       }
   }
   for (let type in handlers) record(type).handlers.push(handlers[type]);
@@ -8971,7 +8971,7 @@ var MouseSelection = class {
     this.scrolling = -1;
     this.lastEvent = startEvent;
     this.scrollParents = scrollableParents(view.contentDOM);
-    this.atoms = view.state.facet(atomicRanges).map((f6) => f6(view));
+    this.atoms = view.state.facet(atomicRanges).map((f5) => f5(view));
     let doc2 = view.contentDOM.ownerDocument;
     doc2.addEventListener("mousemove", (this.move = this.move.bind(this)));
     doc2.addEventListener("mouseup", (this.up = this.up.bind(this)));
@@ -9836,8 +9836,8 @@ var HeightMapBlock = class extends HeightMap {
   lineAt(_value, _type, oracle, top2, offset) {
     return this.blockAt(0, oracle, top2, offset);
   }
-  forEachLine(from, to, oracle, top2, offset, f6) {
-    if (from <= offset + this.length && to >= offset) f6(this.blockAt(0, oracle, top2, offset));
+  forEachLine(from, to, oracle, top2, offset, f5) {
+    if (from <= offset + this.length && to >= offset) f5(this.blockAt(0, oracle, top2, offset));
   }
   updateHeight(oracle, offset = 0, _force = false, measured) {
     if (measured && measured.from <= offset && measured.more)
@@ -9946,7 +9946,7 @@ var HeightMapGap = class _HeightMapGap extends HeightMap {
       0
     );
   }
-  forEachLine(from, to, oracle, top2, offset, f6) {
+  forEachLine(from, to, oracle, top2, offset, f5) {
     from = Math.max(from, offset);
     to = Math.min(to, offset + this.length);
     let { firstLine, perLine, perChar } = this.heightMetrics(oracle, offset);
@@ -9957,7 +9957,7 @@ var HeightMapGap = class _HeightMapGap extends HeightMap {
         lineTop += perLine * linesAbove + perChar * (from - offset - linesAbove);
       }
       let lineHeight = perLine + perChar * line.length;
-      f6(new BlockInfo(line.from, line.length, lineTop, lineHeight, 0));
+      f5(new BlockInfo(line.from, line.length, lineTop, lineHeight, 0));
       lineTop += lineHeight;
       pos = line.to + 1;
     }
@@ -10054,17 +10054,17 @@ var HeightMapBranch = class extends HeightMap {
       return base2.join(this.right.lineAt(rightOffset, subQuery, oracle, rightTop, rightOffset));
     else return this.left.lineAt(rightOffset, subQuery, oracle, top2, offset).join(base2);
   }
-  forEachLine(from, to, oracle, top2, offset, f6) {
+  forEachLine(from, to, oracle, top2, offset, f5) {
     let rightTop = top2 + this.left.height,
       rightOffset = offset + this.left.length + this.break;
     if (this.break) {
-      if (from < rightOffset) this.left.forEachLine(from, to, oracle, top2, offset, f6);
-      if (to >= rightOffset) this.right.forEachLine(from, to, oracle, rightTop, rightOffset, f6);
+      if (from < rightOffset) this.left.forEachLine(from, to, oracle, top2, offset, f5);
+      if (to >= rightOffset) this.right.forEachLine(from, to, oracle, rightTop, rightOffset, f5);
     } else {
       let mid = this.lineAt(rightOffset, QueryType.ByPos, oracle, top2, offset);
-      if (from < mid.from) this.left.forEachLine(from, mid.from - 1, oracle, top2, offset, f6);
-      if (mid.to >= from && mid.from <= to) f6(mid);
-      if (to > mid.to) this.right.forEachLine(mid.to + 1, to, oracle, rightTop, rightOffset, f6);
+      if (from < mid.from) this.left.forEachLine(from, mid.from - 1, oracle, top2, offset, f5);
+      if (mid.to >= from && mid.from <= to) f5(mid);
+      if (to > mid.to) this.right.forEachLine(mid.to + 1, to, oracle, rightTop, rightOffset, f5);
     }
   }
   replace(from, to, nodes) {
@@ -10986,8 +10986,8 @@ function findFraction(structure, pos) {
   }
   return counted / structure.total;
 }
-function find(array, f6) {
-  for (let val of array) if (f6(val)) return val;
+function find(array, f5) {
+  for (let val of array) if (f5(val)) return val;
   return void 0;
 }
 var IdScaler = {
@@ -11575,11 +11575,11 @@ var DOMObserver = class {
       for (let dom of (this.scrollTargets = changed)) dom.addEventListener("scroll", this.onScroll);
     }
   }
-  ignore(f6) {
-    if (!this.active) return f6();
+  ignore(f5) {
+    if (!this.active) return f5();
     try {
       this.stop();
-      return f6();
+      return f5();
     } finally {
       this.start();
       this.clear();
@@ -17490,7 +17490,7 @@ var ExtensionUiModal = class extends import_obsidian9.Modal {
 };
 
 // src/ui/PiAgentView.mjs
-var f5 = __toESM(require("obsidian"), 1);
+var f4 = __toESM(require("obsidian"), 1);
 
 // src/ui/message-actions.mjs
 var import_obsidian10 = require("obsidian");
@@ -18303,123 +18303,92 @@ function formatThreadDate(e) {
 // src/ui/vault-link-actions.mjs
 var vault_link_actions_exports = {};
 __export(vault_link_actions_exports, {
+  classifyVaultLinkTarget: () => classifyVaultLinkTarget,
   formatVaultLinkTarget: () => formatVaultLinkTarget,
   getLinkLabel: () => getLinkLabel,
   getLinkSourcePath: () => getLinkSourcePath,
-  getVaultBasePath: () => getVaultBasePath,
-  normalizeVaultPath: () => normalizeVaultPath,
   openVaultLink: () => openVaultLink,
   openVaultPath: () => openVaultPath,
   parseVaultLinkTarget: () => parseVaultLinkTarget,
-  resolveDirectVaultFile: () => resolveDirectVaultFile,
   revealLine: () => revealLine
 });
-var f3 = __toESM(require("obsidian"), 1);
-async function openVaultLink(e, t = false) {
-  var h, u, g;
-  let n = typeof e == "string" ? this.parseVaultLinkTarget(e) : e;
-  if (!n) {
-    new f3.Notice(`Note not found: ${String(e)}`);
-    return;
+var import_obsidian13 = require("obsidian");
+var EXTERNAL_LINK_PATTERN = /^(?:[a-z][a-z\d+.-]*:|\/\/)/i;
+var LEGACY_LINE_PATTERN = /^(.*):(\d+)$/;
+function classifyVaultLinkTarget(value) {
+  if (typeof value !== "string") return { kind: "invalid" };
+  if (!value.trim()) return { kind: "invalid" };
+  if (EXTERNAL_LINK_PATTERN.test(value.trim())) return { kind: "external", linkText: value };
+  const linkText = value;
+  const lineMatch = linkText.match(LEGACY_LINE_PATTERN);
+  if (lineMatch && Number(lineMatch[2]) > 0) {
+    return {
+      kind: "internal",
+      linkText: lineMatch[1],
+      line: Number(lineMatch[2])
+    };
   }
-  let s = n.path,
-    a = s.replace(/\.md$/i, ""),
-    o = this.getLinkSourcePath(),
-    l =
-      (g =
-        (u = (h = this.resolveDirectVaultFile(s)) != null ? h : this.resolveDirectVaultFile(a)) !=
-        null
-          ? u
-          : this.plugin.app.metadataCache.getFirstLinkpathDest(a, o)) != null
-        ? g
-        : this.plugin.app.metadataCache.getFirstLinkpathDest(s, o);
-  if (!l) {
-    new f3.Notice(`Note not found: ${this.formatVaultLinkTarget(n)}`);
-    return;
+  return { kind: "internal", linkText };
+}
+async function openVaultLink(value, newLeaf = false) {
+  const target =
+    typeof value === "string"
+      ? classifyVaultLinkTarget(value)
+      : value?.path
+        ? { kind: "internal", linkText: value.path, line: value.line }
+        : { kind: "invalid" };
+  if (target.kind !== "internal") {
+    if (target.kind === "invalid") new import_obsidian13.Notice(`Note not found: ${String(value)}`);
+    return false;
   }
-  let d = this.plugin.app.workspace.getLeaf(t);
-  (await d.openFile(l, { active: true }), this.revealLine(d, n.line));
+  try {
+    await this.plugin.app.workspace.openLinkText(
+      target.linkText,
+      this.getLinkSourcePath(),
+      Boolean(newLeaf)
+    );
+    if (target.line) this.revealLine(this.plugin.app.workspace.activeLeaf, target.line);
+    return true;
+  } catch (error) {
+    console.error("Pi Agent: failed to open vault link", error);
+    new import_obsidian13.Notice(`Note not found: ${this.formatVaultLinkTarget(target)}`);
+    return false;
+  }
 }
-function parseVaultLinkTarget(e) {
-  let t = e
-      .trim()
-      .replace(/^obsidian:\/\//, "")
-      .replace(/\|.*$/, "")
-      .replace(/#.*$/, ""),
-    n = t.match(/:(\d+)$/),
-    s = n ? Number.parseInt(n[1], 10) : void 0,
-    a = n ? t.slice(0, -n[0].length) : t,
-    o = this.normalizeVaultPath(a);
-  return o ? { path: o, line: s } : void 0;
+function parseVaultLinkTarget(value) {
+  const target = classifyVaultLinkTarget(value);
+  if (target.kind !== "internal") return void 0;
+  return { path: target.linkText, line: target.line };
 }
-function normalizeVaultPath(e) {
-  let t = e.replace(/\\/g, "/"),
-    n = this.getVaultBasePath();
-  return (n && t.startsWith(`${n}/`) ? t.slice(n.length + 1) : t)
-    .replace(/^\/+/, "")
-    .replace(/\.md$/i, ".md");
+function formatVaultLinkTarget(target) {
+  const linkText = target?.linkText ?? target?.path ?? "";
+  return target?.line ? `${linkText}:${target.line}` : linkText;
 }
-function formatVaultLinkTarget(e) {
-  return e.line ? `${e.path}:${e.line}` : e.path;
-}
-function getLinkLabel(e) {
-  var s, a;
-  let t = this.parseVaultLinkTarget(e),
-    n = (s = t == null ? void 0 : t.path) != null ? s : e;
-  return (a = n.split("/").pop()) != null ? a : n;
+function getLinkLabel(value) {
+  const target = classifyVaultLinkTarget(value);
+  const linkText = target.kind === "internal" ? target.linkText : String(value);
+  return linkText.split("/").pop() ?? linkText;
 }
 function getLinkSourcePath() {
-  var e, t, n, s;
-  return (s =
-    (n = (e = this.plugin.getCurrentContextFile()) == null ? void 0 : e.path) != null
-      ? n
-      : (t = this.plugin.app.workspace.getActiveFile()) == null
-        ? void 0
-        : t.path) != null
-    ? s
-    : "";
+  return (
+    this.plugin.getCurrentContextFile()?.path ??
+    this.plugin.app.workspace.getActiveFile()?.path ??
+    ""
+  );
 }
-function getVaultBasePath() {
-  var t, n;
-  let e = this.plugin.app.vault.adapter;
-  return (n = (t = e.getBasePath) == null ? void 0 : t.call(e)) == null
-    ? void 0
-    : n.replace(/\\/g, "/").replace(/\/+$/, "");
+function revealLine(leaf, line) {
+  if (!leaf || !Number.isInteger(line) || line < 1) return;
+  globalThis.setTimeout(() => {
+    const editor = leaf.view?.editor;
+    if (!editor) return;
+    const position = { line: line - 1, ch: 0 };
+    editor.setCursor?.(position);
+    editor.scrollIntoView?.({ from: position, to: position }, true);
+    editor.focus?.();
+  }, 50);
 }
-function resolveDirectVaultFile(e) {
-  let t = [e, e.endsWith(".md") ? e : `${e}.md`];
-  for (let n of t) {
-    let s = this.plugin.app.vault.getAbstractFileByPath(n);
-    if (s instanceof f3.TFile) return s;
-  }
-}
-function revealLine(e, t) {
-  !t ||
-    t < 1 ||
-    window.setTimeout(() => {
-      var o, l, d;
-      let s = e.view.editor;
-      if (!s) return;
-      let a = { line: t - 1, ch: 0 };
-      ((o = s.setCursor) == null || o.call(s, a),
-        (l = s.scrollIntoView) == null || l.call(s, { from: a, to: a }, true),
-        (d = s.focus) == null || d.call(s));
-    }, 50);
-}
-async function openVaultPath(e, t = "tab") {
-  let n = this.parseVaultLinkTarget(e);
-  if (!n) {
-    new f3.Notice(`Note not found: ${e}`);
-    return;
-  }
-  let s = n.path,
-    a = this.plugin.app.vault.getAbstractFileByPath(s);
-  if (a instanceof f3.TFile) {
-    let o = this.plugin.app.workspace.getLeaf(t);
-    (await o.openFile(a, { active: true }), this.revealLine(o, n.line));
-    return;
-  }
-  await this.openVaultLink(n, t);
+async function openVaultPath(value, newLeaf = "tab") {
+  return this.openVaultLink(value, newLeaf === true || newLeaf === "tab");
 }
 
 // src/ui/message-renderer.mjs
@@ -18437,7 +18406,7 @@ __export(message_renderer_exports, {
   restoreMessagesScroll: () => restoreMessagesScroll,
   unloadMessageRenderComponents: () => unloadMessageRenderComponents
 });
-var f4 = __toESM(require("obsidian"), 1);
+var f3 = __toESM(require("obsidian"), 1);
 function renderMessages() {
   this.syncCurrentRunFlags();
   if (!this.messagesEl) return;
@@ -18475,7 +18444,7 @@ function renderEmptyState() {
   let t = this.messagesEl
     .createDiv({ cls: "pi-agent-empty-state" })
     .createSpan({ cls: "pi-agent-empty-icon" });
-  (0, f4.setIcon)(t, "messages-square");
+  (0, f3.setIcon)(t, "messages-square");
 }
 function renderMessage(e, t) {
   if (!this.messagesEl) return;
@@ -18508,7 +18477,7 @@ function renderThinkingDisclosure(container, thinking, expanded, onToggle) {
   details.toggleAttribute("open", expanded);
   const summary = details.createEl("summary");
   const icon = summary.createSpan({ cls: "pi-agent-thinking-icon" });
-  (0, f4.setIcon)(icon, "brain");
+  (0, f3.setIcon)(icon, "brain");
   summary.createSpan({ text: "Thinking" });
   const text = details.createEl("pre", { cls: "pi-agent-thinking-content", text: thinking });
   details.addEventListener("toggle", () => {
@@ -18528,14 +18497,14 @@ function renderThinkingDisclosure(container, thinking, expanded, onToggle) {
 function renderPlainMessageContent(container, content) {
   container.empty();
   container.addClass("markdown-rendered");
-  const component = new f4.Component();
+  const component = new f3.Component();
   component.load();
   this.messageRenderComponents.push(component);
-  f4.MarkdownRenderer.render(
+  f3.MarkdownRenderer.render(
     this.plugin.app,
     content || "",
     container,
-    this.plugin.getCurrentContextFile()?.path ?? "",
+    this.getLinkSourcePath(),
     component
   ).catch((err) => {
     console.error("Pi Agent: Markdown render error", err);
@@ -18596,7 +18565,7 @@ function renderRoleLabel(e, t, n, s) {
     l = o.createSpan({
       cls: `pi-agent-role-icon pi-agent-role-icon-${t}`
     });
-  if (t === "user") ((0, f4.setIcon)(l, "user"), o.createSpan({ text: "You" }));
+  if (t === "user") ((0, f3.setIcon)(l, "user"), o.createSpan({ text: "You" }));
   else if (
     (this.renderPiIcon(l), o.createSpan({ text: "Agent" }), !n && this.running && this.activityText)
   ) {
@@ -18615,7 +18584,7 @@ function renderRoleLabel(e, t, n, s) {
       cls: "clickable-icon pi-agent-message-actions",
       attr: { "aria-label": "Message actions" }
     });
-    ((0, f4.setIcon)(u, "ellipsis"),
+    ((0, f3.setIcon)(u, "ellipsis"),
       u.addEventListener("click", (g) => {
         var m;
         (g.preventDefault(),
@@ -19020,7 +18989,7 @@ function formatActiveToolStatus() {
 }
 
 // src/ui/run-settings.mjs
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 var RunSettingsControls = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -19056,7 +19025,7 @@ var RunSettingsControls = class {
       cls: "clickable-icon pi-agent-run-setting",
       attr: { "aria-label": `${name}: ${label}`, title: `${name}: ${label}` }
     });
-    (0, import_obsidian13.setIcon)(buttonEl, icon);
+    (0, import_obsidian14.setIcon)(buttonEl, icon);
     buttonEl.createSpan({ cls: "pi-agent-control-label", text: label });
     buttonEl.addEventListener("click", (event) => {
       event.preventDefault();
@@ -19273,7 +19242,7 @@ var ComposerSuggestions = class {
 };
 
 // src/ui/thread-actions.mjs
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 var ThreadActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -19294,9 +19263,9 @@ var ThreadActions = class {
           this.callbacks.renderThreadTitle(),
           this.callbacks.renderMessages(),
           this.callbacks.renderToolBadges?.())
-        : new import_obsidian14.Notice("Nothing to fork yet.");
+        : new import_obsidian15.Notice("Nothing to fork yet.");
     } catch (error) {
-      new import_obsidian14.Notice(error instanceof Error ? error.message : String(error));
+      new import_obsidian15.Notice(error instanceof Error ? error.message : String(error));
     }
   }
 };
@@ -19364,7 +19333,7 @@ function getSendActionState({ running, canceling, hasInput, queuedCount = 0 }) {
 }
 
 // src/ui/PiAgentView.mjs
-var PiAgentView = class extends f5.ItemView {
+var PiAgentView = class extends f4.ItemView {
   constructor(e, t) {
     super(e);
     this.plugin = t;
@@ -19511,10 +19480,10 @@ var PiAgentView = class extends f5.ItemView {
         attr: { "aria-label": "New chat", title: "New chat" }
       });
     ((this.threadFavoriteEl = favoriteButton),
-      (0, f5.setIcon)(favoriteButton, "star"),
+      (0, f4.setIcon)(favoriteButton, "star"),
       this.renderThreadFavorite(),
       favoriteButton.addEventListener("click", () => this.toggleCurrentThreadFavorite()),
-      (0, f5.setIcon)(o, "plus"),
+      (0, f4.setIcon)(o, "plus"),
       o.addEventListener("click", (c) => {
         var p;
         (c.preventDefault(), (p = this.threadMenu) == null || p.startNewChat());
@@ -19523,11 +19492,11 @@ var PiAgentView = class extends f5.ItemView {
       cls: "clickable-icon pi-agent-header-action",
       attr: { "aria-label": "Fork chat", title: "Fork chat" }
     });
-    ((0, f5.setIcon)(l, "split"),
+    ((0, f4.setIcon)(l, "split"),
       l.addEventListener("click", (c) => {
         var p;
         if ((c.preventDefault(), this.isThreadRunning(this.plugin.getCurrentThread().id))) {
-          new f5.Notice("Wait for this chat's agent run to finish before forking it.");
+          new f4.Notice("Wait for this chat's agent run to finish before forking it.");
           return;
         }
         ((p = this.threadMenu) == null || p.forkChat(), this.renderToolBadges());
@@ -19539,7 +19508,7 @@ var PiAgentView = class extends f5.ItemView {
         title: "Manage chat threads"
       }
     });
-    ((0, f5.setIcon)(u, "list"),
+    ((0, f4.setIcon)(u, "list"),
       u.addEventListener("click", (c) => {
         (c.preventDefault(), this.showThreadList());
       }));
@@ -19549,16 +19518,6 @@ var PiAgentView = class extends f5.ItemView {
         let c =
           this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
         this.stickToBottom = c < 40;
-      }),
-      this.messagesEl.addEventListener("click", (event) => {
-        const target = event.target.closest("a.internal-link");
-        if (target) {
-          event.preventDefault();
-          const href = target.getAttribute("data-href") || target.getAttribute("href");
-          if (href) {
-            this.openVaultLink(href, event.metaKey || event.ctrlKey);
-          }
-        }
       }));
     let d = e.createDiv({ cls: "pi-agent-composer" });
     ((this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" })),
@@ -19628,7 +19587,7 @@ var PiAgentView = class extends f5.ItemView {
       cls: "clickable-icon pi-agent-send-button",
       attr: { "aria-label": "Send message", title: "Send message" }
     });
-    ((0, f5.setIcon)(m, "send"),
+    ((0, f4.setIcon)(m, "send"),
       m.createSpan({ cls: "pi-agent-control-label", text: "Send" }),
       (this.sendButtonEl = m),
       m.addEventListener("click", () => this.handleSendButtonClick()),
@@ -19752,7 +19711,7 @@ var PiAgentView = class extends f5.ItemView {
   toggleCurrentThreadFavorite() {
     const thread = this.plugin.getCurrentThread();
     if (!this.plugin.toggleThreadFavorite(thread.id)) {
-      new f5.Notice("Chat thread was not found.");
+      new f4.Notice("Chat thread was not found.");
       return;
     }
     this.renderThreadFavorite();
@@ -19798,7 +19757,7 @@ var PiAgentView = class extends f5.ItemView {
     if (!e && images.length === 0) return;
     if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
     if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
-      new f5.Notice("The selected Pi model does not support image input.");
+      new f4.Notice("The selected Pi model does not support image input.");
       return;
     }
     (this.inputEl && (this.inputEl.value = ""),
@@ -19906,14 +19865,14 @@ var PiAgentView = class extends f5.ItemView {
     (e.toggleClass("is-expanded", n),
       t.setAttr("aria-label", n ? "Collapse run options" : "Expand run options"),
       t.setAttr("title", n ? "Collapse run options" : "Expand run options"),
-      (0, f5.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
+      (0, f4.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
   }
   renderImagePicker(parent) {
     const button = parent.createEl("button", {
       cls: "clickable-icon pi-agent-image-button",
       attr: { "aria-label": "Attach images", title: "Attach PNG, JPEG, or WebP images" }
     });
-    f5.setIcon(button, "image-plus");
+    f4.setIcon(button, "image-plus");
     button.addEventListener("click", () => this.imageInputEl?.click());
   }
   getImageFiles(files) {
@@ -19924,7 +19883,7 @@ var PiAgentView = class extends f5.ItemView {
     if (imageFiles.length === 0) return;
     await this.plugin.ensureModelCatalogLoaded();
     if (!modelSupportsImages(this.plugin.getSelectedModelInfo())) {
-      new f5.Notice("The selected Pi model does not support image input.");
+      new f4.Notice("The selected Pi model does not support image input.");
       return;
     }
     try {
@@ -19933,7 +19892,7 @@ var PiAgentView = class extends f5.ItemView {
       this.renderComposerImages();
       this.setRunningState(this.running);
     } catch (error) {
-      new f5.Notice(error instanceof Error ? error.message : String(error));
+      new f4.Notice(error instanceof Error ? error.message : String(error));
     }
   }
   handleImagePaste(event) {
@@ -19961,7 +19920,7 @@ var PiAgentView = class extends f5.ItemView {
         cls: "clickable-icon",
         attr: { "aria-label": `Remove ${image.fileName || "image"}`, title: "Remove image" }
       });
-      f5.setIcon(remove2, "x");
+      f4.setIcon(remove2, "x");
       remove2.addEventListener("click", () => {
         this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
         this.renderComposerImages();
@@ -20037,7 +19996,7 @@ var PiAgentView = class extends f5.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       }
-      new f5.Notice(error instanceof Error ? error.message : String(error));
+      new f4.Notice(error instanceof Error ? error.message : String(error));
       return;
     }
     e = String(delivery.prompt || "").trim();
@@ -20049,7 +20008,7 @@ var PiAgentView = class extends f5.ItemView {
         );
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
-        new f5.Notice("The queued message became empty and was not sent.");
+        new f4.Notice("The queued message became empty and was not sent.");
       }
       return;
     }
@@ -20062,7 +20021,7 @@ var PiAgentView = class extends f5.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       }
-      new f5.Notice("The selected Pi model does not support image input.");
+      new f4.Notice("The selected Pi model does not support image input.");
       return;
     }
     if (this.isThreadRunning(t)) {
@@ -20204,7 +20163,7 @@ var PiAgentView = class extends f5.ItemView {
         skipQueueDrain = true;
       }
       if (o === "Pi run canceled.") {
-        new f5.Notice("Agent run canceled.");
+        new f4.Notice("Agent run canceled.");
         return;
       }
       (this.plugin.addMessageToThread(t, {
@@ -20216,7 +20175,7 @@ var PiAgentView = class extends f5.ItemView {
       }),
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()),
-        new f5.Notice(o));
+        new f4.Notice(o));
     } finally {
       (this.activeRuns.delete(t),
         this.syncCurrentRunFlags(),
@@ -20260,7 +20219,7 @@ var PiAgentView = class extends f5.ItemView {
   }
   handleVaultFileModify(e) {
     this.syncCurrentRunFlags();
-    if (!(e instanceof f5.TFile) || !this.running || e.extension !== "md") return;
+    if (!(e instanceof f4.TFile) || !this.running || e.extension !== "md") return;
     this.scheduleEditorScrollRestore(e.path);
   }
   scheduleEditorScrollRestore(e) {
@@ -20331,7 +20290,7 @@ var PiAgentView = class extends f5.ItemView {
     });
     if (!this.sendButtonEl) return;
     this.sendButtonEl.empty();
-    (0, f5.setIcon)(this.sendButtonEl, action.icon);
+    (0, f4.setIcon)(this.sendButtonEl, action.icon);
     this.sendButtonEl.createSpan({ cls: "pi-agent-control-label", text: action.label });
     this.sendButtonEl.toggleAttribute("disabled", action.disabled);
     this.sendButtonEl.setAttr("aria-label", action.ariaLabel);
@@ -20343,7 +20302,7 @@ var PiAgentView = class extends f5.ItemView {
       this.sendButtonEl.toggleClass(`is-${state}`, action.state === state);
   }
   renderPiIcon(e) {
-    (0, f5.setIcon)(e, PI_AGENT_ICON_ID);
+    (0, f4.setIcon)(e, PI_AGENT_ICON_ID);
   }
 };
 Object.assign(
@@ -20700,18 +20659,17 @@ Pi CLI tools are controlled by the selected tool mode. They are not an OS-level 
 - Treat every markdown file as user-owned knowledge.
 - When the user says "this", "here", "this note", or "this idea", start from the current note and selected text before using broader search context.
 - Preserve existing headings, links, aliases, tags, and frontmatter unless the user asks to change them.
-- Cite vault references as wikilinks when possible, for example [[Project Alpha]].
+- Prefer Obsidian wikilinks for vault references, for example [[Note Name]] or [[path/to/note|label]].
 - Do not infer facts that are not present in notes. Say when references are weak or missing.
 - If a referenced note, heading, block, or file is not present in the provided context, say it was not found instead of inventing content.
 - Preserve Obsidian callouts, embeds, block IDs, footnotes, comments, and dataview/base-related sections unless the user explicitly asks to change them.
-- Prefer Obsidian wikilinks for vault notes. Use [[Note Name]] or [[path/to/note|label]] instead of raw Markdown links for internal vault references.
 - Use Obsidian-friendly Markdown: clear headings, compact bullets, tables only when useful, and callouts only when they improve the note.
 
 ## Chat responses
 
 - Be concise and action-oriented.
 - Avoid Markdown formatting in chat responses unless the user asks for it or a structured/note-ready response clearly needs it.
-- When mentioning vault notes in chat, wikilinks or vault paths are useful because the plugin makes them clickable.
+- Use wikilinks when mentioning vault notes.
 
 ## Frontmatter
 

@@ -103,7 +103,7 @@ export function renderPlainMessageContent(container, content) {
     this.plugin.app,
     content || "",
     container,
-    this.plugin.getCurrentContextFile()?.path ?? "",
+    this.getLinkSourcePath(),
     component
   ).catch((err) => {
     console.error("Pi Agent: Markdown render error", err);
