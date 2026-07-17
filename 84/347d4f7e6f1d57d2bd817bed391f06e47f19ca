@@ -1,0 +1,66 @@
+src/plugin/settings.mjs
+  s_408b02abe76293::t_4e198b83c4c4dc 116,118
+  s_3e64351d626e5d::t_f60b2be0729447 117
+  s_408b02abe76293::t_61227d7d3bf371 81-82
+  s_408b02abe76293::t_14ff00d4fdb2b0 76,98,115
+  s_408b02abe76293::t_eba790296fe285 78-80,99-101
+  s_3e64351d626e5d::t_569dc197739c32 119-120
+src/ui/model-picker.mjs
+  s_408b02abe76293::t_a1469aa83596f6 1-42
+tests/settings.test.mjs
+  s_408b02abe76293::t_72d946ed961cef 85-92
+  s_408b02abe76293::t_f154cda68ea9ff 47
+  s_408b02abe76293::t_bccb22e14f83ab 48,72
+  s_408b02abe76293::t_a019757b5c7cb2 62-71,73-74
+src/ui/run-settings.mjs
+  s_408b02abe76293::t_957ccee7d1dd51 1,5,9,77-89,144-155,162
+  s_3e64351d626e5d::t_f60b2be0729447 29-30,35,38-39,42-43
+src/plugin/settings-tab.mjs
+  s_408b02abe76293::t_326572a213f23d 245-247
+  s_408b02abe76293::t_d5b8f74e5ca935 6,28-38,58-67,115,117-127,129-131,134-143,227-240
+  s_3e64351d626e5d::t_f60b2be0729447 11
+  s_408b02abe76293::t_28e0a327cc6a33 5,241-244
+  s_408b02abe76293::t_eaaa0512f157e9 116,128,132-133,144-145
+  s_3e64351d626e5d::t_7a43414c4eaa53 146
+src/ui/modals/model-picker-modal.mjs
+  s_408b02abe76293::t_d4c8a523c12977 1-6,13,16-21,23-38,44-51,53-72,87-132,136-142,147-158,166-171,174-181,185-219,222-230,235-240,242,246-249,256,261-269,274-276,283-284,301-310,320-328
+  s_3e64351d626e5d::t_18cdbb2766d390 73-77
+  s_408b02abe76293::t_f26b64114252f7 143-146,159-162,165,172-173,231,243-245,250-255,257-260,271,285-291
+  s_408b02abe76293::t_935fabe71e1da1 232,234
+  s_408b02abe76293::t_9202dc753a6490 182-184,220-221,282
+  s_408b02abe76293::t_7842213ac14489 133-135,163-164,311-319
+  s_3e64351d626e5d::t_f60b2be0729447 233
+  s_3e64351d626e5d::t_aa971f8a53b8cc 14-15,22,39-43,52,78-86,241,270,272-273,277-281,292-300
+  s_408b02abe76293::t_3ab7ffa5fb8f4b 7-12
+styles.css
+  s_3e64351d626e5d::t_e0deb9a797da6e 945-950
+  s_408b02abe76293::t_651d517de6cca1 917-944,951-1055
+CHANGELOG.md
+  s_408b02abe76293::t_cdb09bacbf3f7b 5
+tests/model-picker.test.mjs
+  s_408b02abe76293::t_ab10d0e5b0b10e 1-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "84347d4f7e6f1d57d2bd817bed391f06e47f19ca",
+  "prompts": {},
+  "sessions": {
+    "s_3e64351d626e5d": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7005-2300-7263-a09e-43a74f64998d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_408b02abe76293": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6ffd-346c-7517-be24-5e777376a4c0",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
