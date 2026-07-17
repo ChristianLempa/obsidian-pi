@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 import {
   CUSTOM_MODEL_VALUE,
   getResolvedReasoning,
@@ -18,27 +18,32 @@ export class RunSettingsControls {
 
   refresh() {
     if (!this.row) return;
-
     this.row.empty();
     this.populate(this.row);
   }
 
   populate(containerEl) {
-    this.addPickerSetting(containerEl, "Model", "sparkles", this.getModelLabel(), () =>
-      new ModelPickerModal(this.plugin.app, this.plugin.settings, async (value) => {
+    this.addPickerSetting(containerEl, "Model", "sparkles", this.getModelLabel(), async () => {
+      await this.openPicker(ModelPickerModal, async (value) => {
         this.plugin.settings.model = value;
         this.plugin.settings.reasoningEffort = "";
         await this.plugin.saveSettings();
-        this.refresh();
-      }).open()
-    );
+        this.plugin.refreshOpenModelControls();
+      });
+    });
 
-    this.addPickerSetting(containerEl, "Think", "brain", this.formatDefaultReasoningLabel(), () =>
-      new ThinkingPickerModal(this.plugin.app, this.plugin.settings, async (value) => {
-        this.plugin.settings.reasoningEffort = value;
-        await this.plugin.saveSettings();
-        this.refresh();
-      }).open()
+    this.addPickerSetting(
+      containerEl,
+      "Think",
+      "brain",
+      this.formatDefaultReasoningLabel(),
+      async () => {
+        await this.openPicker(ThinkingPickerModal, async (value) => {
+          this.plugin.settings.reasoningEffort = value;
+          await this.plugin.saveSettings();
+          this.plugin.refreshOpenModelControls();
+        });
+      }
     );
   }
 
@@ -48,11 +53,27 @@ export class RunSettingsControls {
       attr: { "aria-label": `${name}: ${label}`, title: `${name}: ${label}` }
     });
     setIcon(buttonEl, icon);
-    buttonEl.createSpan({ cls: "pi-agent-control-label", text: label });
-    buttonEl.addEventListener("click", (event) => {
+    const labelEl = buttonEl.createSpan({ cls: "pi-agent-control-label", text: label });
+    buttonEl.addEventListener("click", async (event) => {
       event.preventDefault();
-      onClick();
+      buttonEl.disabled = true;
+      labelEl.setText("Loading…");
+      try {
+        await onClick();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (buttonEl.isConnected) {
+          buttonEl.disabled = false;
+          labelEl.setText(label);
+        }
+      }
     });
+  }
+
+  async openPicker(Picker, onChoose) {
+    await this.plugin.ensureRuntimeModelState();
+    new Picker(this.plugin.app, this.plugin.settings, onChoose).open();
   }
 
   getModelLabel() {
@@ -64,23 +85,25 @@ export class RunSettingsControls {
     const effective = this.plugin.settings.availableModels.find(
       (candidate) => candidate.slug === this.plugin.settings.effectiveModel
     );
-    return effective?.displayName || this.formatDefaultModelLabel();
-  }
-
-  formatDefaultModelLabel() {
-    const model = this.plugin.settings.effectiveModel;
-    return model ? model.split("/").pop() || model : "Default";
+    return effective
+      ? `Pi default — ${effective.displayName}`
+      : this.plugin.settings.effectiveModel
+        ? `Pi default — ${this.plugin.settings.effectiveModel}`
+        : "Loading Pi default…";
   }
 
   formatDefaultReasoningLabel() {
-    return this.formatReasoningLabel(getResolvedReasoning(this.plugin.settings));
+    const reasoning = getResolvedReasoning(this.plugin.settings);
+    return this.plugin.settings.reasoningEffort
+      ? this.formatReasoningLabel(reasoning)
+      : this.plugin.settings.model === CUSTOM_MODEL_VALUE
+        ? "Pi/model default"
+        : reasoning === "pi-default"
+          ? "Loading Pi default…"
+          : `Pi default — ${this.formatReasoningLabel(reasoning)}`;
   }
 
   formatReasoningLabel(reasoning) {
-    return reasoning === "pi-default" || reasoning === "cli-default"
-      ? "Pi default"
-      : reasoning === "xhigh"
-        ? "XHigh"
-        : reasoning.charAt(0).toUpperCase() + reasoning.slice(1);
+    return reasoning === "xhigh" ? "XHigh" : reasoning.charAt(0).toUpperCase() + reasoning.slice(1);
   }
 }

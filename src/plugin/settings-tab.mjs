@@ -1,4 +1,4 @@
-import { PluginSettingTab, Setting } from "obsidian";
+import { Notice, PluginSettingTab, Setting } from "obsidian";
 import {
   CUSTOM_MODEL_VALUE,
   getReasoningOptions,
@@ -29,13 +29,24 @@ export class PiAgentSettingTab extends PluginSettingTab {
         button
           .setButtonText(this.getModelButtonLabel())
           .setTooltip("Choose model")
-          .onClick(() => {
-            new ModelPickerModal(this.app, this.plugin.settings, async (value) => {
-              this.plugin.settings.model = value;
-              this.plugin.settings.reasoningEffort = "";
-              await this.plugin.saveSettings();
-              this.display();
-            }).open();
+          .onClick(async () => {
+            const label = this.getModelButtonLabel();
+            button.setButtonText("Loading…");
+            button.setDisabled(true);
+            try {
+              await this.plugin.ensureRuntimeModelState();
+              new ModelPickerModal(this.app, this.plugin.settings, async (value) => {
+                this.plugin.settings.model = value;
+                this.plugin.settings.reasoningEffort = "";
+                await this.plugin.saveSettings();
+                this.plugin.refreshOpenModelControls();
+              }).open();
+            } catch (error) {
+              new Notice(error instanceof Error ? error.message : String(error));
+            } finally {
+              button.setButtonText(label);
+              button.setDisabled(false);
+            }
           })
       )
       .addButton((button) =>
@@ -45,7 +56,11 @@ export class PiAgentSettingTab extends PluginSettingTab {
           .onClick(async () => {
             button.setButtonText("Refreshing...");
             button.setDisabled(true);
-            await this.plugin.refreshModelCatalog(true);
+            try {
+              await this.plugin.refreshModelCatalog(true);
+            } catch (error) {
+              new Notice(error instanceof Error ? error.message : String(error));
+            }
             this.display();
           })
       );
@@ -59,12 +74,23 @@ export class PiAgentSettingTab extends PluginSettingTab {
         button
           .setButtonText(this.getReasoningButtonLabel())
           .setTooltip("Choose thinking level")
-          .onClick(() => {
-            new ThinkingPickerModal(this.app, this.plugin.settings, async (value) => {
-              this.plugin.settings.reasoningEffort = value;
-              await this.plugin.saveSettings();
-              this.display();
-            }).open();
+          .onClick(async () => {
+            const label = this.getReasoningButtonLabel();
+            button.setButtonText("Loading…");
+            button.setDisabled(true);
+            try {
+              await this.plugin.ensureRuntimeModelState();
+              new ThinkingPickerModal(this.app, this.plugin.settings, async (value) => {
+                this.plugin.settings.reasoningEffort = value;
+                await this.plugin.saveSettings();
+                this.plugin.refreshOpenModelControls();
+              }).open();
+            } catch (error) {
+              new Notice(error instanceof Error ? error.message : String(error));
+            } finally {
+              button.setButtonText(label);
+              button.setDisabled(false);
+            }
           })
       );
 
@@ -140,7 +166,7 @@ export class PiAgentSettingTab extends PluginSettingTab {
             this.plugin.settings.model = CUSTOM_MODEL_VALUE;
             this.plugin.settings.reasoningEffort = "";
             await this.plugin.saveSettings();
-            this.display();
+            this.plugin.refreshOpenModelControls();
           });
       });
 
@@ -233,16 +259,21 @@ export class PiAgentSettingTab extends PluginSettingTab {
     const effective = this.plugin.settings.availableModels.find(
       (model) => model.slug === this.plugin.settings.effectiveModel
     );
-    return effective?.displayName || this.plugin.settings.effectiveModel || "Pi default";
+    return effective
+      ? `Pi default — ${effective.displayName}`
+      : this.plugin.settings.effectiveModel
+        ? `Pi default — ${this.plugin.settings.effectiveModel}`
+        : "Loading Pi default…";
   }
 
   getReasoningButtonLabel() {
     const value = this.getReasoningDropdownValue();
     if (value) return this.getReasoningOptions()[value] || value;
+    if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) return "Pi/model default";
     const resolved = getResolvedReasoning(this.plugin.settings);
     return resolved === "pi-default"
-      ? "Pi/model default"
-      : `Default — ${
+      ? "Loading Pi default…"
+      : `Pi default — ${
           resolved === "xhigh" ? "XHigh" : resolved.charAt(0).toUpperCase() + resolved.slice(1)
         }`;
   }

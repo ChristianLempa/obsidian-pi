@@ -33,6 +33,12 @@ import {
   updateLocalPrompt
 } from "../ui/local-prompt-queue.mjs";
 import { applyPromptEnricher } from "../ui/prompt-payload.mjs";
+import {
+  createRuntimeCatalogSnapshot,
+  hasSafeRuntimeCatalog,
+  needsRuntimeCatalogRefresh,
+  RuntimeCatalogRefreshGate
+} from "../ui/model-picker.mjs";
 
 var be = `# Pi Agent
 
@@ -123,6 +129,10 @@ export class PiAgentPlugin extends P.Plugin {
     this.localPromptSteering = [];
     this.localPromptQueuePaused = false;
     this.promptEnricher = undefined;
+    this.modelCatalogRefreshGate = new RuntimeCatalogRefreshGate();
+    this.modelCatalogRefreshedAt = 0;
+    this.modelCatalogGeneration = 0;
+    this.modelCatalogError = "";
   }
   async onload() {
     await this.loadSettings();
@@ -142,7 +152,7 @@ export class PiAgentPlugin extends P.Plugin {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
 
-    this.refreshModelCatalog(false);
+    this.refreshModelCatalog(false).catch(() => {});
     this.refreshCommandCatalog(false);
     this.refreshCurrentContextFile();
 
@@ -237,7 +247,8 @@ export class PiAgentPlugin extends P.Plugin {
           );
         })
     });
-    this.addSettingTab(new PiAgentSettingTab(this.app, this));
+    this.settingsTab = new PiAgentSettingTab(this.app, this);
+    this.addSettingTab(this.settingsTab);
   }
   onunload() {
     this.annotationController?.destroy();
@@ -268,15 +279,17 @@ export class PiAgentPlugin extends P.Plugin {
         this.saveAnnotations();
         this.annotationController?.refresh();
       })));
-    ((this.settings.effectiveModel = ""),
-      (this.settings.effectiveReasoning = ""),
-      this.syncCurrentThreadState(),
+    (this.syncCurrentThreadState(),
       this.settings.model &&
         isLegacyBareModelId(this.settings.model) &&
         ((this.settings.customModel = `openai/${this.settings.model}`),
         (this.settings.model = "__custom")));
   }
   async saveSettings() {
+    // Invalidate before the first await so an older catalog request cannot win
+    // the race against settings persistence or a service restart.
+    this.modelCatalogGeneration += 1;
+    this.modelCatalogRefreshedAt = 0;
     await this.savePluginData();
     if (this.hasActivePiRuns()) this.pendingServiceRebuild = true;
     else {
@@ -311,37 +324,85 @@ export class PiAgentPlugin extends P.Plugin {
     showSuccess ? new P.Notice(e.message) : new PiSetupModal(this, e).open();
     return e;
   }
-  async refreshModelCatalog(e) {
-    var t;
-    this.catalog || this.rebuildServices();
-    try {
-      let n = await ((t = this.catalog) == null
-          ? void 0
-          : t.getAvailableModels(this.getVaultBasePath())),
-        s = this.catalog ? this.catalog.getEffectiveConfig() : {};
-      if (!n || n.length === 0) {
-        e && new P.Notice("Pi returned no models.");
-        return;
-      }
-      ((this.settings.availableModels = n),
-        this.settings.model === "__custom" &&
-          this.settings.customModel &&
-          n.some((model) => model.slug === this.settings.customModel) &&
-          (this.settings.model = this.settings.customModel),
-        this.settings.model &&
-          !n.some((model) => model.slug === this.settings.model) &&
-          ((this.settings.model = ""), (this.settings.reasoningEffort = "")),
-        (this.settings.effectiveModel = s.effectiveModel || ""),
-        (this.settings.effectiveReasoning = s.effectiveReasoning || ""),
-        await this.saveSettings(),
-        e &&
-          new P.Notice(
-            `Loaded ${n.length} Pi models${this.settings.effectiveModel ? `; default ${this.settings.effectiveModel}` : ""}.`
-          ));
-    } catch (n) {
-      let s = n instanceof Error ? n.message : String(n);
-      (e && new P.Notice(s), console.warn("Pi Agent: failed to refresh model catalog", n));
+  async refreshModelCatalog(showNotice = false, force = true) {
+    if (!force && !needsRuntimeCatalogRefresh(this.settings, this.modelCatalogRefreshedAt)) {
+      return { ok: true, stale: false };
     }
+    const result = await this.modelCatalogRefreshGate.run(() => this.performModelCatalogRefresh());
+    if (showNotice) {
+      new P.Notice(
+        result.ok
+          ? `Loaded ${this.settings.availableModels.length} Pi models; default ${this.settings.effectiveModel}.`
+          : this.modelCatalogError
+      );
+    }
+    return result;
+  }
+  async performModelCatalogRefresh() {
+    try {
+      while (true) {
+        const generation = this.modelCatalogGeneration;
+        const catalog = this.catalog;
+        if (!catalog) throw new Error("Pi model service is not ready.");
+
+        let models;
+        let effectiveConfig;
+        try {
+          models = await catalog.getAvailableModels(this.getVaultBasePath());
+          effectiveConfig = catalog.getEffectiveConfig();
+        } catch (error) {
+          if (generation !== this.modelCatalogGeneration) continue;
+          throw error;
+        }
+        if (generation !== this.modelCatalogGeneration) continue;
+
+        const snapshot = createRuntimeCatalogSnapshot(models, effectiveConfig);
+        this.settings.availableModels = snapshot.availableModels;
+        this.settings.effectiveModel = snapshot.effectiveModel;
+        this.settings.effectiveReasoning = snapshot.effectiveReasoning;
+        if (
+          this.settings.model === "__custom" &&
+          this.settings.customModel &&
+          models.some((model) => model.slug === this.settings.customModel)
+        ) {
+          this.settings.model = this.settings.customModel;
+        }
+        if (
+          this.settings.model &&
+          this.settings.model !== "__custom" &&
+          !models.some((model) => model.slug === this.settings.model)
+        ) {
+          this.settings.model = "";
+          this.settings.reasoningEffort = "";
+        }
+
+        this.modelCatalogRefreshedAt = Date.now();
+        this.modelCatalogError = "";
+        await this.savePluginData();
+        if (generation !== this.modelCatalogGeneration) continue;
+
+        this.refreshOpenModelControls();
+        return { ok: true, stale: false };
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.modelCatalogError = `Could not refresh models from Pi. Check the Pi executable and configuration, then try again. ${detail}`;
+      console.warn("Pi Agent: failed to refresh model catalog", error);
+      this.refreshOpenModelControls();
+      if (hasSafeRuntimeCatalog(this.settings)) return { ok: false, stale: true };
+      throw new Error(this.modelCatalogError, { cause: error });
+    }
+  }
+  async ensureRuntimeModelState() {
+    const result = await this.refreshModelCatalog(false, false);
+    if (!result.ok && this.modelCatalogError) new P.Notice(this.modelCatalogError);
+    return result;
+  }
+  refreshOpenModelControls() {
+    for (const leaf of this.app.workspace.getLeavesOfType(T)) {
+      leaf.view?.runSettings?.refresh?.();
+    }
+    this.settingsTab?.display?.();
   }
   async refreshCommandCatalog(showNotice = false) {
     this.commandCatalog || this.rebuildServices();
@@ -756,6 +817,8 @@ export class PiAgentPlugin extends P.Plugin {
     this.threadRunners.clear();
   }
   rebuildServices() {
+    this.modelCatalogGeneration += 1;
+    this.modelCatalogRefreshedAt = 0;
     this.disposeThreadRunners();
     this.piCommands = [];
     this.commandCatalogLoaded = false;
@@ -817,7 +880,6 @@ export class PiAgentPlugin extends P.Plugin {
   savePluginData() {
     let e = {
       ...this.settings,
-      availableModels: [],
       chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON()),
       localPromptQueue: this.localPromptQueue,
       localPromptSteering: this.localPromptSteering,
