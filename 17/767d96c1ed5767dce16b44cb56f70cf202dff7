@@ -1,0 +1,77 @@
+tests/context-builder.test.mjs
+  s_f72892f98dcdd3::t_f3e4dfbad3fe3b 40-59,80,85-150,185
+  s_f72892f98dcdd3::t_0cee50f06f4bde 2,39
+src/plugin/PiAgentPlugin.mjs
+  s_f72892f98dcdd3::t_860ca7422e267d 171,176,604,616-618,661-666
+  s_976c319d9608ac::t_31f175e06cd61d 3-4,115,139-140,160-170,172-175,188-195,244,257,267-271,769-770,787-804,813-817,824-825
+src/ui/PiAgentView.mjs
+  s_f72892f98dcdd3::t_6e69248c674e42 820-821
+src/ui/prompt-queue.mjs
+  s_f72892f98dcdd3::t_952ed9d7d45816 77-80
+CHANGELOG.md
+  s_f72892f98dcdd3::t_74061f3ec522e6 5,16
+PRIVACY.md
+  s_f72892f98dcdd3::t_d95908335f7335 17-18,24,31-34
+README.md
+  s_f72892f98dcdd3::t_8a6c5a3b4f1b86 43-47
+TESTING.md
+  s_f72892f98dcdd3::t_4f89dd186c36c9 1-18
+scripts/build.mjs
+  s_f72892f98dcdd3::t_7254fea0a7be19 27,33-38
+src/annotations/annotation-anchors.mjs
+  s_f72892f98dcdd3::t_ca607090613993 1-67
+src/annotations/annotation-modal.mjs
+  s_f72892f98dcdd3::t_fb868006b521b2 1-144
+src/annotations/annotation-model.mjs
+  s_f72892f98dcdd3::t_922637a1638531 1-208
+src/annotations/annotation-store.mjs
+  s_f72892f98dcdd3::t_6fa023ce5a9437 1-189
+src/annotations/markdown-annotation-extension.mjs
+  s_f72892f98dcdd3::t_4a3897594e8900 1-114
+src/annotations/markdown-annotations-controller.mjs
+  s_f72892f98dcdd3::t_b62961a30d602c 1-669
+src/annotations/markdown-block-range.mjs
+  s_f72892f98dcdd3::t_33a06070137482 1-45
+src/annotations/reading-mode-capture.mjs
+  s_f72892f98dcdd3::t_30218101d4e46a 1-79
+src/context/context-builder.mjs
+  s_f72892f98dcdd3::t_422b90d9b2b96d 1,7-14,20,58,60,64-76,116-119,135-173,276-282
+styles.css
+  s_f72892f98dcdd3::t_2f5ef15425b74e 1184-1421
+tests/annotation-anchors.test.mjs
+  s_f72892f98dcdd3::t_3e761a0bc3f6a9 1-63
+tests/annotation-model.test.mjs
+  s_f72892f98dcdd3::t_e3d8dbd2797a49 1-63
+tests/annotation-store.test.mjs
+  s_f72892f98dcdd3::t_afaee7e36e6261 1-104
+tests/markdown-annotations-controller.test.mjs
+  s_f72892f98dcdd3::t_c7584fc56c06b3 1-208
+tests/markdown-block-range.test.mjs
+  s_f72892f98dcdd3::t_e5d2bf6e3f446c 1-37
+tests/reading-mode-capture.test.mjs
+  s_f72892f98dcdd3::t_2d595b1bb2c321 1-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "17767d96c1ed5767dce16b44cb56f70cf202dff7",
+  "prompts": {},
+  "sessions": {
+    "s_976c319d9608ac": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f700a-da0f-7c20-abe4-e5f020a25afb",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_f72892f98dcdd3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7010-17b0-738c-8bf7-476562995acc",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
