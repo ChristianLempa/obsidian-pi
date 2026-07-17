@@ -1,0 +1,117 @@
+src/context/slash-commands.mjs
+  s_680b1fe767ee2b::t_09c864d3b1bc41 48-51
+tests/skills.test.mjs
+  s_680b1fe767ee2b::t_3a52a759bf7265 2,9-11,13,16-21,24-28
+src/ui/modals/extension-ui-modal.mjs
+  s_eff391ea451066::t_0799eb6e490393 16-21
+  s_680b1fe767ee2b::t_36767cc600713e 44-47,52-55
+  s_680b1fe767ee2b::t_77d22058686966 1-15,22-32,34-43,48-51,56-74,76-82
+  s_eff391ea451066::t_6754b21c2411d5 75
+  s_680b1fe767ee2b::t_57faff2f2a2e35 33
+src/pi/command-catalog.mjs
+  s_680b1fe767ee2b::t_0503555368c928 1-39,43-65,68,70-73
+  s_eff391ea451066::t_352f76c612f0ec 66-67,69
+  s_eff391ea451066::t_6754b21c2411d5 40-42
+src/pi/extension-ui.mjs
+  s_eff391ea451066::t_2e43c88e8bd7ba 33
+  s_680b1fe767ee2b::t_478dc20f7276f8 1-26,49-52,58-62
+  s_680b1fe767ee2b::t_bf51bfb026f0d4 63-66
+  s_eff391ea451066::t_b69ee8ad6a8937 27-32,34-48,53-57
+src/pi/runner.mjs
+  s_680b1fe767ee2b::t_7b639c0d71183e 35,115-116,468,471
+  s_680b1fe767ee2b::t_316d1e6cf7513a 22-29
+src/ui/PiAgentView.mjs
+  s_680b1fe767ee2b::t_49fed702756f6d 50,76,199,234-235,258-259,275-295
+tests/rpc-client.test.mjs
+  s_680b1fe767ee2b::t_f7976946b04c36 46-74
+CHANGELOG.md
+  s_680b1fe767ee2b::t_dd1eeb217a6c18 5
+src/context/context-builder.mjs
+  s_680b1fe767ee2b::t_c0b3665894181f 6,11,15,19-20,32,66-68,106-109
+  s_680b1fe767ee2b::t_304a5627f65a61 317-323
+  s_680b1fe767ee2b::t_f8161b29c5f627 72,209
+  s_eff391ea451066::t_27ab4843eda749 324-325
+tests/suggestions.test.mjs
+  s_680b1fe767ee2b::t_b9126bff50c453 23-31,76-77
+  s_dc93e0ab64026b::t_cc0e9cdf0c9ba9 78
+src/context/skills.mjs
+  s_680b1fe767ee2b::t_c2d31fc5266d7b 8-11,19-29
+src/pi/rpc-client.mjs
+  s_680b1fe767ee2b::t_07c2c1d93c05a8 179-183,187-189,192-204
+  s_680b1fe767ee2b::t_114322d62e169e 5,190-191
+  s_dc93e0ab64026b::t_7fd1bbc6b439ab 205-206
+tests/prompt-references.test.mjs
+  s_680b1fe767ee2b::t_9d347cb4628eb1 5
+tests/extension-ui.test.mjs
+  s_680b1fe767ee2b::t_2cd0d6afa81c4e 1-18,38,43-45
+  s_eff391ea451066::t_dcacb1bfd25a56 19-33
+  s_eff391ea451066::t_5322053c334308 34-37,39-42
+tests/runner.test.mjs
+  s_680b1fe767ee2b::t_67a62deb6550aa 47,53-54
+  s_687d842cde5b86::t_5ce93dc53814a2 55
+README.md
+  s_680b1fe767ee2b::t_6eacc01a6732f8 57
+  s_680b1fe767ee2b::t_09d79a2f086813 55
+tests/context-builder.test.mjs
+  s_680b1fe767ee2b::t_ef29e3ae63a2ad 78-84
+  s_680b1fe767ee2b::t_79f9489ff00010 2-6,68-77,85-94
+  s_687d842cde5b86::t_0c385ec366a0ff 95-96
+src/plugin/PiAgentPlugin.mjs
+  s_680b1fe767ee2b::t_c207e6b1059d19 40
+  s_680b1fe767ee2b::t_74929b95bbf251 108,292,471-473
+  s_680b1fe767ee2b::t_faa4fad1f8fb7e 404-409
+  s_680b1fe767ee2b::t_ae0f18edab05a4 8-9,21,107,109-111,122,130,224-227,236,288-291,293-303,397-403,410-449,556-558,569-570,576-577,580-584,589,591
+  s_eff391ea451066::t_c041f4ef7fe898 450,474-475,590
+styles.css
+  s_680b1fe767ee2b::t_c908afdcff9629 912-935
+tests/command-catalog.test.mjs
+  s_eff391ea451066::t_6754b21c2411d5 3
+  s_eff391ea451066::t_5eaa997767ef6d 9-19,24-30
+  s_680b1fe767ee2b::t_1673adc5c353c5 1-2,4-8,20-23,31-52
+src/ui/suggestions.mjs
+  s_680b1fe767ee2b::t_3161571c7f6b1c 153
+src/ui/run-activity-state.mjs
+  s_680b1fe767ee2b::t_152bf0bad4e4ca 173-180
+PRIVACY.md
+  s_680b1fe767ee2b::t_34843a17bb6903 13-14,29,36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bd7d280c0e88cd6e543fc6022e8c3ee137ed8dfa",
+  "prompts": {},
+  "sessions": {
+    "s_680b1fe767ee2b": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6ffd-4026-7c36-b05d-d34c849ecc71",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_687d842cde5b86": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6ffd-343d-7918-b580-f488ec2361f3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_dc93e0ab64026b": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7004-08aa-78f5-9c15-ab523f797160",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_eff391ea451066": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7008-de8e-7670-9cd7-afd6b946c482",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
