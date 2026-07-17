@@ -554,7 +554,43 @@
 }
 
 .pi-agent-composer-image {
+  align-items: center;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  display: flex;
+  gap: 6px;
+  max-width: 260px;
+  padding: 4px;
   position: relative;
+}
+
+.pi-agent-composer-file {
+  min-height: 52px;
+}
+
+.pi-agent-attachment-icon {
+  color: var(--text-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.pi-agent-attachment-metadata,
+.pi-agent-queue-attachment span:last-child {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-agent-queue-attachment {
+  align-items: center;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  display: flex;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px;
 }
 
 .pi-agent-composer-image button {
