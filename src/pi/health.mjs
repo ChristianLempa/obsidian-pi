@@ -4,7 +4,7 @@ import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
 
 // Keep these explicit: compatibility changes require a deliberate test pass and changelog entry.
 export const MINIMUM_PI_VERSION = "0.80.0";
-export const TESTED_PI_VERSION = "0.80.6";
+export const TESTED_PI_VERSION = "0.80.7";
 
 export function warmupPiCli(piExecutablePath = "", cwd) {
   try {

@@ -16,7 +16,7 @@ import { spawnSync } from "node:child_process";
 
 describe("Pi compatibility helpers", () => {
   it("extracts and compares semantic Pi versions", () => {
-    expect(extractVersion("pi 0.80.6")).toBe(TESTED_PI_VERSION);
+    expect(extractVersion("pi 0.80.7")).toBe(TESTED_PI_VERSION);
     expect(extractVersion("pi 0.80.0-beta.2+build.4")).toBe("0.80.0-beta.2+build.4");
     expect(compareVersions(TESTED_PI_VERSION, MINIMUM_PI_VERSION)).toBe(1);
     expect(compareVersions("0.80.0+build.4", MINIMUM_PI_VERSION)).toBe(0);

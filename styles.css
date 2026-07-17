@@ -160,6 +160,31 @@
   width: 15px;
 }
 
+.pi-agent-provider-icon {
+  align-items: center;
+  color: currentColor;
+  display: inline-flex;
+  flex: 0 0 16px;
+  height: 16px;
+  justify-content: center;
+  width: 16px;
+}
+
+.pi-agent-provider-icon svg {
+  fill: currentColor;
+  height: 15px;
+  width: 15px;
+}
+
+.pi-agent-provider-icon.is-monogram {
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 7px;
+  font-weight: var(--font-bold);
+  letter-spacing: -0.3px;
+  line-height: 1;
+}
+
 .pi-agent-run-setting-speed-fast,
 .pi-agent-run-setting-speed-default,
 .pi-agent-run-setting-mode-read {
@@ -1124,6 +1149,17 @@ textarea.pi-agent-extension-input {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.pi-agent-model-suggestion {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pi-agent-model-suggestion-copy {
+  min-width: 0;
 }
 
 .pi-agent-suggestion-title {

@@ -31,7 +31,7 @@ Then open `ObsidianTesting`, reload or disable/re-enable Pi Agent, and keep the 
 
 ## Pi setup and compatibility
 
-- [ ] **Pending:** Run **Pi Agent: Check Pi installation** and confirm Pi is at least 0.80.0 (last tested: 0.80.6).
+- [ ] **Pending:** Run **Pi Agent: Check Pi installation** and confirm Pi is at least 0.80.0 (last tested: 0.80.7).
 - [ ] **Pending:** Point **Pi executable path** at a missing executable and an older/fake version; confirm actionable missing, runtime, and upgrade diagnostics, then restore it.
 - [ ] **Pending:** Confirm required unsupported RPC commands fail with a capability/upgrade diagnostic and optional capability probes use only their declared fallback.
 - [ ] **Pending:** Refresh settings and confirm no unhandled console errors.
@@ -39,8 +39,8 @@ Then open `ObsidianTesting`, reload or disable/re-enable Pi Agent, and keep the 
 ## Models and thinking
 
 - [ ] **Pending:** Open the model picker; search by friendly name, provider, and raw model ID.
-- [ ] **Pending:** Confirm Pi's configured default, authenticated provider models, and custom `models.json` entries resolve correctly.
-- [ ] **Pending:** Switch models and confirm only supported thinking levels appear, including `xhigh`/`max` where supported, and the model default is restored on switch.
+- [ ] **Pending:** Confirm Pi's configured model, authenticated provider models, and custom `models.json` entries resolve correctly. Compact model/thinking controls must show only the effective friendly model and thinking names, without a visible `Default` prefix.
+- [ ] **Pending:** Confirm recognized OpenAI, Anthropic/Claude, xAI/Grok, Google/Gemini, Mistral, OpenRouter, DeepSeek, Ollama, Meta, Groq, Cohere, Azure, and Bedrock providers receive distinct brand icons/marks in the control and picker; custom providers use the neutral fallback. Switch models and confirm only supported thinking levels appear, including `xhigh`/`max`, and the runtime-configured level is restored on switch.
 - [ ] **Pending:** Send a short prompt and confirm response metadata identifies the selected provider/model and thinking state.
 
 ## Persistent RPC, cancellation, retry, and compaction
@@ -68,7 +68,7 @@ Use disposable files only.
 
 ## Native file attachments
 
-- [ ] **Pending:** Confirm the paperclip is labeled **Attach files** and its native Obsidian menu offers a fuzzy vault-file picker and a local-file picker.
+- [ ] **Pending:** Confirm the attachment action renders only the paperclip symbol while retaining the accessible **Attach files** label/tooltip, and its native Obsidian menu offers a fuzzy vault-file picker and a local-file picker.
 - [ ] **Pending:** Attach PNG/JPEG/WebP files and verify thumbnails and Pi RPC image delivery; verify other images and generic binaries are rejected rather than described as RPC binary support.
 - [ ] **Pending:** Attach supported UTF-8 text/code/config files from both sources; verify name, type, size, source, and truncation state, 64 KiB per-file and 192 KiB total limits, and rejection of NUL/binary, invalid UTF-8, PDF, office, and archive files.
 - [ ] **Pending:** Inspect the delivered prompt and confirm file text is clearly delimited as untrusted data while the visible user message stays concise.
@@ -151,4 +151,4 @@ Use non-sensitive PNG, JPEG, and WebP files.
 - [ ] **Pending:** `npm run ci` passes from a clean install.
 - [ ] **Pending:** The complete manual checklist above passes in `ObsidianTesting`.
 - [ ] **Pending:** Open issues are updated with actual validation results but remain open until explicitly accepted.
-- [ ] **Pending:** Version files and release artifacts remain unchanged until a separate release-preparation task.
+- [x] Release candidate version files are aligned at `0.0.9`; no tag or GitHub release is created until final confirmation.

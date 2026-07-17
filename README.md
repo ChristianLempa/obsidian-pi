@@ -6,7 +6,7 @@ Chat with Pi in Obsidian using context from your current note, links, backlinks,
 
 ## Requirements
 
-Pi Agent is desktop-only and requires Pi coding agent **0.80.0 or newer** to be installed separately (last compatibility test: **0.80.6**). The upstream package is [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), from [`earendil-works/pi-mono`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent):
+Pi Agent is desktop-only and requires Pi coding agent **0.80.0 or newer** to be installed separately (last compatibility test: **0.80.7**). The upstream package is [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), from [`earendil-works/pi-mono`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent):
 
 ```bash
 npm install -g @earendil-works/pi-coding-agent

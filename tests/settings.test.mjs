@@ -30,7 +30,7 @@ describe("plugin settings helpers", () => {
         effectiveModel: "provider/model"
       })
     ).toEqual({
-      "": "Pi default — provider: model",
+      "": "provider: model",
       "provider/model": "provider: model — provider/model · thinking · images · 200K context"
     });
   });
@@ -43,7 +43,7 @@ describe("plugin settings helpers", () => {
         availableModels: [model]
       })
     ).toEqual({
-      "": "Use Pi/model default — Medium",
+      "": "Medium",
       low: "Low",
       medium: "Medium",
       high: "High",
@@ -54,7 +54,7 @@ describe("plugin settings helpers", () => {
         ...DEFAULT_SETTINGS,
         effectiveReasoning: "high"
       })
-    ).toEqual({ "": "Use Pi/model default — High" });
+    ).toEqual({ "": "High" });
   });
 
   it("does not offer another model's thinking levels for an unknown custom slug", () => {
@@ -67,7 +67,7 @@ describe("plugin settings helpers", () => {
         effectiveReasoning: "high",
         availableModels: [model]
       })
-    ).toEqual({ "": "Use Pi/model default" });
+    ).toEqual({ "": "High" });
   });
 
   it("resolves reasoning defaults", () => {

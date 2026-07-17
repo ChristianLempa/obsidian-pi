@@ -1,7 +1,6 @@
 export const CUSTOM_MODEL_VALUE = "__custom";
 
 const REASONING_LABELS = {
-  "": "Pi default",
   off: "Off",
   minimal: "Minimal - may be unavailable with tools",
   low: "Low",
@@ -67,7 +66,7 @@ export function getModelOptions(settings) {
   const models = settings.availableModels;
   const effectiveModel = getEffectiveModelInfo(settings);
   const effective = effectiveModel?.displayName || settings.effectiveModel;
-  const options = effective ? { "": `Pi default — ${effective}` } : {};
+  const options = effective ? { "": effective } : {};
 
   for (const model of models) options[model.slug] = formatModelOptionLabel(model);
   return options;
@@ -77,15 +76,15 @@ export function getReasoningOptions(settings) {
   const model = getReasoningModelInfo(settings);
   const supportedReasoningLevels = model?.supportedReasoningLevels ?? [];
   const resolvedDefault = settings.model
-    ? model?.defaultReasoningLevel
+    ? model?.defaultReasoningLevel || settings.effectiveReasoning
     : settings.effectiveReasoning || model?.defaultReasoningLevel;
   const effective = resolvedDefault
-    ? ` — ${REASONING_LABELS[resolvedDefault] ?? resolvedDefault}`
-    : "";
+    ? (REASONING_LABELS[resolvedDefault] ?? resolvedDefault)
+    : "Automatic";
 
-  if (supportedReasoningLevels.length === 0) return { "": `Use Pi/model default${effective}` };
+  if (supportedReasoningLevels.length === 0) return { "": effective };
 
-  const options = { "": `Use Pi/model default${effective}` };
+  const options = { "": effective };
   for (const reasoningLevel of supportedReasoningLevels) {
     options[reasoningLevel] = REASONING_LABELS[reasoningLevel] ?? reasoningLevel;
   }
@@ -98,7 +97,7 @@ export function getResolvedReasoning(settings) {
 
   const model = getReasoningModelInfo(settings);
   return settings.model
-    ? model?.defaultReasoningLevel || "pi-default"
+    ? model?.defaultReasoningLevel || settings.effectiveReasoning || "pi-default"
     : settings.effectiveReasoning || model?.defaultReasoningLevel || "pi-default";
 }
 

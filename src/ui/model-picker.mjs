@@ -70,8 +70,7 @@ export function buildModelPickerItems(settings) {
 }
 
 export function getModelPickerPrimary(item) {
-  const friendlyName = item.model.displayName || item.model.id || item.model.slug;
-  return item.isDefault ? `Pi default — ${friendlyName}` : friendlyName;
+  return item.model.displayName || item.model.id || item.model.slug;
 }
 
 export function getModelPickerSecondary(item) {

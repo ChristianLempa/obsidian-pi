@@ -585,7 +585,6 @@ export class PiAgentView extends f.ItemView {
       attr: { "aria-label": "Attach files", title: "Attach files" }
     });
     f.setIcon(button, "paperclip");
-    button.createSpan({ cls: "pi-agent-control-label", text: "Attach files" });
     button.addEventListener("click", (event) => this.showAttachmentMenu(event));
   }
   showAttachmentMenu(event) {
