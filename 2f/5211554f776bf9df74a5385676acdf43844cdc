@@ -1,0 +1,32 @@
+tests/annotation-processing.test.mjs
+  s_b3d65b86d2af53::t_fb21ed46e98298 30-32
+tests/markdown-annotations-controller.test.mjs
+  s_b3d65b86d2af53::t_ef1c8202a020fd 126-177
+  s_b3d65b86d2af53::t_00620e2cc8b997 409-435
+src/annotations/markdown-annotations-controller.mjs
+  s_b3d65b86d2af53::t_e545b5a3aca708 48,336-359,693,699-709
+  s_b3d65b86d2af53::t_66cdab770eb60c 414-425,430,452
+  s_b3d65b86d2af53::t_2174de85d5dec2 710
+src/annotations/markdown-annotation-extension.mjs
+  s_b3d65b86d2af53::t_38b85321a5039e 45-49,52-55,71-72,124-126
+CHANGELOG.md
+  s_b3d65b86d2af53::t_47e83b03601a26 6
+TESTING.md
+  s_b3d65b86d2af53::t_0936731883d5f6 131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "2f5211554f776bf9df74a5385676acdf43844cdc",
+  "prompts": {},
+  "sessions": {
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
