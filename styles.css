@@ -1201,7 +1201,6 @@ textarea.pi-agent-extension-input {
 }
 
 .pi-agent-annotation-processing-range,
-.cm-line.pi-agent-annotation-processing-line,
 .pi-agent-annotation-processing-rendered {
   animation: pi-agent-annotation-processing-flow 1.2s linear infinite;
   background-color: var(--background-modifier-border);
@@ -1222,14 +1221,21 @@ textarea.pi-agent-extension-input {
 }
 
 .pi-agent-annotation-processing-range,
-.cm-line.pi-agent-annotation-processing-line,
-.cm-line.pi-agent-annotation-processing-line *,
+.pi-agent-annotation-processing-range *,
 .pi-agent-annotation-processing-rendered,
 .pi-agent-annotation-processing-rendered * {
   -webkit-text-fill-color: transparent !important;
   caret-color: transparent !important;
   color: transparent !important;
+  text-decoration: none !important;
   text-decoration-color: transparent !important;
+}
+
+.pi-agent-annotation-processing-range::spelling-error,
+.pi-agent-annotation-processing-range *::spelling-error,
+.pi-agent-annotation-processing-rendered::spelling-error,
+.pi-agent-annotation-processing-rendered *::spelling-error {
+  text-decoration: none !important;
 }
 
 .pi-agent-annotation-processing-range {
@@ -1404,7 +1410,6 @@ textarea.pi-agent-extension-input {
   }
 
   .pi-agent-annotation-processing-range,
-  .cm-line.pi-agent-annotation-processing-line,
   .pi-agent-annotation-processing-rendered {
     animation: none;
     background-image: none;
