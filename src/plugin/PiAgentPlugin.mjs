@@ -857,8 +857,10 @@ export class PiAgentPlugin extends P.Plugin {
     if (!file) return [];
     const annotations = await this.getAnnotationsForContext(file.path);
     if (annotations.length > 0) {
-      this.beginAnnotationProcessing(processingToken, annotations, threadId);
+      // Remove persisted highlights before adding processing masks so the two
+      // visual states are never briefly nested over the same source range.
       this.annotationStore.deletePath(file.path);
+      this.beginAnnotationProcessing(processingToken, annotations, threadId);
     }
     return annotations;
   }

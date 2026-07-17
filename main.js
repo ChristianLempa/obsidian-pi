@@ -681,26 +681,36 @@ function resolveSectionRange(source, sectionInfo) {
   return range;
 }
 function mapRenderedChunksToSource(source, sectionInfo, chunks) {
+  return mapRenderedChunkCandidatesToSource(source, sectionInfo, chunks)[0] ?? [];
+}
+function mapRenderedChunkCandidatesToSource(source, sectionInfo, chunks) {
   const text = String(source ?? "");
   const section = resolveSectionRange(text, sectionInfo);
-  if (!section) return [];
+  const renderedChunks = (Array.isArray(chunks) ? chunks : [])
+    .map((chunk) => ({ key: chunk?.key, text: String(chunk?.text ?? "") }))
+    .filter((chunk) => chunk.text);
+  if (!section || renderedChunks.length === 0) return [];
   const sectionSource = text.slice(section.from, section.to);
-  let cursor = 0;
-  const mappings = [];
-  for (const chunk of Array.isArray(chunks) ? chunks : []) {
-    const rendered = String(chunk?.text ?? "");
-    if (!rendered) continue;
-    const index = sectionSource.indexOf(rendered, cursor);
-    if (index < 0) continue;
-    mappings.push({
-      key: chunk.key,
-      text: rendered,
-      from: section.from + index,
-      to: section.from + index + rendered.length
-    });
-    cursor = index + rendered.length;
+  const candidates = [];
+  let firstIndex = sectionSource.indexOf(renderedChunks[0].text);
+  while (firstIndex >= 0 && candidates.length < 128) {
+    let cursor = firstIndex;
+    const mappings = [];
+    for (const chunk of renderedChunks) {
+      const index = sectionSource.indexOf(chunk.text, cursor);
+      if (index < 0) break;
+      mappings.push({
+        key: chunk.key,
+        text: chunk.text,
+        from: section.from + index,
+        to: section.from + index + chunk.text.length
+      });
+      cursor = index + chunk.text.length;
+    }
+    if (mappings.length === renderedChunks.length) candidates.push(mappings);
+    firstIndex = sectionSource.indexOf(renderedChunks[0].text, firstIndex + 1);
   }
-  return mappings;
+  return candidates;
 }
 function renderedPointToSourceOffset(mappings, key, offset) {
   const mapping = (Array.isArray(mappings) ? mappings : []).find((item) => item.key === key);
@@ -783,8 +793,17 @@ function createMarkdownAnnotationExtension(controller) {
           if (controller.isPicking(view)) controller.hoverPickTarget(view, void 0);
           return false;
         },
+        mouseup(_event, view) {
+          if (!controller.isPicking(view) || view.state.selection.main.empty) return false;
+          globalThis.queueMicrotask?.(() => controller.chooseEditorSelection(view));
+          return false;
+        },
         click(event, view) {
           if (!controller.isPicking(view)) return false;
+          if (controller.chooseEditorSelection(view)) {
+            event.preventDefault();
+            return true;
+          }
           const line = event.target?.closest?.(".cm-line") ?? null;
           if (!line) return false;
           event.preventDefault();
@@ -800,7 +819,8 @@ function createMarkdownAnnotationExtension(controller) {
           }
           if (event.key !== "Enter") return false;
           event.preventDefault();
-          controller.choosePickTarget(view, view.state.selection.main.head);
+          if (!controller.chooseEditorSelection(view))
+            controller.choosePickTarget(view, view.state.selection.main.head);
           return true;
         }
       }
@@ -818,25 +838,12 @@ function buildDecorations(view, controller) {
     const from = Math.min(documentLength, annotation.range.from);
     const to = Math.min(documentLength, annotation.range.to);
     if (to <= from) continue;
-    if (annotation.targetKind === "block") {
-      const startLine = view.state.doc.lineAt(from).number;
-      const endLine = view.state.doc.lineAt(Math.max(from, to - 1)).number;
-      for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
-        ranges.push(
-          import_view.Decoration.line({
-            class: `pi-agent-annotation-block pi-agent-annotation-${annotation.intent}`,
-            attributes: { "data-annotation-id": annotation.id }
-          }).range(view.state.doc.line(lineNumber).from)
-        );
-      }
-    } else {
-      ranges.push(
-        import_view.Decoration.mark({
-          class: `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`,
-          attributes: { "data-annotation-id": annotation.id }
-        }).range(from, to)
-      );
-    }
+    ranges.push(
+      import_view.Decoration.mark({
+        class: `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`,
+        attributes: { "data-annotation-id": annotation.id }
+      }).range(from, to)
+    );
   }
   for (const annotation of controller.processingAnnotationsForEditor(view)) {
     const from = Math.min(documentLength, annotation.range.from);
@@ -860,7 +867,7 @@ function buildDecorations(view, controller) {
       }).range(from, to)
     );
   }
-  const candidate = controller.pickRangeForEditor(view);
+  const candidate = view.state.selection.main.empty ? controller.pickRangeForEditor(view) : void 0;
   if (candidate && candidate.to > candidate.from) {
     const startLine = view.state.doc.lineAt(Math.min(documentLength, candidate.from)).number;
     const endOffset = Math.min(documentLength, Math.max(candidate.from, candidate.to - 1));
@@ -901,6 +908,7 @@ var MarkdownAnnotationsController = class {
     this.revealRanges = /* @__PURE__ */ new Map();
     this.revealTimers = /* @__PURE__ */ new Map();
     this.revealVersions = /* @__PURE__ */ new Map();
+    this.selectionPicks = /* @__PURE__ */ new WeakMap();
     this.destroyed = false;
   }
   start() {
@@ -1005,9 +1013,26 @@ var MarkdownAnnotationsController = class {
       }
     });
     view.containerEl.addClass("pi-agent-annotations-host");
-    this.leaves.set(leaf, { leaf, view, actionEl, listEl, path: view.file?.path });
+    const state = {
+      leaf,
+      view,
+      actionEl,
+      listEl,
+      path: view.file?.path,
+      cachedRenderedSelection: void 0,
+      captureSelection: void 0
+    };
+    state.captureSelection = () => {
+      if (!this.isReadingState(state)) return;
+      const selection = this.renderedSelectionForState(state);
+      state.cachedRenderedSelection = selection?.invalid ? void 0 : selection;
+    };
+    actionEl.addEventListener("pointerdown", state.captureSelection, { capture: true });
+    this.leaves.set(leaf, state);
   }
   removeLeaf(state) {
+    if (state.captureSelection)
+      state.actionEl.removeEventListener("pointerdown", state.captureSelection, { capture: true });
     state.actionEl.remove();
     state.listEl.remove();
     state.view.containerEl.removeClass("pi-agent-annotations-host");
@@ -1034,8 +1059,12 @@ var MarkdownAnnotationsController = class {
       return;
     }
     if (this.isReadingState(state)) {
-      const selection = this.renderedSelectionForState(state);
-      if (selection?.invalid) return;
+      const currentSelection = this.renderedSelectionForState(state);
+      const selection = currentSelection?.invalid
+        ? state.cachedRenderedSelection
+        : (currentSelection ?? state.cachedRenderedSelection);
+      state.cachedRenderedSelection = void 0;
+      if (currentSelection?.invalid && !selection) return;
       if (selection) {
         if (!this.activateRenderedPick(state)) return;
         await this.captureRenderedSelection(selection);
@@ -1115,6 +1144,7 @@ var MarkdownAnnotationsController = class {
     return true;
   }
   cancelPick() {
+    for (const leafState of this.leaves.values()) leafState.cachedRenderedSelection = void 0;
     const pick = this.pickState;
     if (!pick) return;
     const state = this.leaves.get(pick.leaf);
@@ -1125,9 +1155,12 @@ var MarkdownAnnotationsController = class {
       if (pick.editorAriaLabel == null) pick.editorView.dom.removeAttribute("aria-label");
       else pick.editorView.dom.setAttribute("aria-label", pick.editorAriaLabel);
       requestAnnotationRefresh(pick.editorView);
+      const cursor = state?.view.editor?.getCursor?.("to");
+      if (cursor) state.view.editor.setCursor?.(cursor);
     } else if (state) {
       state.view.containerEl.removeClass("pi-agent-annotation-reading-pick-mode");
       for (const record of this.recordsForState(state)) this.disableRenderedTarget(record);
+      state.view.containerEl.ownerDocument?.getSelection?.()?.removeAllRanges?.();
     }
     this.pickState = void 0;
   }
@@ -1146,6 +1179,29 @@ var MarkdownAnnotationsController = class {
     if (!this.isPicking(view)) return void 0;
     const offset = this.pickState.hoverOffset ?? view.state.selection.main.head;
     return resolveMarkdownBlockRange(view.state.doc.toString(), offset);
+  }
+  chooseEditorSelection(view) {
+    if (!this.isPicking(view)) return false;
+    const selection = view.state.selection.main;
+    if (selection.empty || selection.to <= selection.from) return false;
+    const state = this.stateForEditor(view);
+    const path4 = state?.view.file?.path;
+    if (!path4) return false;
+    const signature = `${selection.from}:${selection.to}`;
+    const previous = this.selectionPicks.get(view);
+    const now = Date.now();
+    if (previous?.signature === signature && now - previous.at < 100) return true;
+    if (selection.to - selection.from > ANNOTATION_LIMITS.quote) {
+      new import_obsidian2.Notice("The selected Markdown text is too large to annotate.");
+      return true;
+    }
+    this.selectionPicks.set(view, { signature, at: now });
+    this.openCreateModal(
+      path4,
+      captureAnchor(view.state.doc.toString(), selection.from, selection.to),
+      "selection"
+    );
+    return true;
   }
   choosePickTarget(view, offset) {
     if (!this.isPicking(view)) return;
@@ -1199,10 +1255,23 @@ var MarkdownAnnotationsController = class {
     }
   }
   addRenderedListeners(record) {
+    const onMouseUp = (event) => {
+      if (this.pickState?.kind !== "rendered" || this.pickState.state !== record.state) return;
+      const selection = this.renderedSelectionForState(record.state);
+      if (!selection || selection.invalid) return;
+      event.stopPropagation();
+      record.state.renderedSelectionPending = true;
+      void this.captureRenderedSelection(selection).finally(() => {
+        globalThis.setTimeout?.(() => {
+          record.state.renderedSelectionPending = false;
+        }, 100);
+      });
+    };
     const onClick = (event) => {
       if (this.pickState?.kind !== "rendered" || this.pickState.state !== record.state) return;
       event.preventDefault();
       event.stopPropagation();
+      if (record.state.renderedSelectionPending) return;
       const selection = this.renderedSelectionForState(record.state);
       if (selection?.invalid) return;
       if (selection) void this.captureRenderedSelection(selection);
@@ -1224,6 +1293,7 @@ var MarkdownAnnotationsController = class {
       void this.captureRendered(record, "");
     };
     for (const [type, listener] of [
+      ["mouseup", onMouseUp],
       ["click", onClick],
       ["focus", onFocus],
       ["keydown", onKeyDown]
@@ -1288,8 +1358,9 @@ var MarkdownAnnotationsController = class {
     const selection =
       state.view.containerEl.ownerDocument?.getSelection?.() ?? globalThis.getSelection?.();
     if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return void 0;
-    const range = selection.getRangeAt?.(0);
-    if (!range) return { invalid: true };
+    const liveRange = selection.getRangeAt?.(0);
+    if (!liveRange) return { invalid: true };
+    const range = liveRange.cloneRange?.() ?? liveRange;
     const startRecord = this.closestRenderedRecord(elementFromNode(range.startContainer), state);
     const endRecord = this.closestRenderedRecord(elementFromNode(range.endContainer), state);
     if (!startRecord || !endRecord) {
@@ -1348,21 +1419,29 @@ var MarkdownAnnotationsController = class {
         range.endOffset,
         "end"
       );
-      const startMappings = mapRenderedChunksToSource(
+      const startCandidates = mapRenderedChunkCandidatesToSource(
         source,
         startRecord.getSectionInfo(),
         renderedTextNodeChunks(startRecord.element)
       );
-      const endMappings =
+      const endCandidates =
         startRecord === endRecord
-          ? startMappings
-          : mapRenderedChunksToSource(
+          ? startCandidates
+          : mapRenderedChunkCandidatesToSource(
               source,
               endRecord.getSectionInfo(),
               renderedTextNodeChunks(endRecord.element)
             );
-      const from = renderedPointToSourceOffset(startMappings, startPoint?.node, startPoint?.offset);
-      const to = renderedPointToSourceOffset(endMappings, endPoint?.node, endPoint?.offset);
+      const resolved = chooseRenderedSelectionRange(
+        startCandidates,
+        endCandidates,
+        startPoint,
+        endPoint,
+        text.length,
+        startRecord === endRecord
+      );
+      const from = resolved?.from;
+      const to = resolved?.to;
       if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from) {
         new import_obsidian2.Notice(
           "Could not map that rendered selection to exact source characters."
@@ -1448,9 +1527,21 @@ var MarkdownAnnotationsController = class {
           status: "attached",
           ...anchor
         });
+        this.clearNativeSelection(path4);
         this.refresh();
       }
     }).open();
+  }
+  clearNativeSelection(path4) {
+    for (const state of this.leaves.values()) {
+      if (state.view.file?.path !== path4) continue;
+      if (this.isReadingState(state)) {
+        state.view.containerEl.ownerDocument?.getSelection?.()?.removeAllRanges?.();
+        continue;
+      }
+      const cursor = state.view.editor?.getCursor?.("to");
+      if (cursor) state.view.editor.setCursor?.(cursor);
+    }
   }
   openEditModal(state, annotation) {
     new AnnotationModal(this.plugin.app, {
@@ -1470,9 +1561,14 @@ var MarkdownAnnotationsController = class {
     if (annotations.length === 0) return;
     const heading = state.listEl.createDiv({ cls: "pi-agent-annotations-list-heading" });
     heading.createSpan({ text: `Annotations (${annotations.length})` });
-    this.iconButton(heading, "send", "Send annotations to Pi", () => {
-      void this.plugin.runAnnotationsPrompt(path4);
+    const sendButton = heading.createEl("button", {
+      cls: "mod-cta pi-agent-annotations-send",
+      attr: { "aria-label": "Send annotations to Pi", type: "button" }
     });
+    const sendIcon = sendButton.createSpan({ cls: "pi-agent-annotations-send-icon" });
+    (0, import_obsidian2.setIcon)(sendIcon, "send");
+    sendButton.createSpan({ text: "Send to Pi" });
+    sendButton.addEventListener("click", () => void this.plugin.runAnnotationsPrompt(path4));
     for (const annotation of annotations) {
       const row = state.listEl.createDiv({
         cls: `pi-agent-annotation-item${annotation.status === "detached" ? " is-detached" : ""}`
@@ -1595,6 +1691,8 @@ var MarkdownAnnotationsController = class {
       this.endProcessing(key);
       return;
     }
+    for (const path4 of new Set(items.map((annotation) => annotation.path)))
+      this.clearRevealForPath(path4);
     this.processingBatches.set(key, {
       threadId: String(threadId || ""),
       annotations: items.map((annotation) => structuredCloneSafe2(annotation))
@@ -1733,6 +1831,37 @@ function renderedPointForBoundary(root, container, offset, bias) {
   if (bias === "end" && offset <= 0) return { node: nodes[0], offset: 0 };
   const node = bias === "start" ? nodes[0] : nodes.at(-1);
   return { node, offset: bias === "start" ? 0 : (node.nodeValue?.length ?? 0) };
+}
+function chooseRenderedSelectionRange(
+  startCandidates,
+  endCandidates,
+  startPoint,
+  endPoint,
+  renderedLength,
+  sameRecord
+) {
+  if (!startPoint || !endPoint) return void 0;
+  const pairs = sameRecord
+    ? startCandidates.map((candidate) => [candidate, candidate])
+    : startCandidates.flatMap((start) => endCandidates.map((end) => [start, end]));
+  const ranges = /* @__PURE__ */ new Map();
+  for (const [startMappings, endMappings] of pairs) {
+    const from = renderedPointToSourceOffset(startMappings, startPoint.node, startPoint.offset);
+    const to = renderedPointToSourceOffset(endMappings, endPoint.node, endPoint.offset);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from) continue;
+    const key = `${from}:${to}`;
+    ranges.set(key, {
+      from,
+      to,
+      score: Math.abs(to - from - Math.max(0, Number(renderedLength) || 0))
+    });
+  }
+  const ranked = [...ranges.values()].sort(
+    (left, right) => left.score - right.score || left.from - right.from || left.to - right.to
+  );
+  if (ranked.length === 0) return void 0;
+  if (ranked[1]?.score === ranked[0].score) return void 0;
+  return ranked[0];
 }
 function renderExactRenderedRanges(element, source, sectionInfo, annotations, options) {
   if (!element?.ownerDocument?.createDocumentFragment) return;
@@ -9812,8 +9941,8 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!file) return [];
     const annotations = await this.getAnnotationsForContext(file.path);
     if (annotations.length > 0) {
-      this.beginAnnotationProcessing(processingToken, annotations, threadId);
       this.annotationStore.deletePath(file.path);
+      this.beginAnnotationProcessing(processingToken, annotations, threadId);
     }
     return annotations;
   }

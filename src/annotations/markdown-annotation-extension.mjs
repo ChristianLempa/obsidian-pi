@@ -42,8 +42,17 @@ export function createMarkdownAnnotationExtension(controller) {
           if (controller.isPicking(view)) controller.hoverPickTarget(view, undefined);
           return false;
         },
+        mouseup(_event, view) {
+          if (!controller.isPicking(view) || view.state.selection.main.empty) return false;
+          globalThis.queueMicrotask?.(() => controller.chooseEditorSelection(view));
+          return false;
+        },
         click(event, view) {
           if (!controller.isPicking(view)) return false;
+          if (controller.chooseEditorSelection(view)) {
+            event.preventDefault();
+            return true;
+          }
           const line = event.target?.closest?.(".cm-line") ?? null;
           if (!line) return false;
           event.preventDefault();
@@ -59,7 +68,8 @@ export function createMarkdownAnnotationExtension(controller) {
           }
           if (event.key !== "Enter") return false;
           event.preventDefault();
-          controller.choosePickTarget(view, view.state.selection.main.head);
+          if (!controller.chooseEditorSelection(view))
+            controller.choosePickTarget(view, view.state.selection.main.head);
           return true;
         }
       }
@@ -79,25 +89,12 @@ function buildDecorations(view, controller) {
     const from = Math.min(documentLength, annotation.range.from);
     const to = Math.min(documentLength, annotation.range.to);
     if (to <= from) continue;
-    if (annotation.targetKind === "block") {
-      const startLine = view.state.doc.lineAt(from).number;
-      const endLine = view.state.doc.lineAt(Math.max(from, to - 1)).number;
-      for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
-        ranges.push(
-          Decoration.line({
-            class: `pi-agent-annotation-block pi-agent-annotation-${annotation.intent}`,
-            attributes: { "data-annotation-id": annotation.id }
-          }).range(view.state.doc.line(lineNumber).from)
-        );
-      }
-    } else {
-      ranges.push(
-        Decoration.mark({
-          class: `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`,
-          attributes: { "data-annotation-id": annotation.id }
-        }).range(from, to)
-      );
-    }
+    ranges.push(
+      Decoration.mark({
+        class: `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`,
+        attributes: { "data-annotation-id": annotation.id }
+      }).range(from, to)
+    );
   }
 
   for (const annotation of controller.processingAnnotationsForEditor(view)) {
@@ -124,7 +121,9 @@ function buildDecorations(view, controller) {
     );
   }
 
-  const candidate = controller.pickRangeForEditor(view);
+  const candidate = view.state.selection.main.empty
+    ? controller.pickRangeForEditor(view)
+    : undefined;
   if (candidate && candidate.to > candidate.from) {
     const startLine = view.state.doc.lineAt(Math.min(documentLength, candidate.from)).number;
     const endOffset = Math.min(documentLength, Math.max(candidate.from, candidate.to - 1));
