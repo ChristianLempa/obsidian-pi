@@ -178,7 +178,10 @@ describe("MarkdownAnnotationsController", () => {
     controller.refresh();
 
     expect(controller.renderedRecords.size).toBe(0);
-    expect(element.classList.remove).toHaveBeenCalledWith("pi-agent-annotation-rendered-block");
+    expect(element.classList.remove).toHaveBeenCalledWith(
+      "pi-agent-annotation-rendered-block",
+      "pi-agent-annotation-processing-rendered"
+    );
   });
 
   it("handles rendered keyboard picks only in their owning split", () => {
@@ -201,6 +204,55 @@ describe("MarkdownAnnotationsController", () => {
     listeners.keydown(event);
     expect(controller.captureRendered).toHaveBeenCalledWith(record, "");
     expect(event.stopPropagation).toHaveBeenCalled();
+  });
+
+  it("tracks transient processing ranges and releases them by file or thread", () => {
+    const controller = new MarkdownAnnotationsController({});
+    controller.refresh = vi.fn();
+    const attached = {
+      id: "one",
+      path: "Note.md",
+      status: "attached",
+      range: { from: 2, to: 8 }
+    };
+    const detached = {
+      id: "detached",
+      path: "Note.md",
+      status: "detached",
+      range: { from: 10, to: 15 }
+    };
+
+    controller.beginProcessing("batch-one", [attached, detached], "thread-one");
+    expect(controller.processingForPath("Note.md")).toEqual([attached]);
+    expect(controller.processingForPath("Note.md")[0]).not.toBe(attached);
+
+    controller.beginProcessing(
+      "batch-two",
+      [{ ...attached, id: "two", path: "Other.md" }],
+      "thread-two"
+    );
+    expect(controller.endProcessingForPath("Note.md")).toBe(true);
+    expect(controller.processingForPath("Note.md")).toEqual([]);
+    expect(controller.processingForPath("Other.md")).toHaveLength(1);
+    expect(controller.endProcessingForThread("thread-two")).toBe(true);
+    expect(controller.processingBatches.size).toBe(0);
+  });
+
+  it("releases a processing mask as soon as its Markdown file changes", () => {
+    const controller = new MarkdownAnnotationsController({});
+    controller.refresh = vi.fn();
+    controller.reanchorModifiedFile = vi.fn();
+    controller.beginProcessing(
+      "batch",
+      [{ path: "Note.md", status: "attached", range: { from: 0, to: 4 } }],
+      "thread"
+    );
+
+    const file = { path: "Note.md", extension: "md" };
+    controller.handleMarkdownFileModified(file);
+
+    expect(controller.processingForPath("Note.md")).toEqual([]);
+    expect(controller.reanchorModifiedFile).toHaveBeenCalledWith(file);
   });
 
   it("ignores an in-flight modify after unload", async () => {

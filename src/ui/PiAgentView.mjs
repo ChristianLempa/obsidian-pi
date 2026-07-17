@@ -524,6 +524,7 @@ export class PiAgentView extends f.ItemView {
       this.clearPendingActivityTimer(),
       this.activeToolCalls.clear(),
       (this.currentRunContextUsage = void 0),
+      this.runningThreadId && this.plugin.endAnnotationProcessingForThread(this.runningThreadId),
       (this.runningThreadId = void 0),
       (this.activeEditorScrollSnapshot = void 0),
       this.plugin.cancelPiRun(),
@@ -808,17 +809,21 @@ export class PiAgentView extends f.ItemView {
     images = [],
     queuedId,
     attachments = [],
-    annotations
+    annotations,
+    annotationBatchId = createAnnotationBatchId(t)
   ) {
     if (annotations === undefined) {
       try {
-        annotations = await this.plugin.consumeAnnotationsForPrompt();
+        annotations = await this.plugin.consumeAnnotationsForPrompt(annotationBatchId, t);
       } catch (error) {
         new f.Notice(error instanceof Error ? error.message : String(error));
         return;
       }
+    } else if (annotations.length > 0) {
+      this.plugin.beginAnnotationProcessing(annotationBatchId, annotations, t);
     }
     const restoreUnsentAnnotations = () => {
+      this.plugin.endAnnotationProcessing(annotationBatchId);
       if (!queuedId && annotations.length > 0) this.plugin.restoreConsumedAnnotations(annotations);
     };
     if (this.isThreadRunning(t)) {
@@ -829,7 +834,7 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments, annotations);
+        this.enqueuePrompt(e, t, images, attachments, annotations, annotationBatchId);
       }
       return;
     }
@@ -886,7 +891,7 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments, annotations);
+        this.enqueuePrompt(e, t, images, attachments, annotations, annotationBatchId);
       }
       return;
     }
@@ -1063,6 +1068,7 @@ export class PiAgentView extends f.ItemView {
         this.setRunningState(this.running),
         this.isCurrentThread(t) && (this.renderMessages(), this.renderToolBadges()),
         this.renderThreadListIfVisible(),
+        this.plugin.endAnnotationProcessingForThread(t),
         this.plugin.rebuildServicesIfPending(),
         !skipQueueDrain && this.runNextQueuedPrompt());
     }
@@ -1215,6 +1221,12 @@ function renderAttachmentMetadata(parent, attachment, kind) {
     text: `${attachment.fileName} · ${attachment.mimeType || kind} · ${formatAttachmentBytes(attachment.originalSize ?? attachment.size)}${attachment.truncated ? " · truncated" : ""}`
   });
 }
+function createAnnotationBatchId(threadId) {
+  return `annotation-${String(threadId || "thread")}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
 function conciseAttachmentSummary(images, attachments) {
   const count = images.length + attachments.length;
   return `[${count} attached file${count === 1 ? "" : "s"}]`;

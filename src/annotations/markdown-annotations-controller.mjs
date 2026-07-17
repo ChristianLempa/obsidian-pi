@@ -37,6 +37,7 @@ export class MarkdownAnnotationsController {
     this.renderedByElement = new WeakMap();
     this.pickState = undefined;
     this.modifyVersions = new Map();
+    this.processingBatches = new Map();
     this.destroyed = false;
   }
 
@@ -61,9 +62,7 @@ export class MarkdownAnnotationsController {
       { capture: true }
     );
     this.plugin.registerEvent(
-      this.plugin.app.vault.on("modify", (file) => {
-        if (file.extension === "md") this.reanchorModifiedFile(file);
-      })
+      this.plugin.app.vault.on("modify", (file) => this.handleMarkdownFileModified(file))
     );
     this.plugin.registerEvent(
       this.plugin.app.vault.on("rename", (file, oldPath) => {
@@ -84,6 +83,7 @@ export class MarkdownAnnotationsController {
   destroy() {
     this.destroyed = true;
     this.modifyVersions.clear();
+    this.processingBatches.clear();
     this.cancelPick();
     for (const record of [...this.renderedRecords]) this.removeRenderedRecord(record);
     for (const state of this.leaves.values()) this.removeLeaf(state);
@@ -417,7 +417,10 @@ export class MarkdownAnnotationsController {
 
   removeRenderedRecord(record) {
     this.disableRenderedTarget(record);
-    record.element.classList.remove("pi-agent-annotation-rendered-block");
+    record.element.classList.remove(
+      "pi-agent-annotation-rendered-block",
+      "pi-agent-annotation-processing-rendered"
+    );
     for (const [type, listener] of record.listeners)
       record.element.removeEventListener(type, listener);
     this.renderedRecords.delete(record);
@@ -505,6 +508,7 @@ export class MarkdownAnnotationsController {
   refreshRenderedHighlights() {
     for (const record of this.renderedRecords) {
       const annotations = this.plugin.annotationStore.list(record.sourcePath);
+      const processing = this.processingForPath(record.sourcePath);
       const source =
         record.state.view.editor?.getValue?.() ?? record.state.view.getViewData?.() ?? "";
       const sectionRange = resolveSectionRange(source, record.getSectionInfo());
@@ -514,7 +518,17 @@ export class MarkdownAnnotationsController {
           (annotation) =>
             annotation.status === "attached" && rangesOverlap(annotation.range, sectionRange)
         );
+      const isProcessing =
+        sectionRange &&
+        processing.some(
+          (annotation) =>
+            annotation.status === "attached" && rangesOverlap(annotation.range, sectionRange)
+        );
       record.element.classList.toggle("pi-agent-annotation-rendered-block", Boolean(highlighted));
+      record.element.classList.toggle(
+        "pi-agent-annotation-processing-rendered",
+        Boolean(isProcessing)
+      );
     }
   }
 
@@ -668,6 +682,78 @@ export class MarkdownAnnotationsController {
     return path ? this.plugin.annotationStore.list(path) : [];
   }
 
+  processingAnnotationsForEditor(view) {
+    const path = this.stateForEditor(view)?.view.file?.path;
+    return path ? this.processingForPath(path) : [];
+  }
+
+  beginProcessing(token, annotations, threadId) {
+    const key = String(token || "");
+    if (!key) return;
+    const items = (Array.isArray(annotations) ? annotations : []).filter(
+      (annotation) =>
+        annotation?.status === "attached" &&
+        annotation.path &&
+        Number.isFinite(annotation.range?.from) &&
+        Number.isFinite(annotation.range?.to) &&
+        annotation.range.to > annotation.range.from
+    );
+    if (items.length === 0) {
+      this.endProcessing(key);
+      return;
+    }
+    this.processingBatches.set(key, {
+      threadId: String(threadId || ""),
+      annotations: items.map((annotation) => structuredCloneSafe(annotation))
+    });
+    this.refresh();
+  }
+
+  endProcessing(token) {
+    if (!this.processingBatches.delete(String(token || ""))) return false;
+    this.refresh();
+    return true;
+  }
+
+  endProcessingForPath(path) {
+    const target = String(path || "");
+    let changed = false;
+    for (const [token, batch] of this.processingBatches) {
+      if (!batch.annotations.some((annotation) => annotation.path === target)) continue;
+      this.processingBatches.delete(token);
+      changed = true;
+    }
+    if (changed) this.refresh();
+    return changed;
+  }
+
+  endProcessingForThread(threadId) {
+    const target = String(threadId || "");
+    let changed = false;
+    for (const [token, batch] of this.processingBatches) {
+      if (batch.threadId !== target) continue;
+      this.processingBatches.delete(token);
+      changed = true;
+    }
+    if (changed) this.refresh();
+    return changed;
+  }
+
+  processingForPath(path) {
+    const target = String(path || "");
+    return [...this.processingBatches.values()].flatMap((batch) =>
+      batch.annotations
+        .filter((annotation) => annotation.path === target)
+        .map((annotation) => structuredCloneSafe(annotation))
+    );
+  }
+
+  handleMarkdownFileModified(file) {
+    if (file.extension !== "md") return;
+    this.endProcessingForPath(file.path);
+    this.reanchorModifiedFile(file);
+  }
+
   async reanchorModifiedFile(file) {
     const version = (this.modifyVersions.get(file.path) ?? 0) + 1;
     this.modifyVersions.set(file.path, version);
@@ -682,6 +768,12 @@ export class MarkdownAnnotationsController {
       if (this.modifyVersions.get(file.path) === version) this.modifyVersions.delete(file.path);
     }
   }
+}
+
+function structuredCloneSafe(value) {
+  return typeof globalThis.structuredClone === "function"
+    ? globalThis.structuredClone(value)
+    : JSON.parse(JSON.stringify(value));
 }
 
 function elementFromNode(node) {
