@@ -1561,6 +1561,7 @@ function uniqueExistingDirectories(directories) {
 }
 
 // src/pi/health.mjs
+var MINIMUM_PI_VERSION = "0.80.0";
 function warmupPiCli(piExecutablePath = "", cwd) {
   try {
     const piExecutable = findPiExecutable(piExecutablePath);
@@ -1610,11 +1611,61 @@ function checkPiInstallation(piExecutablePath = "") {
       message: diagnostic.message
     };
   }
+  const versionText = (result.stdout || result.stderr || "Pi CLI found.").trim();
+  const version = extractVersion(versionText);
+  if (version && compareVersions(version, MINIMUM_PI_VERSION) < 0) {
+    return {
+      ok: false,
+      kind: "pi-unsupported",
+      version,
+      supported: false,
+      message: `Pi ${version} is installed, but Pi Agent requires Pi ${MINIMUM_PI_VERSION} or newer. Upgrade Pi, fully restart Obsidian, and check the installation again.`
+    };
+  }
   return {
     ok: true,
-    version: (result.stdout || result.stderr || "Pi CLI found.").trim(),
-    message: (result.stdout || result.stderr || "Pi CLI found.").trim()
+    version: version || versionText,
+    supported: true,
+    message: versionText
   };
+}
+function extractVersion(value) {
+  return (
+    String(value || "").match(
+      /\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?/
+    )?.[0] ?? ""
+  );
+}
+function compareVersions(left, right) {
+  const parse = (value) => {
+    const [withoutBuild] = String(value).split("+", 1);
+    const prereleaseIndex = withoutBuild.indexOf("-");
+    const core = prereleaseIndex < 0 ? withoutBuild : withoutBuild.slice(0, prereleaseIndex);
+    const prerelease = prereleaseIndex < 0 ? "" : withoutBuild.slice(prereleaseIndex + 1);
+    return { core: core.split(".").map(Number), prerelease: prerelease.split(".").filter(Boolean) };
+  };
+  const a = parse(left);
+  const b = parse(right);
+  for (let index = 0; index < 3; index++) {
+    const difference = (a.core[index] || 0) - (b.core[index] || 0);
+    if (difference) return Math.sign(difference);
+  }
+  if (a.prerelease.length === 0 || b.prerelease.length === 0) {
+    return a.prerelease.length === b.prerelease.length ? 0 : a.prerelease.length ? -1 : 1;
+  }
+  const length = Math.max(a.prerelease.length, b.prerelease.length);
+  for (let index = 0; index < length; index++) {
+    const leftPart = a.prerelease[index];
+    const rightPart = b.prerelease[index];
+    if (leftPart === void 0 || rightPart === void 0) return leftPart === void 0 ? -1 : 1;
+    if (leftPart === rightPart) continue;
+    const leftNumeric = /^\d+$/.test(leftPart);
+    const rightNumeric = /^\d+$/.test(rightPart);
+    if (leftNumeric && rightNumeric) return Math.sign(Number(leftPart) - Number(rightPart));
+    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+    return leftPart < rightPart ? -1 : 1;
+  }
+  return 0;
 }
 
 // src/pi/model-catalog.mjs
@@ -1981,6 +2032,20 @@ function findLatestAssistantMessage(messages) {
 var import_node_child_process3 = require("node:child_process");
 var import_node_string_decoder = require("node:string_decoder");
 var DEFAULT_REQUEST_TIMEOUT_MS = 3e4;
+var UNSUPPORTED_COMMAND_PATTERNS = [
+  /unknown (?:rpc )?command/i,
+  /unsupported (?:rpc )?command/i,
+  /command .+ (?:is )?not supported/i,
+  /invalid command type/i
+];
+function isUnsupportedPiRpcCommandError(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return UNSUPPORTED_COMMAND_PATTERNS.some((pattern) => pattern.test(message));
+}
+function formatPiCapabilityFailure(command, error) {
+  const detail = error instanceof Error ? error.message : String(error || "Unknown RPC error.");
+  return `Installed Pi does not provide the required RPC capability \`${command}\`. Pi Agent requires Pi ${MINIMUM_PI_VERSION} or newer; upgrade Pi and retry. (${detail})`;
+}
 var PiRpcClient = class {
   constructor(options = {}) {
     this.options = options;
@@ -2094,6 +2159,20 @@ var PiRpcClient = class {
         }
       );
     });
+  }
+  /**
+   * Probe a version-dependent RPC command. Optional callers can provide a fallback;
+   * required callers receive an actionable compatibility error instead of Pi's raw error.
+   */
+  async requestCapability(type, payload = {}, options = {}) {
+    try {
+      return { available: true, data: await this.request(type, payload, options) };
+    } catch (error) {
+      if (!isUnsupportedPiRpcCommandError(error)) throw error;
+      const diagnostic = formatPiCapabilityFailure(type, error);
+      if (!Object.hasOwn(options, "fallback")) throw new Error(diagnostic, { cause: error });
+      return { available: false, data: options.fallback, diagnostic };
+    }
   }
   notify(type, payload = {}) {
     if (!this.child?.stdin?.writable) return false;
