@@ -1200,8 +1200,7 @@ textarea.pi-agent-extension-input {
   outline-offset: 3px;
 }
 
-.pi-agent-annotation-processing-range,
-.pi-agent-annotation-processing-rendered {
+.pi-agent-annotation-processing-range {
   animation: pi-agent-annotation-processing-flow 1.2s linear infinite;
   background-color: var(--background-modifier-border);
   background-image: linear-gradient(
@@ -1221,9 +1220,7 @@ textarea.pi-agent-extension-input {
 }
 
 .pi-agent-annotation-processing-range,
-.pi-agent-annotation-processing-range *,
-.pi-agent-annotation-processing-rendered,
-.pi-agent-annotation-processing-rendered * {
+.pi-agent-annotation-processing-range * {
   -webkit-text-fill-color: transparent !important;
   caret-color: transparent !important;
   color: transparent !important;
@@ -1232,9 +1229,7 @@ textarea.pi-agent-extension-input {
 }
 
 .pi-agent-annotation-processing-range::spelling-error,
-.pi-agent-annotation-processing-range *::spelling-error,
-.pi-agent-annotation-processing-rendered::spelling-error,
-.pi-agent-annotation-processing-rendered *::spelling-error {
+.pi-agent-annotation-processing-range *::spelling-error {
   text-decoration: none !important;
 }
 
@@ -1251,6 +1246,24 @@ textarea.pi-agent-extension-input {
   48%,
   100% {
     background-position: -30% 50%;
+  }
+}
+
+.pi-agent-annotation-reveal-range {
+  animation: pi-agent-annotation-reveal 700ms ease-out both;
+  background: color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+@keyframes pi-agent-annotation-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    background: transparent;
+    clip-path: inset(0 0 0 0);
   }
 }
 
@@ -1276,10 +1289,17 @@ textarea.pi-agent-extension-input {
 }
 
 .pi-agent-annotations-list-heading {
+  align-items: center;
+  background: var(--background-primary);
   color: var(--text-muted);
+  display: flex;
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-semibold);
+  justify-content: space-between;
   padding: 2px 4px 4px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .pi-agent-annotation-item {
@@ -1409,10 +1429,15 @@ textarea.pi-agent-extension-input {
     transition: none;
   }
 
-  .pi-agent-annotation-processing-range,
-  .pi-agent-annotation-processing-rendered {
+  .pi-agent-annotation-processing-range {
     animation: none;
     background-image: none;
+  }
+
+  .pi-agent-annotation-reveal-range {
+    animation: none;
+    background: transparent;
+    clip-path: none;
   }
 }
 

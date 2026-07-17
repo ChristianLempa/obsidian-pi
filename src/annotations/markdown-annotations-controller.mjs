@@ -4,7 +4,10 @@ import { ANNOTATION_LIMITS, positionToOffset } from "./annotation-model.mjs";
 import { AnnotationDeleteModal, AnnotationModal } from "./annotation-modal.mjs";
 import { resolveMarkdownBlockRange } from "./markdown-block-range.mjs";
 import {
+  mapRenderedChunksToSource,
   rangesOverlap,
+  renderedPointToSourceOffset,
+  resolveAnnotationReplacementRange,
   resolveReadingModeCapture,
   resolveSectionRange
 } from "./reading-mode-capture.mjs";
@@ -38,6 +41,9 @@ export class MarkdownAnnotationsController {
     this.pickState = undefined;
     this.modifyVersions = new Map();
     this.processingBatches = new Map();
+    this.revealRanges = new Map();
+    this.revealTimers = new Map();
+    this.revealVersions = new Map();
     this.destroyed = false;
   }
 
@@ -84,6 +90,10 @@ export class MarkdownAnnotationsController {
     this.destroyed = true;
     this.modifyVersions.clear();
     this.processingBatches.clear();
+    this.revealRanges.clear();
+    this.revealVersions.clear();
+    for (const timer of this.revealTimers.values()) globalThis.clearTimeout?.(timer);
+    this.revealTimers.clear();
     this.cancelPick();
     for (const record of [...this.renderedRecords]) this.removeRenderedRecord(record);
     for (const state of this.leaves.values()) this.removeLeaf(state);
@@ -179,7 +189,7 @@ export class MarkdownAnnotationsController {
       if (selection?.invalid) return;
       if (selection) {
         if (!this.activateRenderedPick(state)) return;
-        await this.captureRendered(selection.record, selection.text);
+        await this.captureRenderedSelection(selection);
       } else this.activateRenderedPick(state);
       return;
     }
@@ -356,7 +366,8 @@ export class MarkdownAnnotationsController {
       event.stopPropagation();
       const selection = this.renderedSelectionForState(record.state);
       if (selection?.invalid) return;
-      void this.captureRendered(selection?.record ?? record, selection?.text ?? "");
+      if (selection) void this.captureRenderedSelection(selection);
+      else void this.captureRendered(record, "");
     };
     const onFocus = () => {
       if (this.pickState?.kind !== "rendered" || this.pickState.state !== record.state) return;
@@ -417,10 +428,8 @@ export class MarkdownAnnotationsController {
 
   removeRenderedRecord(record) {
     this.disableRenderedTarget(record);
-    record.element.classList.remove(
-      "pi-agent-annotation-rendered-block",
-      "pi-agent-annotation-processing-rendered"
-    );
+    clearRenderedMarks(record.element);
+    record.element.classList.remove("pi-agent-annotation-rendered-block");
     for (const [type, listener] of record.listeners)
       record.element.removeEventListener(type, listener);
     this.renderedRecords.delete(record);
@@ -447,12 +456,12 @@ export class MarkdownAnnotationsController {
     const selection =
       state.view.containerEl.ownerDocument?.getSelection?.() ?? globalThis.getSelection?.();
     if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return undefined;
-    const anchor = elementFromNode(selection.anchorNode);
-    const focus = elementFromNode(selection.focusNode);
-    const anchorRecord = this.closestRenderedRecord(anchor, state);
-    const focusRecord = this.closestRenderedRecord(focus, state);
-    if (!anchorRecord || anchorRecord !== focusRecord) {
-      new Notice("Select text within one source-backed Markdown block.");
+    const range = selection.getRangeAt?.(0);
+    if (!range) return { invalid: true };
+    const startRecord = this.closestRenderedRecord(elementFromNode(range.startContainer), state);
+    const endRecord = this.closestRenderedRecord(elementFromNode(range.endContainer), state);
+    if (!startRecord || !endRecord) {
+      new Notice("Start and end the selection inside source-backed Markdown text.");
       return { invalid: true };
     }
     const text = selection.toString();
@@ -460,7 +469,7 @@ export class MarkdownAnnotationsController {
       new Notice("Choose a non-empty rendered selection.");
       return { invalid: true };
     }
-    return { record: anchorRecord, text };
+    return { state, startRecord, endRecord, range, text };
   }
 
   closestRenderedRecord(element, state) {
@@ -470,6 +479,71 @@ export class MarkdownAnnotationsController {
       const record = this.renderedByElement.get(current);
       if (record?.state === state) return record;
       current = current.parentElement;
+    }
+  }
+
+  async captureRenderedSelection(selection) {
+    const { state, startRecord, endRecord, range, text } = selection;
+    const file = state.view.file;
+    if (
+      !file ||
+      file.path !== startRecord.sourcePath ||
+      endRecord.sourcePath !== startRecord.sourcePath ||
+      !this.isReadingState(state) ||
+      !startRecord.element.isConnected ||
+      !endRecord.element.isConnected
+    ) {
+      new Notice("That rendered selection is no longer part of this Markdown view.");
+      return;
+    }
+    if (text.length > ANNOTATION_LIMITS.quote) {
+      new Notice("The rendered selection is too large to annotate.");
+      return;
+    }
+    try {
+      const source = await this.plugin.app.vault.read(file);
+      const startPoint = renderedPointForBoundary(
+        startRecord.element,
+        range.startContainer,
+        range.startOffset,
+        "start"
+      );
+      const endPoint = renderedPointForBoundary(
+        endRecord.element,
+        range.endContainer,
+        range.endOffset,
+        "end"
+      );
+      const startMappings = mapRenderedChunksToSource(
+        source,
+        startRecord.getSectionInfo(),
+        renderedTextNodeChunks(startRecord.element)
+      );
+      const endMappings =
+        startRecord === endRecord
+          ? startMappings
+          : mapRenderedChunksToSource(
+              source,
+              endRecord.getSectionInfo(),
+              renderedTextNodeChunks(endRecord.element)
+            );
+      const from = renderedPointToSourceOffset(startMappings, startPoint?.node, startPoint?.offset);
+      const to = renderedPointToSourceOffset(endMappings, endPoint?.node, endPoint?.offset);
+      if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from) {
+        new Notice("Could not map that rendered selection to exact source characters.");
+        return;
+      }
+      if (to - from > ANNOTATION_LIMITS.quote) {
+        new Notice("The rendered selection is too large to annotate.");
+        return;
+      }
+      this.openCreateModal(
+        startRecord.sourcePath,
+        { ...captureAnchor(source, from, to), renderedText: text },
+        "selection"
+      );
+    } catch {
+      new Notice("Could not read the current Markdown source.");
     }
   }
 
@@ -511,24 +585,17 @@ export class MarkdownAnnotationsController {
       const processing = this.processingForPath(record.sourcePath);
       const source =
         record.state.view.editor?.getValue?.() ?? record.state.view.getViewData?.() ?? "";
-      const sectionRange = resolveSectionRange(source, record.getSectionInfo());
-      const highlighted =
-        sectionRange &&
-        annotations.some(
-          (annotation) =>
-            annotation.status === "attached" && rangesOverlap(annotation.range, sectionRange)
-        );
-      const isProcessing =
-        sectionRange &&
-        processing.some(
-          (annotation) =>
-            annotation.status === "attached" && rangesOverlap(annotation.range, sectionRange)
-        );
-      record.element.classList.toggle("pi-agent-annotation-rendered-block", Boolean(highlighted));
-      record.element.classList.toggle(
-        "pi-agent-annotation-processing-rendered",
-        Boolean(isProcessing)
-      );
+      record.element.classList.remove("pi-agent-annotation-rendered-block");
+      clearRenderedMarks(record.element);
+      renderExactRenderedRanges(record.element, source, record.getSectionInfo(), annotations, {
+        attribute: "data-reading-annotation",
+        className: (annotation) =>
+          `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`
+      });
+      renderExactRenderedRanges(record.element, source, record.getSectionInfo(), processing, {
+        attribute: "data-reading-processing",
+        className: () => "pi-agent-annotation-processing-range"
+      });
     }
   }
 
@@ -574,6 +641,9 @@ export class MarkdownAnnotationsController {
 
     const heading = state.listEl.createDiv({ cls: "pi-agent-annotations-list-heading" });
     heading.createSpan({ text: `Annotations (${annotations.length})` });
+    this.iconButton(heading, "send", "Send annotations to Pi", () => {
+      void this.plugin.runAnnotationsPrompt(path);
+    });
     for (const annotation of annotations) {
       const row = state.listEl.createDiv({
         cls: `pi-agent-annotation-item${annotation.status === "detached" ? " is-detached" : ""}`
@@ -687,6 +757,11 @@ export class MarkdownAnnotationsController {
     return path ? this.processingForPath(path) : [];
   }
 
+  revealRangesForEditor(view) {
+    const path = this.stateForEditor(view)?.view.file?.path;
+    return path ? structuredCloneSafe(this.revealRanges.get(path) ?? []) : [];
+  }
+
   beginProcessing(token, annotations, threadId) {
     const key = String(token || "");
     if (!key) return;
@@ -750,8 +825,48 @@ export class MarkdownAnnotationsController {
 
   handleMarkdownFileModified(file) {
     if (file.extension !== "md") return;
+    const processing = this.processingForPath(file.path);
+    this.clearRevealForPath(file.path);
     this.endProcessingForPath(file.path);
+    if (processing.length > 0) void this.prepareRevealForModifiedFile(file, processing);
     this.reanchorModifiedFile(file);
+  }
+
+  async prepareRevealForModifiedFile(file, annotations) {
+    const version = (this.revealVersions.get(file.path) ?? 0) + 1;
+    this.revealVersions.set(file.path, version);
+    try {
+      const source = await this.plugin.app.vault.read(file);
+      if (this.destroyed || this.revealVersions.get(file.path) !== version) return;
+      const ranges = annotations
+        .map((annotation) => resolveAnnotationReplacementRange(annotation, source))
+        .filter(
+          (range, index) =>
+            range &&
+            range.to > range.from &&
+            source.slice(range.from, range.to) !== annotations[index].quote
+        );
+      if (ranges.length === 0) return;
+      globalThis.setTimeout?.(() => {
+        if (this.destroyed || this.revealVersions.get(file.path) !== version) return;
+        this.revealRanges.set(file.path, ranges);
+        this.refresh();
+        const timer = globalThis.setTimeout?.(() => this.clearRevealForPath(file.path), 850);
+        if (timer !== undefined) this.revealTimers.set(file.path, timer);
+      }, 50);
+    } catch {
+      // A visual reveal is optional; file content and native refresh remain authoritative.
+    }
+  }
+
+  clearRevealForPath(path) {
+    const key = String(path || "");
+    const timer = this.revealTimers.get(key);
+    if (timer !== undefined) globalThis.clearTimeout?.(timer);
+    this.revealTimers.delete(key);
+    if (!this.revealRanges.delete(key)) return false;
+    this.refresh();
+    return true;
   }
 
   async reanchorModifiedFile(file) {
@@ -768,6 +883,124 @@ export class MarkdownAnnotationsController {
       if (this.modifyVersions.get(file.path) === version) this.modifyVersions.delete(file.path);
     }
   }
+}
+
+function renderedTextNodeChunks(element) {
+  return renderedTextNodes(element).map((node) => ({ key: node, text: node.nodeValue ?? "" }));
+}
+
+function renderedTextNodes(element) {
+  const nodes = [];
+  const visit = (node) => {
+    if (node?.nodeType === 3) {
+      if (node.nodeValue) nodes.push(node);
+      return;
+    }
+    if (node?.nodeType !== 1 || node.matches?.(GENERATED_OR_EMBEDDED)) return;
+    for (const child of node.childNodes ?? []) visit(child);
+  };
+  visit(element);
+  return nodes;
+}
+
+function renderedPointForBoundary(root, container, offset, bias) {
+  if (container?.nodeType === 3)
+    return root.contains(container) ? { node: container, offset } : undefined;
+  if (container?.nodeType !== 1 || !root.contains(container)) return undefined;
+  const children = [...(container.childNodes ?? [])];
+  if (bias === "start") {
+    for (let index = Math.min(offset, children.length); index < children.length; index += 1) {
+      const node = renderedTextNodes(children[index])[0];
+      if (node) return { node, offset: 0 };
+    }
+  } else {
+    for (let index = Math.min(offset, children.length) - 1; index >= 0; index -= 1) {
+      const nodes = renderedTextNodes(children[index]);
+      const node = nodes.at(-1);
+      if (node) return { node, offset: node.nodeValue?.length ?? 0 };
+    }
+  }
+  const nodes = renderedTextNodes(root);
+  if (nodes.length === 0) return undefined;
+  if (bias === "start" && offset >= children.length) {
+    const node = nodes.at(-1);
+    return { node, offset: node.nodeValue?.length ?? 0 };
+  }
+  if (bias === "end" && offset <= 0) return { node: nodes[0], offset: 0 };
+  const node = bias === "start" ? nodes[0] : nodes.at(-1);
+  return { node, offset: bias === "start" ? 0 : (node.nodeValue?.length ?? 0) };
+}
+
+function renderExactRenderedRanges(element, source, sectionInfo, annotations, options) {
+  if (!element?.ownerDocument?.createDocumentFragment) return;
+  const nodes = renderedTextNodes(element);
+  const mappings = mapRenderedChunksToSource(
+    source,
+    sectionInfo,
+    nodes.map((node) => ({ key: node, text: node.nodeValue ?? "" }))
+  );
+  for (const mapping of mappings) {
+    const intervals = mergeIntervals(
+      annotations
+        .filter(
+          (annotation) =>
+            annotation.status === "attached" && rangesOverlap(annotation.range, mapping)
+        )
+        .map((annotation) => ({
+          from: Math.max(mapping.from, annotation.range.from) - mapping.from,
+          to: Math.min(mapping.to, annotation.range.to) - mapping.from
+        }))
+    );
+    if (intervals.length === 0 || !mapping.key.parentNode) continue;
+    const document = element.ownerDocument;
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+    for (const interval of intervals) {
+      if (interval.from > cursor)
+        fragment.append(document.createTextNode(mapping.text.slice(cursor, interval.from)));
+      const mask = document.createElement("span");
+      const matching = annotations.find(
+        (annotation) =>
+          annotation.status === "attached" &&
+          annotation.range.from < mapping.from + interval.to &&
+          mapping.from + interval.from < annotation.range.to
+      );
+      mask.className = options.className(matching);
+      mask.setAttribute(options.attribute, "true");
+      mask.textContent = mapping.text.slice(interval.from, interval.to);
+      fragment.append(mask);
+      cursor = interval.to;
+    }
+    if (cursor < mapping.text.length)
+      fragment.append(document.createTextNode(mapping.text.slice(cursor)));
+    mapping.key.parentNode.replaceChild(fragment, mapping.key);
+  }
+}
+
+function clearRenderedMarks(element) {
+  if (!element?.querySelectorAll) return;
+  for (const mask of element.querySelectorAll(
+    "[data-reading-annotation='true'],[data-reading-processing='true']"
+  )) {
+    const parent = mask.parentNode;
+    if (!parent) continue;
+    while (mask.firstChild) parent.insertBefore(mask.firstChild, mask);
+    mask.remove();
+    parent.normalize?.();
+  }
+}
+
+function mergeIntervals(intervals) {
+  const sorted = intervals
+    .filter((interval) => interval.to > interval.from)
+    .sort((left, right) => left.from - right.from || left.to - right.to);
+  const merged = [];
+  for (const interval of sorted) {
+    const previous = merged.at(-1);
+    if (!previous || interval.from > previous.to) merged.push({ ...interval });
+    else previous.to = Math.max(previous.to, interval.to);
+  }
+  return merged;
 }
 
 function structuredCloneSafe(value) {

@@ -803,6 +803,9 @@ export class PiAgentView extends f.ItemView {
   renderThreadListIfVisible() {
     this.showingThreadList && this.renderThreadList();
   }
+  runAnnotationPrompt(prompt, sourcePath) {
+    return this.runPrompt(prompt, undefined, [], undefined, [], undefined, undefined, sourcePath);
+  }
   async runPrompt(
     e,
     t = this.plugin.getCurrentThread().id,
@@ -810,11 +813,16 @@ export class PiAgentView extends f.ItemView {
     queuedId,
     attachments = [],
     annotations,
-    annotationBatchId = createAnnotationBatchId(t)
+    annotationBatchId = createAnnotationBatchId(t),
+    annotationSourcePath
   ) {
     if (annotations === undefined) {
       try {
-        annotations = await this.plugin.consumeAnnotationsForPrompt(annotationBatchId, t);
+        annotations = await this.plugin.consumeAnnotationsForPrompt(
+          annotationBatchId,
+          t,
+          annotationSourcePath
+        );
       } catch (error) {
         new f.Notice(error instanceof Error ? error.message : String(error));
         return;
@@ -903,7 +911,7 @@ export class PiAgentView extends f.ItemView {
       thinkingExpanded: false,
       thinkingUserSet: false,
       toolErrors: [],
-      contextFilePath: delivery.promptContext?.activeNote?.path
+      contextFilePath: annotationSourcePath ?? delivery.promptContext?.activeNote?.path
     };
     let skipQueueDrain = false;
     const addUserMessage = () => {

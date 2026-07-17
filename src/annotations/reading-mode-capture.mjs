@@ -74,6 +74,68 @@ export function resolveSectionRange(source, sectionInfo) {
   return range;
 }
 
+export function mapRenderedChunksToSource(source, sectionInfo, chunks) {
+  const text = String(source ?? "");
+  const section = resolveSectionRange(text, sectionInfo);
+  if (!section) return [];
+  const sectionSource = text.slice(section.from, section.to);
+  let cursor = 0;
+  const mappings = [];
+  for (const chunk of Array.isArray(chunks) ? chunks : []) {
+    const rendered = String(chunk?.text ?? "");
+    if (!rendered) continue;
+    const index = sectionSource.indexOf(rendered, cursor);
+    if (index < 0) continue;
+    mappings.push({
+      key: chunk.key,
+      text: rendered,
+      from: section.from + index,
+      to: section.from + index + rendered.length
+    });
+    cursor = index + rendered.length;
+  }
+  return mappings;
+}
+
+export function renderedPointToSourceOffset(mappings, key, offset) {
+  const mapping = (Array.isArray(mappings) ? mappings : []).find((item) => item.key === key);
+  if (!mapping) return undefined;
+  const relative = Math.min(mapping.text.length, Math.max(0, Math.trunc(Number(offset) || 0)));
+  return mapping.from + relative;
+}
+
+export function resolveAnnotationReplacementRange(annotation, source) {
+  const text = String(source ?? "");
+  const prefix = String(annotation?.prefix ?? "");
+  const suffix = String(annotation?.suffix ?? "");
+  const maxLength = ANNOTATION_LIMITS.quote * 2;
+  const starts = prefix ? occurrences(text, prefix).map((index) => index + prefix.length) : [0];
+  const candidates = [];
+  for (const from of starts) {
+    if (!suffix) {
+      if (text.length - from <= maxLength) candidates.push({ from, to: text.length });
+      continue;
+    }
+    let to = text.indexOf(suffix, from);
+    while (to >= 0 && to - from <= maxLength) {
+      candidates.push({ from, to });
+      to = text.indexOf(suffix, to + 1);
+    }
+  }
+  if (candidates.length !== 1 || candidates[0].to < candidates[0].from) return undefined;
+  return rangeFromOffsets(text, candidates[0].from, candidates[0].to);
+}
+
 export function rangesOverlap(first, second) {
   return first?.from < second?.to && second?.from < first?.to;
+}
+
+function occurrences(text, needle) {
+  const matches = [];
+  let index = text.indexOf(needle);
+  while (index >= 0) {
+    matches.push(index);
+    index = text.indexOf(needle, index + 1);
+  }
+  return matches;
 }

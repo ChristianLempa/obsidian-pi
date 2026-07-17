@@ -119,9 +119,16 @@ describe("MarkdownAnnotationsController", () => {
     expect(controller.stateForRenderedElement(element, "Same.md")).toBeUndefined();
   });
 
-  it("rejects generated content and selections spanning source-backed sections", () => {
-    const notices = [];
+  it("accepts rendered selections spanning multiple source-backed sections", () => {
     const controller = new MarkdownAnnotationsController({});
+    const first = { nodeType: 1, closest: () => null, parentElement: null };
+    const second = { nodeType: 1, closest: () => null, parentElement: null };
+    const range = {
+      startContainer: first,
+      startOffset: 1,
+      endContainer: second,
+      endOffset: 4
+    };
     const state = {
       view: {
         containerEl: {
@@ -130,26 +137,90 @@ describe("MarkdownAnnotationsController", () => {
             getSelection: () => ({
               isCollapsed: false,
               rangeCount: 1,
-              anchorNode: first,
-              focusNode: second,
+              getRangeAt: () => range,
               toString: () => "across sections"
             })
           }
         }
       }
     };
-    const first = { nodeType: 1, closest: () => null, parentElement: null };
-    const second = { nodeType: 1, closest: () => null, parentElement: null };
-    controller.renderedByElement.set(first, { state });
-    controller.renderedByElement.set(second, { state });
+    const firstRecord = { state };
+    const secondRecord = { state };
+    controller.renderedByElement.set(first, firstRecord);
+    controller.renderedByElement.set(second, secondRecord);
 
-    expect(controller.renderedSelectionForState(state)).toEqual({ invalid: true });
+    expect(controller.renderedSelectionForState(state)).toMatchObject({
+      state,
+      startRecord: firstRecord,
+      endRecord: secondRecord,
+      range,
+      text: "across sections"
+    });
 
     const generated = {
       closest: (selector) => (selector.includes(".dataview") ? generated : null)
     };
     expect(controller.closestRenderedRecord(generated, state)).toBeUndefined();
-    expect(notices).toEqual([]);
+  });
+
+  it("captures exact UTF-16 endpoints across rendered paragraphs", async () => {
+    const source = "First paragraph.\n\nSecond paragraph.";
+    const firstText = { nodeType: 3, nodeValue: "First paragraph." };
+    const secondText = { nodeType: 3, nodeValue: "Second paragraph." };
+    const element = (textNode) => ({
+      nodeType: 1,
+      childNodes: [textNode],
+      contains: (candidate) => candidate === textNode,
+      isConnected: true
+    });
+    const firstElement = element(firstText);
+    const secondElement = element(secondText);
+    const state = {
+      view: { file: { path: "Note.md" }, getMode: () => "preview" }
+    };
+    const startRecord = {
+      state,
+      sourcePath: "Note.md",
+      element: firstElement,
+      getSectionInfo: () => ({ text: "First paragraph.", lineStart: 0, lineEnd: 0 })
+    };
+    const endRecord = {
+      state,
+      sourcePath: "Note.md",
+      element: secondElement,
+      getSectionInfo: () => ({ text: "Second paragraph.", lineStart: 2, lineEnd: 2 })
+    };
+    const controller = new MarkdownAnnotationsController({
+      app: { vault: { read: vi.fn().mockResolvedValue(source) } }
+    });
+    controller.openCreateModal = vi.fn();
+
+    await controller.captureRenderedSelection({
+      state,
+      startRecord,
+      endRecord,
+      range: {
+        startContainer: firstText,
+        startOffset: 6,
+        endContainer: secondText,
+        endOffset: 6
+      },
+      text: "paragraph. Second"
+    });
+
+    expect(controller.openCreateModal).toHaveBeenCalledWith(
+      "Note.md",
+      expect.objectContaining({
+        quote: "paragraph.\n\nSecond",
+        range: {
+          from: 6,
+          to: 24,
+          start: { line: 0, ch: 6 },
+          end: { line: 2, ch: 6 }
+        }
+      }),
+      "selection"
+    );
   });
 
   it("cleans stale rendered records after a mode switch", () => {
@@ -178,10 +249,7 @@ describe("MarkdownAnnotationsController", () => {
     controller.refresh();
 
     expect(controller.renderedRecords.size).toBe(0);
-    expect(element.classList.remove).toHaveBeenCalledWith(
-      "pi-agent-annotation-rendered-block",
-      "pi-agent-annotation-processing-rendered"
-    );
+    expect(element.classList.remove).toHaveBeenCalledWith("pi-agent-annotation-rendered-block");
   });
 
   it("handles rendered keyboard picks only in their owning split", () => {
@@ -253,6 +321,31 @@ describe("MarkdownAnnotationsController", () => {
 
     expect(controller.processingForPath("Note.md")).toEqual([]);
     expect(controller.reanchorModifiedFile).toHaveBeenCalledWith(file);
+  });
+
+  it("reveals only a confidently resolved replacement and clears it automatically", async () => {
+    vi.useFakeTimers();
+    const controller = new MarkdownAnnotationsController({
+      app: { vault: { read: vi.fn().mockResolvedValue("before new text after") } }
+    });
+    controller.refresh = vi.fn();
+    const file = { path: "Note.md", extension: "md" };
+
+    await controller.prepareRevealForModifiedFile(file, [
+      {
+        path: "Note.md",
+        quote: "old",
+        prefix: "before ",
+        suffix: " after",
+        range: { from: 7, to: 10 }
+      }
+    ]);
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(controller.revealRanges.get("Note.md")).toMatchObject([{ from: 7, to: 15 }]);
+    await vi.advanceTimersByTimeAsync(850);
+    expect(controller.revealRanges.has("Note.md")).toBe(false);
+    vi.useRealTimers();
   });
 
   it("ignores an in-flight modify after unload", async () => {
