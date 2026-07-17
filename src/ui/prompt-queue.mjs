@@ -1,84 +1,202 @@
 import * as f from "obsidian";
+import {
+  claimLocalPrompt,
+  nextDeliverablePrompt,
+  removeLocalPrompt,
+  restoreLocalPrompt,
+  takeLocalPrompt
+} from "./local-prompt-queue.mjs";
+import { imagePreviewUrl, modelSupportsImages } from "./prompt-payload.mjs";
 
-export function enqueuePrompt(e, t = this.plugin.getCurrentThread().id) {
-  let n = e.trim();
-  if (!n) return;
-  (this.promptQueue.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    prompt: n,
-    threadId: t
-  }),
-    this.renderPromptQueue(),
-    this.syncCurrentRunFlags(),
-    this.setRunningState(this.running),
-    new f.Notice(
-      this.promptQueue.length === 1
-        ? "Message queued. It will send after the current run finishes."
-        : `${this.promptQueue.length} messages queued.`
-    ));
+export function enqueuePrompt(prompt, threadId = this.plugin.getCurrentThread().id, images = []) {
+  const item = this.plugin.enqueueLocalPrompt({ prompt, images, threadId });
+  if (!item) return;
+  this.promptQueue = this.plugin.getLocalPromptQueue();
+  this.renderPromptQueue();
+  this.syncCurrentRunFlags();
+  this.setRunningState(this.running);
+  new f.Notice(
+    this.promptQueue.length === 1
+      ? "Message queued. It will send after the current run finishes."
+      : `${this.promptQueue.length} messages queued.`
+  );
 }
 
 export function runNextQueuedPrompt() {
-  if (this.canceling || this.promptQueue.length === 0) return;
-  let t = this.promptQueue.findIndex((n) => !this.isThreadRunning(n.threadId));
-  if (t < 0) return;
-  let [e] = this.promptQueue.splice(t, 1);
-  (this.renderPromptQueue(),
-    this.syncCurrentRunFlags(),
-    this.setRunningState(this.running),
-    e && this.runPrompt(e.prompt, e.threadId));
+  if (this.canceling || this.plugin.isLocalPromptQueuePaused() || this.steeringPromptIds.size > 0)
+    return;
+  const item = nextDeliverablePrompt(this.promptQueue, (threadId) =>
+    this.isThreadRunning(threadId)
+  );
+  if (!item) return;
+  const claimed = claimLocalPrompt(this.promptQueue, item.id, "delivering");
+  this.promptQueue = claimed.queue;
+  this.plugin.replaceLocalPromptQueue(this.promptQueue);
+  this.renderPromptQueue();
+  this.runPrompt(item.prompt, item.threadId, item.images, item.id);
 }
 
-export function removeQueuedPrompt(e) {
-  let t = this.promptQueue.length;
-  ((this.promptQueue = this.promptQueue.filter((n) => n.id !== e)),
-    this.promptQueue.length !== t &&
-      (this.renderPromptQueue(), this.syncCurrentRunFlags(), this.setRunningState(this.running)));
+export function removeQueuedPrompt(id) {
+  const item = this.promptQueue.find((candidate) => candidate.id === id);
+  if (!item || item.state !== "pending") return;
+  this.promptQueue = removeLocalPrompt(this.promptQueue, id);
+  this.plugin.replaceLocalPromptQueue(this.promptQueue);
+  this.renderPromptQueue();
+  this.setRunningState(this.running);
 }
 
-export function prioritizeQueuedPrompt(e) {
-  let t = this.promptQueue.findIndex((n) => n.id === e);
-  if (t <= 0) return;
-  let [n] = this.promptQueue.splice(t, 1);
-  (this.promptQueue.unshift(n),
-    this.renderPromptQueue(),
-    this.syncCurrentRunFlags(),
-    this.setRunningState(this.running));
+export function retrieveQueuedPrompt(id) {
+  const item = this.promptQueue.find((candidate) => candidate.id === id);
+  if (!item || item.state !== "pending" || !this.isCurrentThread(item.threadId)) return;
+  if (this.inputEl) this.inputEl.value = item.prompt;
+  this.composerImages = item.images.map((image) => ({ ...image }));
+  this.removeQueuedPrompt(id);
+  this.renderComposerImages();
+  this.resizeInput();
+  this.inputEl?.focus();
+}
+
+export async function steerQueuedPrompt(id) {
+  const taken = takeLocalPrompt(this.promptQueue, id);
+  if (!taken.item) return;
+  this.promptQueue = taken.queue;
+  this.steeringPromptIds.add(id);
+  this.plugin.beginLocalPromptSteering(taken.item);
+  this.plugin.replaceLocalPromptQueue(this.promptQueue);
+  this.renderPromptQueue();
+  try {
+    const run = this.activeRuns.get(taken.item.threadId);
+    if (!run) throw new Error("This run already settled; the message will run normally.");
+    const delivery = await this.plugin.enrichPromptDelivery(taken.item, {
+      mode: "steer",
+      threadId: taken.item.threadId
+    });
+    if (delivery.images?.length > 0) await this.plugin.ensureModelCatalogLoaded();
+    if (delivery.images?.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo()))
+      throw new Error("The selected Pi model does not support image input.");
+    const steerPrompt = delivery.promptContext
+      ? this.plugin.contextBuilder.formatPrompt(delivery.prompt, delivery.promptContext)
+      : delivery.prompt;
+    await run.runner.steer(steerPrompt, delivery.images);
+    new f.Notice("Steering message sent to Pi.");
+  } catch (error) {
+    this.promptQueue = restoreLocalPrompt(this.promptQueue, taken.item, taken.index);
+    this.plugin.replaceLocalPromptQueue(this.promptQueue);
+    new f.Notice(error instanceof Error ? error.message : String(error));
+  } finally {
+    this.steeringPromptIds.delete(id);
+    this.plugin.finishLocalPromptSteering(id);
+  }
+  this.renderPromptQueue();
+  this.runNextQueuedPrompt();
 }
 
 export function renderPromptQueue() {
   if (!this.promptQueueEl) return;
-  let e = this.promptQueueEl;
-  if (
-    (e.empty(),
-    e.toggleClass("is-empty", this.promptQueue.length === 0),
-    this.promptQueue.length === 0)
-  )
-    return;
-  let t = e.createDiv({ cls: "pi-agent-prompt-queue-heading" });
-  (t.createSpan({
-    text: `${this.promptQueue.length} queued message${this.promptQueue.length === 1 ? "" : "s"}`
-  }),
-    t.createSpan({
-      cls: "pi-agent-prompt-queue-hint",
-      text: "Runs after the current response."
-    }));
-  for (let [n, s] of this.promptQueue.entries()) {
-    let a = e.createDiv({ cls: "pi-agent-prompt-queue-item" });
-    a.createDiv({ cls: "pi-agent-prompt-queue-text", text: s.prompt });
-    let o = a.createDiv({ cls: "pi-agent-prompt-queue-actions" });
-    if (n > 0) {
-      let l = o.createEl("button", {
-        cls: "clickable-icon pi-agent-prompt-queue-action",
-        attr: { "aria-label": "Run this queued message next", title: "Run next" }
-      });
-      ((0, f.setIcon)(l, "corner-up-left"),
-        l.addEventListener("click", () => this.prioritizeQueuedPrompt(s.id)));
-    }
-    let d = o.createEl("button", {
-      cls: "clickable-icon pi-agent-prompt-queue-action",
-      attr: { "aria-label": "Remove queued message", title: "Remove" }
+  const root = this.promptQueueEl;
+  root.empty();
+  root.toggleClass("is-empty", this.promptQueue.length === 0 && !this.nativePiQueue);
+  if (this.promptQueue.length > 0) {
+    const heading = root.createDiv({ cls: "pi-agent-prompt-queue-heading" });
+    heading.createSpan({
+      text: `${this.promptQueue.length} local follow-up${this.promptQueue.length === 1 ? "" : "s"}`
     });
-    ((0, f.setIcon)(d, "x"), d.addEventListener("click", () => this.removeQueuedPrompt(s.id)));
+    heading.createSpan({
+      cls: "pi-agent-prompt-queue-hint",
+      text: this.plugin.isLocalPromptQueuePaused()
+        ? "Saved from the previous plugin session. Review before sending."
+        : "Runs in order after settlement."
+    });
+    if (this.plugin.isLocalPromptQueuePaused()) {
+      const controls = root.createDiv({ cls: "pi-agent-prompt-queue-actions" });
+      addTextAction(controls, "Resume saved follow-ups", "Resume", () => {
+        this.plugin.resumeLocalPromptQueue();
+        this.renderPromptQueue();
+        this.runNextQueuedPrompt();
+      });
+      addTextAction(controls, "Discard all saved follow-ups", "Discard", () => {
+        this.promptQueue = [];
+        this.plugin.resumeLocalPromptQueue();
+        this.plugin.replaceLocalPromptQueue([]);
+        this.renderPromptQueue();
+        this.setRunningState(this.running);
+      });
+    }
+  }
+
+  for (const item of this.promptQueue) {
+    const row = root.createDiv({ cls: "pi-agent-prompt-queue-item" });
+    row.setAttr("aria-label", `Queued follow-up: ${item.prompt || `${item.images.length} images`}`);
+    const content = row.createDiv({ cls: "pi-agent-prompt-queue-content" });
+    content.createDiv({
+      cls: "pi-agent-prompt-queue-text",
+      text:
+        item.prompt || `${item.images.length} attached image${item.images.length === 1 ? "" : "s"}`
+    });
+    renderQueueImages(content, item.images);
+    const actions = row.createDiv({ cls: "pi-agent-prompt-queue-actions" });
+    addAction(
+      actions,
+      "corner-up-right",
+      "Steer now",
+      () => this.steerQueuedPrompt(item.id),
+      item.state !== "pending"
+    );
+    if (this.isCurrentThread(item.threadId))
+      addAction(
+        actions,
+        "pencil",
+        "Edit queued message",
+        () => this.retrieveQueuedPrompt(item.id),
+        item.state !== "pending"
+      );
+    addAction(
+      actions,
+      "x",
+      "Remove queued message",
+      () => this.removeQueuedPrompt(item.id),
+      item.state !== "pending"
+    );
+  }
+
+  if (this.nativePiQueue?.steering?.length || this.nativePiQueue?.followUp?.length) {
+    const native = root.createDiv({ cls: "pi-agent-native-queue", attr: { role: "status" } });
+    native.createDiv({ cls: "pi-agent-prompt-queue-heading", text: "Already handed to Pi" });
+    const handedToPi = [
+      ...(this.nativePiQueue.steering || []),
+      ...(this.nativePiQueue.followUp || [])
+    ];
+    for (const text of handedToPi)
+      native.createDiv({ cls: "pi-agent-prompt-queue-text", text: String(text) });
+  }
+}
+
+function addTextAction(parent, label, text, callback) {
+  const button = parent.createEl("button", {
+    cls: "pi-agent-prompt-queue-action is-text",
+    text,
+    attr: { "aria-label": label, title: label }
+  });
+  button.addEventListener("click", callback);
+}
+
+function addAction(parent, icon, label, callback, disabled) {
+  const button = parent.createEl("button", {
+    cls: "clickable-icon pi-agent-prompt-queue-action",
+    attr: { "aria-label": label, title: label }
+  });
+  f.setIcon(button, icon);
+  button.toggleAttribute("disabled", disabled);
+  button.addEventListener("click", callback);
+}
+
+function renderQueueImages(parent, images) {
+  if (!images?.length) return;
+  const previews = parent.createDiv({ cls: "pi-agent-queue-image-previews" });
+  for (const image of images) {
+    previews.createEl("img", {
+      cls: "pi-agent-queue-image-preview",
+      attr: { src: imagePreviewUrl(image), alt: image.fileName || "Queued image" }
+    });
   }
 }

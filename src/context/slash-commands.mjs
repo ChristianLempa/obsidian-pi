@@ -1,6 +1,3 @@
-import { getPromptTemplateSlashCommands } from "./prompt-templates.mjs";
-import { getSkillSlashCommands } from "./skills.mjs";
-
 export const BUILTIN_SLASH_COMMANDS = [
   {
     command: "/current",
@@ -48,10 +45,8 @@ export const BUILTIN_SLASH_COMMANDS = [
   }
 ];
 
-export function getSlashCommands(settings, basePath) {
-  return [
-    ...BUILTIN_SLASH_COMMANDS.map((command) => ({ ...command })),
-    ...getPromptTemplateSlashCommands(basePath),
-    ...getSkillSlashCommands(settings, basePath)
-  ];
+export function getSlashCommands(piCommands = []) {
+  const builtins = BUILTIN_SLASH_COMMANDS.map((command) => ({ ...command, source: "obsidian" }));
+  const builtinNames = new Set(builtins.map((command) => command.command));
+  return [...builtins, ...piCommands.filter((command) => !builtinNames.has(command.command))];
 }

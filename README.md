@@ -6,12 +6,14 @@ Chat with Pi in Obsidian using context from your current note, links, backlinks,
 
 ## Requirements
 
-Pi Agent is desktop-only and requires the Pi coding agent to be installed separately. The upstream Pi coding agent package is [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), from [`earendil-works/pi-mono`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent):
+Pi Agent is desktop-only and requires Pi coding agent **0.80.0 or newer** to be installed separately (last compatibility test: **0.80.6**). The upstream package is [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), from [`earendil-works/pi-mono`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent):
 
 ```bash
 npm install -g @earendil-works/pi-coding-agent
 pi --version
 ```
+
+Newer Pi versions may add capabilities that Pi Agent does not use yet. Missing required RPC capabilities produce an upgrade diagnostic; optional capabilities must use an explicit, tested fallback rather than failing silently.
 
 If Obsidian cannot find `pi`, restart Obsidian after installation so it picks up your updated PATH. For custom installs such as nix-darwin, set **Pi executable path** in the plugin settings, for example `/etc/profiles/per-user/${USER}/bin/pi`.
 
@@ -40,6 +42,11 @@ Privacy reminder: prompts, selected text, note content, search excerpts, attachm
 - Enable default Pi skills and add trusted custom skill folders.
 - Use `/` autocomplete for Obsidian context commands and `/skill:name` commands.
 - Copy responses, create notes from answers, and open cited vault notes.
+- Attach change requests or questions to Markdown selections and source-backed blocks.
+
+### Annotations
+
+Open a Markdown note and select text, then choose the **Annotations** header action to add a change request or question. With no selection, the action toggles block-pick mode; it works in both editing and reading views when Obsidian can map the rendered block to Markdown source. The command palette action **Pi Agent: Add or toggle annotation for active note** is the keyboard/fallback entry point. Annotations appear on the note, can be navigated, edited, or individually deleted, and are included with the active note in subsequent Pi prompts; detached anchors remain listed until edited or deleted.
 
 > Tool modes control which Pi CLI tools are enabled. They are not an operating-system sandbox.
 
@@ -52,9 +59,9 @@ Short version:
 - The plugin does not include ads, telemetry, or an auto-updater.
 - Chat history and Pi sessions are stored locally by the plugin and Pi.
 - Network access happens through the separately installed Pi CLI and depends on your Pi/model-provider configuration.
-- The plugin reads Pi configuration and skill files from vault/project `.pi/` and `.agents/` folders, plus any absolute or vault-relative skill folders you configure.
+- Pi discovers project/global extensions, prompt templates, and skills through RPC and applies its own project-trust rules. The plugin passes any explicitly configured absolute or vault-contained skill paths to Pi.
 - Edit and Full agent modes can modify files in your vault/project.
-- Full agent mode can run shell commands through Pi.
+- Full agent mode enables Pi's complete tool set, including extension/custom tools and shell commands.
 - Skills can contain instructions or scripts; only enable skill folders you trust.
 
 ## Installation
@@ -90,12 +97,13 @@ npm ci
 npm run build
 npm run build:check
 npm run ci
-npm run dev:install -- /path/to/vault/.obsidian/plugins/pi-agent
+npm run test:pi -- /path/to/dedicated/test-vault
+npm run dev:install -- /path/to/dedicated/test-vault/.obsidian/plugins/pi-agent
 ```
 
-Then reload Obsidian, or disable and re-enable the plugin.
+`test:pi` is an opt-in, offline/no-tool/no-session RPC smoke test. It disables discovered extensions, skills, prompt templates, themes, context files, and project approval, then reads local Pi state, models, and commands without sending a model prompt. No provider request is made, so the command does not incur model-provider charges. Then reload Obsidian, or disable and re-enable the plugin.
 
-See [docs/development.md](docs/development.md) and [docs/architecture.md](docs/architecture.md).
+See [TESTING.md](TESTING.md) for the complete automated and dedicated `ObsidianTesting` manual checklist. Manual validation is pending until every item is explicitly checked; testing does not create a release.
 
 ## Release
 

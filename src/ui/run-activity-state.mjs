@@ -32,7 +32,6 @@ export function applyActivity(e, t, n = "", s = 0) {
     (this.activityDetail = n),
     (this.activityStickyUntil = s),
     s && ((this.pendingActivity = void 0), this.clearPendingActivityTimer()),
-    n && t !== "context" && t !== "thinking" && this.rememberAction(n),
     a || this.updateActivityDom() || this.renderMessages());
 }
 
@@ -83,26 +82,8 @@ export function updateActivityDom() {
   (this.activityInlineEl.getAttribute("class") !== e && this.activityInlineEl.setAttr("class", e),
     this.activityInlineEl.getAttribute("title") !== t && this.activityInlineEl.setAttr("title", t),
     this.activityInlineTextEl.textContent !== this.activityText &&
-      this.activityInlineTextEl.setText(this.activityText),
-    this.refreshActivityDetailsDom());
+      this.activityInlineTextEl.setText(this.activityText));
   return !0;
-}
-
-export function refreshActivityDetailsDom() {
-  var e;
-  let t = this.getVisibleActivityDetails(),
-    n = t.join("\n");
-  if (this.activityDetailsSignature === n) return;
-  ((this.activityDetailsSignature = n),
-    (e = this.activityDetailsEl) == null || e.remove(),
-    (this.activityDetailsEl = void 0));
-  t.length > 0 && this.activityItemEl && this.renderActivityDetails(this.activityItemEl, t);
-}
-
-export function rememberAction(e) {
-  e &&
-    this.recentActions[this.recentActions.length - 1] !== e &&
-    (this.recentActions = [...this.recentActions, e].slice(-5));
 }
 
 export function captureContextUsage(e) {
@@ -126,6 +107,14 @@ export function getContextUsageForTokens(e) {
 export function handleRunEvent(e) {
   let t = this.normalizeRunEventType(e.type);
   this.captureContextUsage(e);
+  if (t === "queue_update") {
+    this.nativePiQueue = {
+      steering: Array.isArray(e.raw?.steering) ? e.raw.steering : [],
+      followUp: Array.isArray(e.raw?.followUp) ? e.raw.followUp : []
+    };
+    this.renderPromptQueue();
+    return;
+  }
   if (t === "context_ready") {
     this.setActivity("Starting Pi", "context");
     return;
@@ -168,6 +157,14 @@ export function handleRunEvent(e) {
   }
   if (t === "auto_retry_start") {
     this.setActivity("Retrying", "finishing", formatRetryDetail(e.raw));
+    return;
+  }
+  if (t === "extension_error" || t === "extension_ui_error") {
+    this.setActivity(
+      "Extension failed",
+      "error",
+      String(e.raw?.error ?? e.raw?.message ?? "Pi extension error")
+    );
     return;
   }
   if (

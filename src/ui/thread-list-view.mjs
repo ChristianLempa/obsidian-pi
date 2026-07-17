@@ -1,5 +1,7 @@
 import * as f from "obsidian";
+import { chooseThreadDeletion } from "./modals/delete-thread-modal.mjs";
 import { confirmWithModal } from "./modals/confirm-modal.mjs";
+import { formatArchiveAllResult, planArchiveAllThreads } from "./thread-bulk-actions.mjs";
 
 export function showThreadList() {
   ((this.showingThreadList = !0), this.renderThreadList());
@@ -20,6 +22,7 @@ export function renderThreadList() {
     (this.runSettings = void 0),
     (this.toolBadgesEl = void 0),
     (this.threadTitleEl = void 0),
+    (this.threadFavoriteEl = void 0),
     e.empty(),
     e.addClass("pi-agent-view"));
   let s = e.createDiv({ cls: "pi-agent-thread-list-header" }),
@@ -42,6 +45,12 @@ export function renderThreadList() {
     d.addEventListener("click", () => {
       (this.plugin.startNewThread(), this.renderChatView());
     }));
+  let menuButton = s.createEl("button", {
+    cls: "clickable-icon pi-agent-header-action",
+    attr: { "aria-label": "Chat history actions", title: "Chat history actions" }
+  });
+  ((0, f.setIcon)(menuButton, "more-vertical"),
+    menuButton.addEventListener("click", (event) => this.showThreadListMenu(event)));
   let h = e.createDiv({ cls: "pi-agent-thread-list" });
   t.length === 0
     ? h.createDiv({ cls: "pi-agent-empty", text: "No chat threads." })
@@ -81,21 +90,70 @@ export function renderThreadListRow(e, t, n) {
       cls: `clickable-icon pi-agent-thread-list-action pi-agent-thread-favorite${t.favorite ? " is-favorite" : ""}`,
       attr: {
         "aria-label": t.favorite ? "Remove favorite" : "Mark as favorite",
-        title: t.favorite ? "Remove favorite" : "Mark as favorite"
+        title: t.favorite ? "Remove favorite" : "Mark as favorite",
+        "aria-pressed": String(t.favorite === true)
       }
+    }),
+    deleteButton = l.createEl("button", {
+      cls: "clickable-icon pi-agent-thread-list-action pi-agent-thread-delete",
+      attr: { "aria-label": "Delete chat", title: "Delete chat" }
     }),
     h = l.createEl("button", {
       cls: "clickable-icon pi-agent-thread-list-action",
       attr: { "aria-label": "Thread actions", title: "Thread actions" }
     });
-  ((0, f.setIcon)(d, t.favorite ? "star" : "star"),
+  ((0, f.setIcon)(d, "star"),
     d.addEventListener("click", (u) => {
       (u.preventDefault(), u.stopPropagation(), this.toggleThreadFavorite(t));
+    }),
+    (0, f.setIcon)(deleteButton, "trash-2"),
+    deleteButton.addEventListener("click", (u) => {
+      (u.preventDefault(), u.stopPropagation(), this.deleteThreadFromList(t));
     }),
     (0, f.setIcon)(h, "more-horizontal"),
     h.addEventListener("click", (u) => {
       (u.preventDefault(), u.stopPropagation(), this.showThreadRowMenu(u, t, n, o));
     }));
+}
+
+export function showThreadListMenu(event) {
+  const menu = new f.Menu();
+  menu.addItem((item) =>
+    item
+      .setTitle("Archive all chats")
+      .setIcon("archive")
+      .onClick(() => this.archiveAllChats())
+  );
+  menu.showAtMouseEvent(event);
+}
+
+export async function archiveAllChats() {
+  const threads = this.plugin.listThreads({ includeArchived: true });
+  const plan = planArchiveAllThreads(threads, [...this.activeRuns.keys()]);
+  if (plan.archiveCount === 0) {
+    new f.Notice(
+      plan.skippedCount > 0
+        ? `No chats archived; ${plan.skippedCount} active chat${plan.skippedCount === 1 ? " was" : "s were"} skipped.`
+        : "There are no chats to archive."
+    );
+    return;
+  }
+  const confirmed = await confirmWithModal(this.plugin.app, {
+    title: "Archive all chats?",
+    message: `Archive ${plan.archiveCount} chat${plan.archiveCount === 1 ? "" : "s"}?${plan.skippedCount > 0 ? ` ${plan.skippedCount} active chat${plan.skippedCount === 1 ? " will" : "s will"} be skipped.` : ""} Pi session files will be kept.`,
+    confirmText: "Archive all"
+  });
+  if (!confirmed) return;
+  const newlyRunningIds = plan.archiveIds.filter((threadId) => this.isThreadRunning(threadId));
+  const safeArchiveIds = plan.archiveIds.filter((threadId) => !this.isThreadRunning(threadId));
+  const result = this.plugin.archiveThreads(safeArchiveIds);
+  new f.Notice(
+    formatArchiveAllResult({
+      archivedCount: result.archivedCount,
+      skippedCount: plan.skippedCount + newlyRunningIds.length
+    })
+  );
+  this.renderThreadList();
 }
 
 export function showThreadRowMenu(e, t, n, s) {
@@ -121,6 +179,42 @@ export function showThreadRowMenu(e, t, n, s) {
         .setIcon("pencil")
         .onClick(() => this.startThreadListRename(t, s))
     ),
+    t.piSessionId &&
+      a.addItem((o) =>
+        o
+          .setTitle("Pi session info")
+          .setIcon("info")
+          .onClick(async () => {
+            try {
+              const [stats, tree] = await Promise.all([
+                this.plugin.getThreadSessionStats(t.id),
+                this.plugin.getThreadSessionTree(t.id)
+              ]);
+              const entryCount = countSessionEntries(tree?.tree ?? []);
+              new f.Notice(
+                stats
+                  ? `${stats.sessionFile}\n${stats.totalMessages} messages · ${entryCount} tree entries · ${stats.tokens?.total ?? 0} tokens · $${Number(stats.cost ?? 0).toFixed(4)}`
+                  : "No Pi session information is available."
+              );
+            } catch (error) {
+              new f.Notice(error instanceof Error ? error.message : String(error));
+            }
+          })
+      ),
+    t.piSessionId &&
+      a.addItem((o) =>
+        o
+          .setTitle("Export Pi session to HTML")
+          .setIcon("download")
+          .onClick(async () => {
+            try {
+              const result = await this.plugin.exportThreadSession(t.id);
+              new f.Notice(result?.path ? `Exported to ${result.path}` : "Session export failed.");
+            } catch (error) {
+              new f.Notice(error instanceof Error ? error.message : String(error));
+            }
+          })
+      ),
     a.addSeparator(),
     a.addItem((o) =>
       o
@@ -164,16 +258,12 @@ export async function deleteThreadFromList(e) {
     new f.Notice("Wait for the agent run to finish before deleting this chat.");
     return;
   }
-  let t = await confirmWithModal(this.plugin.app, {
-    title: "Delete chat?",
-    message: `Delete chat "${e.title}" from plugin history?`,
-    confirmText: "Delete",
-    warning: true
-  });
-  if (!t) return;
-  this.plugin.deleteThread(e.id)
-    ? (new f.Notice("Chat deleted."), this.renderThreadList())
-    : new f.Notice("Chat thread was not found.");
+  const choice = await chooseThreadDeletion(this.plugin.app, e);
+  if (choice === "cancel") return;
+  this.plugin.deleteThread(e.id, { deletePiSession: choice === "both" })
+    ? (new f.Notice(choice === "both" ? "Chat and local Pi session deleted." : "Chat deleted."),
+      this.renderThreadList())
+    : new f.Notice("Chat or local Pi session could not be deleted.");
 }
 
 export function formatThreadMeta(e, t) {
@@ -182,6 +272,14 @@ export function formatThreadMeta(e, t) {
       : e.messages.length,
     s = `${n} message${n === 1 ? "" : "s"} • Updated ${this.formatThreadDate(e.updatedAt)}`;
   return t ? `Current • ${s}` : s;
+}
+
+export function countSessionEntries(nodes) {
+  return nodes.reduce(
+    (count, node) =>
+      count + 1 + countSessionEntries(Array.isArray(node.children) ? node.children : []),
+    0
+  );
 }
 
 export function formatThreadDate(e) {

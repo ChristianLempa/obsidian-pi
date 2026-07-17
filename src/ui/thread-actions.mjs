@@ -14,12 +14,17 @@ export class ThreadActions {
     this.callbacks.renderToolBadges?.();
   }
 
-  forkChat() {
-    this.plugin.forkCurrentThread()
-      ? (this.callbacks.resetThreadUiState?.(),
-        this.callbacks.renderThreadTitle(),
-        this.callbacks.renderMessages(),
-        this.callbacks.renderToolBadges?.())
-      : new Notice("Nothing to fork yet.");
+  async forkChat() {
+    try {
+      const fork = await this.plugin.forkCurrentThread();
+      fork
+        ? (this.callbacks.resetThreadUiState?.(),
+          this.callbacks.renderThreadTitle(),
+          this.callbacks.renderMessages(),
+          this.callbacks.renderToolBadges?.())
+        : new Notice("Nothing to fork yet.");
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : String(error));
+    }
   }
 }

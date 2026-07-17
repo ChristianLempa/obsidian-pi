@@ -56,13 +56,66 @@ describe("ThreadStore", () => {
     expect(store.listThreads()[0]).toMatchObject({ id: "older", favorite: false });
   });
 
+  it("archives a selected set without deleting threads or session references", () => {
+    const store = new ThreadStore({
+      currentThreadId: "one",
+      threads: [
+        {
+          id: "one",
+          title: "One",
+          messages: [],
+          createdAt: 1,
+          updatedAt: 1,
+          piSessionId: "one.jsonl"
+        },
+        {
+          id: "two",
+          title: "Two",
+          messages: [],
+          createdAt: 2,
+          updatedAt: 2,
+          piSessionId: "two.jsonl"
+        }
+      ]
+    });
+
+    expect(store.archiveThreads(["one"])).toEqual(["one"]);
+    expect(store.listThreads({ includeArchived: true })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "one", archived: true, piSessionId: "one.jsonl" }),
+        expect.objectContaining({ id: "two", archived: false, piSessionId: "two.jsonl" })
+      ])
+    );
+  });
+
+  it("preserves completed thinking and visible tool errors", () => {
+    const store = new ThreadStore();
+    store.addMessage({
+      role: "assistant",
+      content: "answer",
+      createdAt: 1,
+      thinking: "reasoning",
+      toolErrors: ["read failed"]
+    });
+
+    expect(store.getCurrentMessages()[0]).toMatchObject({
+      content: "answer",
+      thinking: "reasoning",
+      toolErrors: ["read failed"]
+    });
+  });
+
   it("forks, switches, archives, and deletes threads", () => {
     const store = new ThreadStore();
     const originalId = store.getCurrentThread().id;
     store.addMessage({ role: "user", content: "Original", createdAt: 1 });
 
-    const fork = store.forkCurrentThread("fork-session");
-    expect(fork).toMatchObject({ title: "Original (fork)", piSessionId: "fork-session" });
+    const fork = store.forkCurrentThread("portable-clone.jsonl");
+    expect(fork).toMatchObject({
+      title: "Original (fork)",
+      piSessionId: "portable-clone.jsonl",
+      messages: [{ role: "user", content: "Original", createdAt: 1 }]
+    });
     expect(store.switchThread(originalId)).toBe(true);
     expect(store.archiveThread(originalId)).toBe(true);
     expect(store.listThreads().map((thread) => thread.id)).not.toContain(originalId);

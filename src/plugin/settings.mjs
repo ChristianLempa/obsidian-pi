@@ -1,10 +1,5 @@
 export const CUSTOM_MODEL_VALUE = "__custom";
 
-const EMPTY_MODEL_OPTIONS = {
-  "": "Use Pi default",
-  [CUSTOM_MODEL_VALUE]: "Custom model ID"
-};
-
 const REASONING_LABELS = {
   "": "Pi default",
   off: "Off",
@@ -12,7 +7,8 @@ const REASONING_LABELS = {
   low: "Low",
   medium: "Medium",
   high: "High",
-  xhigh: "XHigh - deepest"
+  xhigh: "XHigh",
+  max: "Max - deepest"
 };
 
 export const DEFAULT_SETTINGS = {
@@ -69,24 +65,26 @@ export function normalizeSettings(rawSettings = {}) {
 
 export function getModelOptions(settings) {
   const models = settings.availableModels;
-  const options = { "": "Use Pi default" };
-
-  if (models.length === 0)
-    return { ...EMPTY_MODEL_OPTIONS, ...options, [CUSTOM_MODEL_VALUE]: "Custom model ID" };
+  const effective = settings.effectiveModel ? ` — ${settings.effectiveModel}` : "";
+  const options = { "": `Use Pi configured default${effective}` };
 
   for (const model of models) options[model.slug] = formatModelOptionLabel(model);
-  options[CUSTOM_MODEL_VALUE] = "Custom model ID";
-
   return options;
 }
 
 export function getReasoningOptions(settings) {
-  const model = getSelectedModelInfo(settings) ?? getEffectiveModelInfo(settings);
+  const model = getReasoningModelInfo(settings);
   const supportedReasoningLevels = model?.supportedReasoningLevels ?? [];
+  const resolvedDefault = settings.model
+    ? model?.defaultReasoningLevel
+    : settings.effectiveReasoning || model?.defaultReasoningLevel;
+  const effective = resolvedDefault
+    ? ` — ${REASONING_LABELS[resolvedDefault] ?? resolvedDefault}`
+    : "";
 
-  if (supportedReasoningLevels.length === 0) return { "": "Use Pi/model default" };
+  if (supportedReasoningLevels.length === 0) return { "": `Use Pi/model default${effective}` };
 
-  const options = { "": "Use Pi/model default" };
+  const options = { "": `Use Pi/model default${effective}` };
   for (const reasoningLevel of supportedReasoningLevels) {
     options[reasoningLevel] = REASONING_LABELS[reasoningLevel] ?? reasoningLevel;
   }
@@ -97,8 +95,10 @@ export function getReasoningOptions(settings) {
 export function getResolvedReasoning(settings) {
   if (settings.reasoningEffort) return settings.reasoningEffort;
 
-  const model = getSelectedModelInfo(settings) ?? getEffectiveModelInfo(settings);
-  return model?.defaultReasoningLevel ?? settings.effectiveReasoning ?? "pi-default";
+  const model = getReasoningModelInfo(settings);
+  return settings.model
+    ? model?.defaultReasoningLevel || "pi-default"
+    : settings.effectiveReasoning || model?.defaultReasoningLevel || "pi-default";
 }
 
 export function getEffectiveModelInfo(settings) {
@@ -110,6 +110,12 @@ export function getEffectiveModelInfo(settings) {
 export function getSelectedModelInfo(settings) {
   const modelId = settings.model === CUSTOM_MODEL_VALUE ? settings.customModel : settings.model;
   return settings.availableModels.find((model) => model.slug === modelId);
+}
+
+function getReasoningModelInfo(settings) {
+  return (
+    getSelectedModelInfo(settings) ?? (settings.model ? undefined : getEffectiveModelInfo(settings))
+  );
 }
 
 export function getToolModeOptions() {
@@ -140,10 +146,19 @@ function normalizeToolMode(value) {
 
 function formatModelOptionLabel(model) {
   const details = [
-    model.supportedReasoningLevels.length > 0
-      ? `thinking ${model.supportedReasoningLevels.join("/")}`
-      : ""
+    model.slug,
+    model.reasoning ? "thinking" : "",
+    model.supportsImages ? "images" : "",
+    model.contextWindow ? `${formatTokenAmount(model.contextWindow)} context` : ""
   ].filter(Boolean);
 
-  return details.length > 0 ? `${model.displayName} - ${details.join(", ")}` : model.displayName;
+  return `${model.displayName} — ${details.join(" · ")}`;
+}
+
+function formatTokenAmount(value) {
+  return value >= 1_000_000
+    ? `${Number((value / 1_000_000).toFixed(1))}M`
+    : value >= 1_000
+      ? `${Number((value / 1_000).toFixed(1))}K`
+      : String(value);
 }

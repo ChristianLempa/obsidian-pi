@@ -26,15 +26,6 @@ export function parsePromptReferences(prompt) {
   }
 
   for (const line of prompt.split(/\r?\n/)) {
-    const skillCommand = line.match(/^\/skill:([a-z0-9-]+)(?:\s+(.+))?$/i);
-    if (skillCommand) {
-      references.push({
-        type: "skill",
-        value: skillCommand[1].toLowerCase(),
-        argument: skillCommand[2]?.trim() ?? ""
-      });
-    }
-
     const contextCommand = line.match(/^\/([A-Za-z0-9_-]+)(?:\s+(.+))?$/);
     if (contextCommand) {
       references.push({

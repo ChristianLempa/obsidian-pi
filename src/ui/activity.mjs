@@ -68,6 +68,20 @@ export function getToolEventKey(event) {
   );
 }
 
+export function getThinkingDelta(event) {
+  if (event?.type !== "thinking_delta") return "";
+  return String(event.thinkingDelta ?? event.assistantEvent?.delta ?? event.raw?.delta ?? "");
+}
+
+export function formatToolError(event) {
+  if (event?.type !== "tool_end" || event.isError !== true) return "";
+  const name = String(event.toolName || event.message || "Tool");
+  const detail = sanitizeActivityDetail(
+    event.errorMessage ?? event.raw?.errorMessage ?? event.raw?.error ?? event.raw?.result?.error
+  );
+  return truncateActivityText(detail ? `${name}: ${detail}` : `${name} failed`);
+}
+
 export function formatRetryDetail(event) {
   if (!event || typeof event !== "object") return "";
 

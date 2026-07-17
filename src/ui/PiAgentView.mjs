@@ -17,6 +17,14 @@ import { RunSettingsControls } from "./run-settings.mjs";
 import { ComposerSuggestions } from "./suggestions.mjs";
 import { ThreadActions } from "./thread-actions.mjs";
 import { getCurrentRunMetadata } from "./view/run-metadata.mjs";
+import {
+  fileToPromptImage,
+  imagePreviewUrl,
+  modelSupportsImages,
+  SUPPORTED_IMAGE_MIME_TYPES
+} from "./prompt-payload.mjs";
+import { formatToolError, getThinkingDelta } from "./activity.mjs";
+import { getSendActionState } from "./send-state.mjs";
 
 export class PiAgentView extends f.ItemView {
   constructor(e, t) {
@@ -33,11 +41,17 @@ export class PiAgentView extends f.ItemView {
     this.pendingActivityTimer = void 0;
     this.isRenderingMessages = !1;
     this.activeToolCalls = new Map();
-    this.recentActions = [];
     this.currentRunContextUsage = void 0;
     this.invalidatedContextThreadIds = new Set();
     this.streamingAssistantContent = "";
-    this.promptQueue = [];
+    this.promptQueue = this.plugin.getLocalPromptQueue();
+    this.composerImages = [];
+    this.nativePiQueue = undefined;
+    this.steeringPromptIds = new Set();
+    this.streamingThinkingContent = "";
+    this.thinkingDisclosureExpanded = false;
+    this.thinkingDisclosureUserSet = false;
+    this.completedThinkingExpansion = new Map();
     this.messageRenderComponents = [];
     this.activeRuns = new Map();
     this.activeEditorScrollSnapshot = void 0;
@@ -47,7 +61,7 @@ export class PiAgentView extends f.ItemView {
     return T;
   }
   getDisplayText() {
-    return Ce;
+    return this.plugin.extensionTitle || Ce;
   }
   getIcon() {
     return I;
@@ -73,6 +87,7 @@ export class PiAgentView extends f.ItemView {
       })
     );
     this.renderChatView();
+    this.plugin.refreshCommandCatalog(false);
   }
   renderChatView() {
     this.showingThreadList = !1;
@@ -150,11 +165,18 @@ export class PiAgentView extends f.ItemView {
       }),
       this.renderThreadTitle());
     let a = t.createDiv({ cls: "pi-agent-header-actions" }),
+      favoriteButton = a.createEl("button", {
+        cls: "clickable-icon pi-agent-header-action pi-agent-header-favorite"
+      }),
       o = a.createEl("button", {
         cls: "clickable-icon pi-agent-header-action",
         attr: { "aria-label": "New chat", title: "New chat" }
       });
-    ((0, f.setIcon)(o, "plus"),
+    ((this.threadFavoriteEl = favoriteButton),
+      (0, f.setIcon)(favoriteButton, "star"),
+      this.renderThreadFavorite(),
+      favoriteButton.addEventListener("click", () => this.toggleCurrentThreadFavorite()),
+      (0, f.setIcon)(o, "plus"),
       o.addEventListener("click", (c) => {
         var p;
         (c.preventDefault(), (p = this.threadMenu) == null || p.startNewChat());
@@ -189,12 +211,26 @@ export class PiAgentView extends f.ItemView {
         let c =
           this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
         this.stickToBottom = c < 40;
+      }),
+      this.messagesEl.addEventListener("click", (event) => {
+        const target = event.target.closest("a.internal-link");
+        if (target) {
+          event.preventDefault();
+          const href = target.getAttribute("data-href") || target.getAttribute("href");
+          if (href) {
+            this.openVaultLink(href, event.metaKey || event.ctrlKey);
+          }
+        }
       }));
     let d = e.createDiv({ cls: "pi-agent-composer" });
     ((this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" })),
       this.renderToolBadges(),
+      (this.promptQueue = this.plugin.getLocalPromptQueue()),
       (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
       this.renderPromptQueue(),
+      (this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
+      (this.composerImagesEl = d.createDiv({ cls: "pi-agent-composer-images" })),
+      this.renderComposerImages(),
       (this.inputEl = d.createEl("textarea", {
         placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
       })),
@@ -209,6 +245,11 @@ export class PiAgentView extends f.ItemView {
             (this.syncCurrentRunFlags(), this.running) &&
             (c.preventDefault(), this.cancelCurrentRun()));
       }),
+      this.inputEl.addEventListener("paste", (event) => this.handleImagePaste(event)),
+      this.inputEl.addEventListener("dragover", (event) => {
+        if ((event.dataTransfer?.files?.length || 0) > 0) event.preventDefault();
+      }),
+      this.inputEl.addEventListener("drop", (event) => this.handleImageDrop(event)),
       this.inputEl.addEventListener("input", () => {
         var c;
         (this.syncCurrentRunFlags(),
@@ -229,10 +270,21 @@ export class PiAgentView extends f.ItemView {
       (this.suggestions = new ComposerSuggestions(this.inputEl, this.plugin, () =>
         this.resizeInput()
       )),
+      (this.extensionWidgetsBelowEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
+      this.renderExtensionWidgets(),
       this.resizeInput());
+    this.imageInputEl = d.createEl("input", {
+      cls: "pi-agent-image-input",
+      attr: { type: "file", accept: SUPPORTED_IMAGE_MIME_TYPES.join(","), multiple: "" }
+    });
+    this.imageInputEl.addEventListener("change", () => {
+      this.addImageFiles(this.imageInputEl?.files);
+      if (this.imageInputEl) this.imageInputEl.value = "";
+    });
     let h = d.createDiv({ cls: "pi-agent-composer-bar" });
     ((this.composerBarEl = h),
       (this.runSettings = new RunSettingsControls(this.plugin)),
+      this.renderImagePicker(h),
       this.runSettings.render(h));
     let m = h.createEl("button", {
       cls: "clickable-icon pi-agent-send-button",
@@ -251,12 +303,17 @@ export class PiAgentView extends f.ItemView {
     ((this.messagesEl = void 0),
       (this.inputEl = void 0),
       (this.promptQueueEl = void 0),
+      (this.extensionWidgetsAboveEl = void 0),
+      (this.extensionWidgetsBelowEl = void 0),
+      (this.composerImagesEl = void 0),
+      (this.imageInputEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
       (this.composerBarExpandEl = void 0),
       (this.runSettings = void 0),
       (this.toolBadgesEl = void 0),
       (this.threadTitleEl = void 0),
+      (this.threadFavoriteEl = void 0),
       this.cleanupComposerBarObserver(),
       this.clearPendingActivityTimer(),
       this.unloadMessageRenderComponents(),
@@ -265,6 +322,27 @@ export class PiAgentView extends f.ItemView {
       (this.threadMenu = void 0),
       (e = this.suggestions) == null || e.close(),
       (this.suggestions = void 0));
+  }
+  renderExtensionWidgets() {
+    this.extensionWidgetsAboveEl?.empty();
+    this.extensionWidgetsBelowEl?.empty();
+    for (const [key, widget] of this.plugin.extensionWidgets ?? []) {
+      const target =
+        widget.placement === "belowEditor"
+          ? this.extensionWidgetsBelowEl
+          : this.extensionWidgetsAboveEl;
+      if (!target) continue;
+      const widgetEl = target.createDiv({ cls: "pi-agent-extension-widget" });
+      widgetEl.setAttr("data-widget-key", key);
+      for (const line of widget.lines) widgetEl.createDiv({ text: line });
+    }
+  }
+  setExtensionEditorText(text) {
+    if (!this.inputEl) return;
+    this.inputEl.value = text;
+    this.resizeInput();
+    this.suggestions?.update();
+    this.inputEl.focus();
   }
   renderToolBadges() {
     let e = this.toolBadgesEl;
@@ -323,6 +401,24 @@ export class PiAgentView extends f.ItemView {
     if (!this.threadTitleEl) return;
     let e = this.plugin.getCurrentThread();
     (this.threadTitleEl.empty(), this.threadTitleEl.createSpan({ text: e.title }));
+    this.renderThreadFavorite();
+  }
+  renderThreadFavorite() {
+    if (!this.threadFavoriteEl) return;
+    const favorite = this.plugin.getCurrentThread().favorite === true;
+    this.threadFavoriteEl.toggleClass("is-favorite", favorite);
+    this.threadFavoriteEl.setAttr("aria-pressed", String(favorite));
+    this.threadFavoriteEl.setAttr("aria-label", favorite ? "Remove favorite" : "Mark as favorite");
+    this.threadFavoriteEl.setAttr("title", favorite ? "Remove favorite" : "Mark as favorite");
+  }
+  toggleCurrentThreadFavorite() {
+    const thread = this.plugin.getCurrentThread();
+    if (!this.plugin.toggleThreadFavorite(thread.id)) {
+      new f.Notice("Chat thread was not found.");
+      return;
+    }
+    this.renderThreadFavorite();
+    this.renderThreadListIfVisible();
   }
   startThreadTitleRename() {
     var a;
@@ -357,21 +453,35 @@ export class PiAgentView extends f.ItemView {
       t.focus(),
       t.select());
   }
-  submitInput() {
+  async submitInput() {
     var t, n;
     let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
-    if (!e) return;
+    let images = this.composerImages.map((image) => ({ ...image }));
+    if (!e && images.length === 0) return;
+    if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
+    if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      new f.Notice("The selected Pi model does not support image input.");
+      return;
+    }
     (this.inputEl && (this.inputEl.value = ""),
+      (this.composerImages = []),
+      this.renderComposerImages(),
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
-      this.running ? this.enqueuePrompt(e) : this.runPrompt(e),
+      this.running
+        ? this.enqueuePrompt(e, this.plugin.getCurrentThread().id, images)
+        : this.runPrompt(e, undefined, images),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
     var t;
     this.syncCurrentRunFlags();
-    if (this.running && !((t = this.inputEl) != null && t.value.trim())) {
+    if (
+      this.running &&
+      !((t = this.inputEl) != null && t.value.trim()) &&
+      this.composerImages.length === 0
+    ) {
       this.cancelCurrentRun();
       return;
     }
@@ -393,6 +503,9 @@ export class PiAgentView extends f.ItemView {
     ((this.running = !1),
       (this.canceling = !1),
       (this.streamingAssistantContent = ""),
+      (this.streamingThinkingContent = ""),
+      (this.thinkingDisclosureExpanded = false),
+      (this.thinkingDisclosureUserSet = false),
       (this.streamingItemEl = void 0),
       (this.streamingTextEl = void 0),
       (this.activityText = ""),
@@ -456,6 +569,66 @@ export class PiAgentView extends f.ItemView {
       t.setAttr("title", n ? "Collapse run options" : "Expand run options"),
       (0, f.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
   }
+  renderImagePicker(parent) {
+    const button = parent.createEl("button", {
+      cls: "clickable-icon pi-agent-image-button",
+      attr: { "aria-label": "Attach images", title: "Attach PNG, JPEG, or WebP images" }
+    });
+    f.setIcon(button, "image-plus");
+    button.addEventListener("click", () => this.imageInputEl?.click());
+  }
+  getImageFiles(files) {
+    return [...(files || [])].filter((file) => SUPPORTED_IMAGE_MIME_TYPES.includes(file.type));
+  }
+  async addImageFiles(files) {
+    const imageFiles = [...(files || [])];
+    if (imageFiles.length === 0) return;
+    await this.plugin.ensureModelCatalogLoaded();
+    if (!modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      new f.Notice("The selected Pi model does not support image input.");
+      return;
+    }
+    try {
+      const images = await Promise.all(imageFiles.map(fileToPromptImage));
+      this.composerImages.push(...images);
+      this.renderComposerImages();
+      this.setRunningState(this.running);
+    } catch (error) {
+      new f.Notice(error instanceof Error ? error.message : String(error));
+    }
+  }
+  handleImagePaste(event) {
+    const files = this.getImageFiles(event.clipboardData?.files);
+    if (files.length === 0) return;
+    event.preventDefault();
+    this.addImageFiles(files);
+  }
+  handleImageDrop(event) {
+    const files = [...(event.dataTransfer?.files || [])];
+    if (files.length === 0) return;
+    event.preventDefault();
+    this.addImageFiles(files);
+  }
+  renderComposerImages() {
+    if (!this.composerImagesEl) return;
+    this.composerImagesEl.empty();
+    this.composerImagesEl.toggleClass("is-empty", this.composerImages.length === 0);
+    for (const image of this.composerImages) {
+      const preview = this.composerImagesEl.createDiv({ cls: "pi-agent-composer-image" });
+      preview.createEl("img", {
+        attr: { src: imagePreviewUrl(image), alt: image.fileName || "Attached image" }
+      });
+      const remove = preview.createEl("button", {
+        cls: "clickable-icon",
+        attr: { "aria-label": `Remove ${image.fileName || "image"}`, title: "Remove image" }
+      });
+      f.setIcon(remove, "x");
+      remove.addEventListener("click", () => {
+        this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
+        this.renderComposerImages();
+      });
+    }
+  }
   resizeInput() {
     this.inputEl &&
       ((this.inputEl.style.height = "auto"),
@@ -487,21 +660,115 @@ export class PiAgentView extends f.ItemView {
       (this.pendingActivity = void 0),
       this.clearPendingActivityTimer(),
       this.activeToolCalls.clear(),
-      (this.recentActions = []),
       (this.currentRunContextUsage = void 0),
       (this.streamingAssistantContent = ""),
+      (this.streamingThinkingContent = ""),
+      (this.thinkingDisclosureExpanded = false),
+      (this.thinkingDisclosureUserSet = false),
       (this.streamingItemEl = void 0),
       (this.streamingTextEl = void 0));
   }
   renderThreadListIfVisible() {
     this.showingThreadList && this.renderThreadList();
   }
-  async runPrompt(e, t = this.plugin.getCurrentThread().id) {
+  async runPrompt(e, t = this.plugin.getCurrentThread().id, images = [], queuedId) {
     if (this.isThreadRunning(t)) {
-      this.enqueuePrompt(e, t);
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      } else {
+        this.enqueuePrompt(e, t, images);
+      }
       return;
     }
-    let n = { canceling: !1, runner: this.plugin.createPiRunner() };
+    let delivery;
+    try {
+      delivery = await this.plugin.enrichPromptDelivery(
+        { prompt: e, images },
+        { mode: "prompt", threadId: t }
+      );
+    } catch (error) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      }
+      new f.Notice(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    e = String(delivery.prompt || "").trim();
+    images = delivery.images || [];
+    if (!e && images.length === 0) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+        new f.Notice("The queued message became empty and was not sent.");
+      }
+      return;
+    }
+    if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
+    if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      }
+      new f.Notice("The selected Pi model does not support image input.");
+      return;
+    }
+    if (this.isThreadRunning(t)) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      } else {
+        this.enqueuePrompt(e, t, images);
+      }
+      return;
+    }
+    let n = {
+      canceling: false,
+      runner: this.plugin.createPiRunner(t),
+      accepted: false,
+      thinking: "",
+      thinkingExpanded: false,
+      thinkingUserSet: false,
+      toolErrors: []
+    };
+    let skipQueueDrain = false;
+    const addUserMessage = () => {
+      if (n.userMessageAdded) return;
+      n.userMessageAdded = true;
+      this.plugin.addMessageToThread(t, {
+        role: "user",
+        content: e || `[${images.length} attached image${images.length === 1 ? "" : "s"}]`,
+        createdAt: Date.now()
+      });
+      if (this.isCurrentThread(t)) {
+        this.renderThreadTitle();
+        this.renderMessages();
+      }
+    };
+    const acknowledgeQueuedDelivery = () => {
+      addUserMessage();
+      if (!queuedId || n.accepted) return;
+      n.accepted = true;
+      this.promptQueue = this.promptQueue.filter((item) => item.id !== queuedId);
+      this.plugin.replaceLocalPromptQueue(this.promptQueue);
+      this.renderPromptQueue();
+    };
     (this.activeRuns.set(t, n),
       this.syncCurrentRunFlags(),
       (this.runningThreadId = t),
@@ -515,20 +782,17 @@ export class PiAgentView extends f.ItemView {
       (this.pendingActivity = void 0),
       this.clearPendingActivityTimer(),
       this.activeToolCalls.clear(),
-      (this.recentActions = []),
       (this.currentRunContextUsage = void 0),
       (this.streamingAssistantContent = ""),
+      (this.streamingThinkingContent = ""),
+      (this.thinkingDisclosureExpanded = false),
+      (this.thinkingDisclosureUserSet = false),
       (this.activeEditorScrollSnapshot = this.isCurrentThread(t)
         ? this.getActiveEditorScrollSnapshot()
         : this.activeEditorScrollSnapshot),
       (this.stickToBottom = !0),
       this.setRunningState(this.running),
-      this.plugin.addMessageToThread(t, {
-        role: "user",
-        content: e,
-        createdAt: Date.now()
-      }),
-      this.isCurrentThread(t) && (this.renderThreadTitle(), this.renderMessages()));
+      !queuedId && addUserMessage());
     this.renderThreadListIfVisible();
     let s = getCurrentRunMetadata(this.plugin.settings);
     try {
@@ -536,22 +800,56 @@ export class PiAgentView extends f.ItemView {
         e,
         {
           isCanceled: () => n.canceling,
-          onEvent: (o) => this.isCurrentThread(t) && this.handleRunEvent(o),
-          onTextDelta: (o) => this.isCurrentThread(t) && this.appendStreamingDelta(o)
+          onEvent: (o) => {
+            const thinkingDelta = getThinkingDelta(o);
+            if (thinkingDelta) {
+              n.thinking += thinkingDelta;
+              if (!n.thinkingUserSet) n.thinkingExpanded = true;
+            }
+            const toolError = formatToolError(o);
+            if (toolError && n.toolErrors[n.toolErrors.length - 1] !== toolError)
+              n.toolErrors.push(toolError);
+            if (!this.isCurrentThread(t)) return;
+            this.streamingThinkingContent = n.thinking;
+            this.thinkingDisclosureExpanded = n.thinkingExpanded;
+            this.thinkingDisclosureUserSet = n.thinkingUserSet;
+            this.handleRunEvent(o);
+            if (thinkingDelta) this.appendStreamingThinkingDelta(thinkingDelta);
+          },
+          onTextDelta: (o) => {
+            if (!n.thinkingUserSet) n.thinkingExpanded = false;
+            if (!this.isCurrentThread(t)) return;
+            this.thinkingDisclosureExpanded = n.thinkingExpanded;
+            this.liveThinkingSetExpanded?.(n.thinkingExpanded);
+            this.appendStreamingDelta(o);
+          },
+          onPromptAccepted: acknowledgeQueuedDelivery
         },
         t,
-        n.runner
+        n.runner,
+        images,
+        delivery.promptContext
+      );
+      acknowledgeQueuedDelivery();
+      const createdAt = Date.now();
+      const thinkingKey = `${t}:${createdAt}`;
+      this.completedThinkingExpansion.set(
+        thinkingKey,
+        n.thinkingUserSet ? n.thinkingExpanded : false
       );
       ((this.streamingAssistantContent = ""),
+        (this.streamingThinkingContent = ""),
         (this.streamingItemEl = void 0),
         (this.streamingTextEl = void 0),
         this.plugin.addMessageToThread(t, {
           role: "assistant",
           content: a.finalResponse,
-          createdAt: Date.now(),
+          createdAt,
           contextUsage: a.contextUsage,
           tokenUsage: a.tokenUsage,
-          runMetadata: s
+          runMetadata: s,
+          thinking: n.thinking || undefined,
+          toolErrors: n.toolErrors.length > 0 ? n.toolErrors : undefined
         }),
         a.contextUsage && !a.contextCompacted && this.invalidatedContextThreadIds.delete(t),
         a.contextCompacted && this.invalidatedContextThreadIds.add(t),
@@ -559,6 +857,13 @@ export class PiAgentView extends f.ItemView {
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
+      if (queuedId && !n.accepted) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        skipQueueDrain = true;
+      }
       if (o === "Pi run canceled.") {
         new f.Notice("Agent run canceled.");
         return;
@@ -566,7 +871,9 @@ export class PiAgentView extends f.ItemView {
       (this.plugin.addMessageToThread(t, {
         role: "assistant",
         content: `Agent run failed: ${o}`,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        thinking: n.thinking || undefined,
+        toolErrors: n.toolErrors.length > 0 ? n.toolErrors : undefined
       }),
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()),
@@ -577,6 +884,9 @@ export class PiAgentView extends f.ItemView {
         (this.running = this.isThreadRunning(this.plugin.getCurrentThread().id)),
         (this.canceling = this.getCurrentThreadRun()?.canceling === !0),
         (this.streamingAssistantContent = ""),
+        (this.streamingThinkingContent = ""),
+        (this.thinkingDisclosureExpanded = false),
+        (this.thinkingDisclosureUserSet = false),
         (this.activityStickyUntil = 0),
         (this.pendingActivity = void 0),
         this.clearPendingActivityTimer(),
@@ -584,6 +894,7 @@ export class PiAgentView extends f.ItemView {
         (this.activityText = ""),
         (this.activityDetail = ""),
         (this.currentRunContextUsage = void 0),
+        this.isCurrentThread(t) && (this.nativePiQueue = void 0),
         this.activeEditorScrollSnapshot &&
           this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
         (this.activeEditorScrollSnapshot = void 0),
@@ -592,7 +903,8 @@ export class PiAgentView extends f.ItemView {
         this.setRunningState(this.running),
         this.isCurrentThread(t) && (this.renderMessages(), this.renderToolBadges()),
         this.renderThreadListIfVisible(),
-        this.runNextQueuedPrompt());
+        this.plugin.rebuildServicesIfPending(),
+        !skipQueueDrain && this.runNextQueuedPrompt());
     }
   }
   getActiveEditorScrollSnapshot() {
@@ -631,6 +943,25 @@ export class PiAgentView extends f.ItemView {
       console.warn("Pi Agent: failed to restore editor scroll after external file change", a);
     }
   }
+  appendStreamingThinkingDelta(e) {
+    if (!e) return;
+    if (!this.liveThinkingTextEl || !this.liveThinkingTextEl.isConnected) {
+      this.renderMessages();
+      return;
+    }
+    this.liveThinkingTextEl.appendText(e);
+    if (this.messagesEl && this.stickToBottom)
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+  }
+  setLiveThinkingExpanded(expanded) {
+    const run = this.getCurrentThreadRun();
+    this.thinkingDisclosureExpanded = expanded;
+    this.thinkingDisclosureUserSet = true;
+    if (run) {
+      run.thinkingExpanded = expanded;
+      run.thinkingUserSet = true;
+    }
+  }
   appendStreamingDelta(e) {
     if (e) {
       if (
@@ -652,33 +983,25 @@ export class PiAgentView extends f.ItemView {
     }
   }
   setRunningState(e) {
-    var n;
-    let s = !!((n = this.inputEl) != null && n.value.trim()),
-      a = e && !this.canceling && s,
-      o = e ? (this.canceling ? "loader" : a ? "send" : "x") : "send",
-      l = e ? (this.canceling ? "Canceling" : a ? "Queue" : "Cancel") : "Send",
-      d = e
-        ? this.canceling
-          ? "Canceling agent run"
-          : a
-            ? "Queue message"
-            : "Cancel agent run"
-        : "Send message";
-    this.sendButtonEl &&
-      (this.sendButtonEl.empty(),
-      (0, f.setIcon)(this.sendButtonEl, o),
-      this.sendButtonEl.createSpan({
-        cls: "pi-agent-control-label",
-        text: l
-      }),
-      this.sendButtonEl.toggleAttribute("disabled", e && this.canceling),
-      this.sendButtonEl.setAttr("aria-label", d),
-      this.sendButtonEl.setAttr(
-        "title",
-        this.promptQueue.length > 0 && !this.canceling
-          ? `${d}. ${this.promptQueue.length} queued.`
-          : d
-      ));
+    const hasInput = !!this.inputEl?.value.trim() || this.composerImages.length > 0;
+    const action = getSendActionState({
+      running: e,
+      canceling: this.canceling,
+      hasInput,
+      queuedCount: this.promptQueue.length
+    });
+    if (!this.sendButtonEl) return;
+    this.sendButtonEl.empty();
+    (0, f.setIcon)(this.sendButtonEl, action.icon);
+    this.sendButtonEl.createSpan({ cls: "pi-agent-control-label", text: action.label });
+    this.sendButtonEl.toggleAttribute("disabled", action.disabled);
+    this.sendButtonEl.setAttr("aria-label", action.ariaLabel);
+    this.sendButtonEl.setAttr(
+      "title",
+      action.titleSuffix ? `${action.ariaLabel}. ${action.titleSuffix}` : action.ariaLabel
+    );
+    for (const state of ["send", "queue", "cancel", "canceling"])
+      this.sendButtonEl.toggleClass(`is-${state}`, action.state === state);
   }
   renderPiIcon(e) {
     (0, f.setIcon)(e, I);

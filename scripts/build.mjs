@@ -24,13 +24,18 @@ const result = await build({
 const bundled = result.outputFiles[0].text;
 new Function(bundled);
 
-const formatted = await prettier.format(bundled, {
+const prettierOptions = {
   parser: "babel",
   printWidth: 100,
   semi: true,
   singleQuote: false,
   trailingComma: "none"
-});
+};
+// Some bundled dependencies place pure annotations between unary operators and
+// parentheses. A second pass stabilizes Prettier's comment placement so the
+// generated bundle also passes the repository-wide format check.
+const firstFormat = await prettier.format(bundled, prettierOptions);
+const formatted = (await prettier.format(firstFormat, prettierOptions)).replace(/[\t ]+$/gm, "");
 
 if (checkOnly) {
   const current = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : "";

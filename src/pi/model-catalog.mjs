@@ -1,10 +1,6 @@
-import { execFile } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
-import { formatPiCliFailure } from "./diagnostics.mjs";
-import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
+import { PiRpcClient } from "./rpc-client.mjs";
 
-const REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
+export const REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 const ESCAPE_CHARACTER = String.fromCharCode(27);
 const ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
 
@@ -14,40 +10,34 @@ export class PiModelCatalog {
     this.settings = settings;
   }
 
-  async getAvailableModels() {
-    const piExecutable = findPiExecutable(this.settings.piExecutablePath);
-    const output = await this.execPi(piExecutable, ["--list-models"]);
-    return parseModelCatalog(output);
-  }
-
-  getEffectiveConfig(vaultBasePath) {
-    return getEffectiveConfig(vaultBasePath);
-  }
-
-  execPi(command, args) {
-    return new Promise((resolve, reject) => {
-      const invocation = buildPiProcessInvocation(command, args, { timeout: 20_000 });
-      execFile(invocation.command, invocation.args, invocation.options, (error, stdout, stderr) => {
-        if (error) {
-          reject(
-            new Error(
-              formatPiCliFailure({
-                context: "Could not query Pi model registry",
-                error,
-                stderr,
-                stdout
-              })
-            )
-          );
-          return;
-        }
-
-        resolve(stdout || stderr);
-      });
+  async getAvailableModels(vaultBasePath) {
+    const client = new PiRpcClient({
+      piExecutablePath: this.settings.piExecutablePath,
+      cwd: vaultBasePath ?? this.pluginDirectory,
+      args: ["--mode", "rpc", "--no-session", "--no-tools"]
     });
+
+    try {
+      const [catalog, state] = await Promise.all([
+        client.request("get_available_models"),
+        client.request("get_state")
+      ]);
+      this.effectiveConfig = {
+        effectiveModel: state?.model ? `${state.model.provider}/${state.model.id}` : "",
+        effectiveReasoning: state?.thinkingLevel ?? ""
+      };
+      return (catalog?.models ?? []).map(normalizeRpcModel);
+    } finally {
+      client.dispose();
+    }
+  }
+
+  getEffectiveConfig() {
+    return this.effectiveConfig ?? { effectiveModel: "", effectiveReasoning: "" };
   }
 }
 
+// Retained for compatibility with callers and older cached catalog data.
 export function parseModelCatalog(output) {
   return output
     .replace(ANSI_ESCAPE_PATTERN, "")
@@ -73,6 +63,35 @@ export function parseModelCatalog(output) {
         supportedReasoningLevels
       };
     });
+}
+
+export function normalizeRpcModel(model) {
+  const supportedReasoningLevels = getSupportedReasoningLevels(model);
+  return {
+    slug: `${model.provider}/${model.id}`,
+    provider: model.provider,
+    id: model.id,
+    displayName: model.name || model.id,
+    contextWindow: Number(model.contextWindow) || 0,
+    maxOutputTokens: Number(model.maxTokens) || 0,
+    defaultReasoningLevel: supportedReasoningLevels.includes("medium")
+      ? "medium"
+      : supportedReasoningLevels[0] || "off",
+    supportedReasoningLevels,
+    supportsImages: Array.isArray(model.input) && model.input.includes("image"),
+    reasoning: model.reasoning === true,
+    thinkingLevelMap: model.thinkingLevelMap ?? undefined
+  };
+}
+
+export function getSupportedReasoningLevels(model) {
+  if (!model?.reasoning) return ["off"];
+  const map = model.thinkingLevelMap ?? {};
+  return REASONING_LEVELS.filter((level) => {
+    if (map[level] === null) return false;
+    if (level === "xhigh" || level === "max") return map[level] !== undefined;
+    return true;
+  });
 }
 
 export function parseTokenAmount(value) {
@@ -103,31 +122,4 @@ export function normalizeReasoningLevels(value) {
           .map((level) => level.trim())
           .filter(Boolean)
           .filter((level) => REASONING_LEVELS.includes(level));
-}
-
-export function getEffectiveConfig(vaultBasePath) {
-  const vaultSettingsPath = vaultBasePath ? path.join(vaultBasePath, ".pi", "settings.json") : "";
-  const settings = readJsonFile(vaultSettingsPath);
-  const defaultModel = settings.defaultModel ? String(settings.defaultModel) : "";
-  const defaultProvider = settings.defaultProvider ? String(settings.defaultProvider) : "";
-  const effectiveModel = defaultModel
-    ? defaultModel.includes("/")
-      ? defaultModel
-      : defaultProvider
-        ? `${defaultProvider}/${defaultModel}`
-        : defaultModel
-    : "";
-  const effectiveReasoning = settings.defaultThinkingLevel
-    ? String(settings.defaultThinkingLevel)
-    : "";
-
-  return { effectiveModel, effectiveReasoning };
-}
-
-function readJsonFile(filePath) {
-  try {
-    return filePath && fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, "utf8")) : {};
-  } catch {
-    return {};
-  }
 }
