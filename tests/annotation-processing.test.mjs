@@ -10,10 +10,11 @@ const queueSource = fs.readFileSync("src/ui/prompt-queue.mjs", "utf8");
 const styles = fs.readFileSync("styles.css", "utf8");
 
 describe("annotation processing UX", () => {
-  it("renders transient source ranges and blocks without replacing annotation anchors", () => {
+  it("masks exact source ranges for selections and blocks without changing line layout", () => {
     expect(extensionSource).toContain("processingAnnotationsForEditor");
+    expect(extensionSource).toContain("Decoration.mark");
     expect(extensionSource).toContain("pi-agent-annotation-processing-range");
-    expect(extensionSource).toContain("pi-agent-annotation-processing-line");
+    expect(extensionSource).not.toContain("pi-agent-annotation-processing-line");
   });
 
   it("uses a gray accent sweep with a static reduced-motion fallback", () => {
@@ -23,6 +24,10 @@ describe("annotation processing UX", () => {
     );
     expect(styles).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pi-agent-annotation-processing-range[\s\S]*?animation: none;[\s\S]*?background-image: none;/
+    );
+    expect(styles).toContain(".pi-agent-annotation-processing-range::spelling-error");
+    expect(styles).toMatch(
+      /\.pi-agent-annotation-processing-range[\s\S]*?text-decoration: none !important;/
     );
   });
 
