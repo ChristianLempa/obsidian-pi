@@ -1,23 +1,23 @@
 import { getResolvedReasoning, CUSTOM_MODEL_VALUE } from "../plugin/settings.mjs";
-import { expandPromptTemplate } from "./prompt-templates.mjs";
 import { parsePromptReferences } from "./prompt-references.mjs";
 import { getSlashCommands } from "./slash-commands.mjs";
-import { findSkillByName, readSkillContent } from "./skills.mjs";
 
 export class ContextBuilder {
-  constructor(graph, settings, bundledInstructions, vaultBasePath) {
+  constructor(graph, settings, bundledInstructions, vaultBasePath, getPiCommands = () => []) {
     this.graph = graph;
     this.settings = settings;
     this.bundledInstructions = bundledInstructions;
     this.vaultBasePath = vaultBasePath;
+    this.getPiCommands = getPiCommands;
   }
 
   async build(prompt, selection = "") {
-    const userPrompt = await expandPromptTemplate(prompt, this.vaultBasePath);
+    const userPrompt = String(prompt ?? "");
     const parsedPrompt = parsePromptReferences(userPrompt);
     const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
     const toolCatalog = this.getToolCatalog();
-    const slashCommands = getSlashCommands(this.settings, this.vaultBasePath);
+    const slashCommands = getSlashCommands(this.getPiCommands());
+    const piCommand = findPiCommand(userPrompt, slashCommands);
     const inspection = this.createInspection(preAttachedContext);
 
     return {
@@ -25,6 +25,7 @@ export class ContextBuilder {
       toolCatalog,
       inspection,
       slashCommands,
+      piCommand,
       userPrompt
     };
   }
@@ -65,14 +66,13 @@ export class ContextBuilder {
   }
 
   formatPrompt(prompt, context) {
-    return [
+    if (context.piCommand?.source === "extension") return prompt;
+
+    const contextPacket = [
       "Use the following Obsidian vault context as a starting point.",
       "When read/search/list tools are enabled, inspect additional files yourself instead of assuming the pre-attached context is complete.",
       "Prefer cited wikilinks or vault paths when referring to notes.",
-      "Respect the selected tool mode. Chat has no Pi CLI tools. Review can read/search/list only. Edit can edit/write but not run shell commands. Full agent can edit/write and run shell commands. Tool modes are not an OS-level sandbox.",
-      "",
-      "## User prompt",
-      prompt,
+      "Respect the selected tool mode. Chat has no Pi CLI tools. Review can read/search/list only. Edit can edit/write but not run shell commands. Full agent enables Pi's complete built-in and extension/custom tool set. Tool modes are not an OS-level sandbox.",
       "",
       "## Obsidian context helpers",
       context.toolCatalog.map((tool) => `- ${tool}`).join("\n"),
@@ -100,6 +100,10 @@ export class ContextBuilder {
       "## Explicit prompt attachments",
       JSON.stringify(context.attachments, null, 2)
     ].join("\n");
+
+    return context.piCommand
+      ? `${prompt}\n\n${contextPacket}`
+      : `## User prompt\n${prompt}\n\n${contextPacket}`;
   }
 
   async resolveAttachments(references, activeNote) {
@@ -131,12 +135,6 @@ export class ContextBuilder {
             label: reference.value,
             content: await this.graph.getNotesByTag(reference.value)
           });
-        } else if (reference.type === "skill") {
-          attachments.push({
-            type: "skill",
-            label: `/skill:${reference.value}`,
-            content: this.resolveSkill(reference.value, reference.argument)
-          });
         } else if (reference.type === "command") {
           attachments.push({
             type: "command",
@@ -154,20 +152,6 @@ export class ContextBuilder {
     }
 
     return attachments;
-  }
-
-  resolveSkill(name, argument = "") {
-    const skill = findSkillByName(this.settings, this.vaultBasePath, name);
-
-    return skill
-      ? {
-          name: skill.name,
-          description: skill.description,
-          path: skill.path,
-          argument,
-          instructions: readSkillContent(skill.path)
-        }
-      : { error: `Skill not found: ${name}` };
   }
 
   async resolveCommand(command, argument, activeNote) {
@@ -201,7 +185,7 @@ export class ContextBuilder {
     const tools = ["read(path)", "grep(pattern, path)", "find(glob)", "ls(path)"];
     if (mode === "edit" || mode === "full-agent")
       tools.push("edit(path, oldText, newText)", "write(path, content)");
-    if (mode === "full-agent") tools.push("bash(command)");
+    if (mode === "full-agent") tools.push("bash(command)", "Pi extension/custom tools");
     tools.push(
       "Tool modes are not an OS-level sandbox; avoid destructive actions unless explicitly requested."
     );
@@ -307,4 +291,13 @@ export class ContextBuilder {
       ? this.settings.customModel.trim() || "custom"
       : this.settings.model.trim() || "default";
   }
+}
+
+export function findPiCommand(prompt, commands) {
+  const match = String(prompt ?? "").match(/^\/([^\s]+)/);
+  if (!match) return undefined;
+  const command = `/${match[1]}`;
+  return commands.find(
+    (candidate) => candidate.source !== "obsidian" && candidate.command === command
+  );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ContextBuilder } from "../src/context/context-builder.mjs";
+import { ContextBuilder, findPiCommand } from "../src/context/context-builder.mjs";
 import { DEFAULT_SETTINGS } from "../src/plugin/settings.mjs";
 
 function createGraph() {
@@ -60,6 +60,22 @@ describe("ContextBuilder", () => {
       searchResults: { count: 0 },
       linkedNeighborhood: { count: 1 }
     });
+  });
+
+  it("leaves Pi resource commands first so RPC performs expansion", async () => {
+    const commands = [
+      { command: "/skill:review", source: "skill", label: "review", detail: "Review files" },
+      { command: "/hello", source: "extension", label: "hello", detail: "Say hello" }
+    ];
+    const builder = new ContextBuilder(createGraph(), DEFAULT_SETTINGS, "Bundled", "", () => commands);
+
+    const skillContext = await builder.build("/skill:review focus on UI", "");
+    expect(skillContext.attachments).toEqual([]);
+    expect(builder.formatPrompt(skillContext.userPrompt, skillContext)).toMatch(/^\/skill:review focus on UI/);
+
+    const extensionContext = await builder.build("/hello world", "");
+    expect(builder.formatPrompt(extensionContext.userPrompt, extensionContext)).toBe("/hello world");
+    expect(findPiCommand("/unknown", commands)).toBeUndefined();
   });
 
   it("formats only current-turn context and does not duplicate thread history", async () => {

@@ -47,7 +47,7 @@ export class PiAgentView extends f.ItemView {
     return T;
   }
   getDisplayText() {
-    return Ce;
+    return this.plugin.extensionTitle || Ce;
   }
   getIcon() {
     return I;
@@ -73,6 +73,7 @@ export class PiAgentView extends f.ItemView {
       })
     );
     this.renderChatView();
+    this.plugin.refreshCommandCatalog(false);
   }
   renderChatView() {
     this.showingThreadList = !1;
@@ -195,6 +196,7 @@ export class PiAgentView extends f.ItemView {
       this.renderToolBadges(),
       (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
       this.renderPromptQueue(),
+      (this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
       (this.inputEl = d.createEl("textarea", {
         placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
       })),
@@ -229,6 +231,8 @@ export class PiAgentView extends f.ItemView {
       (this.suggestions = new ComposerSuggestions(this.inputEl, this.plugin, () =>
         this.resizeInput()
       )),
+      (this.extensionWidgetsBelowEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
+      this.renderExtensionWidgets(),
       this.resizeInput());
     let h = d.createDiv({ cls: "pi-agent-composer-bar" });
     ((this.composerBarEl = h),
@@ -251,6 +255,8 @@ export class PiAgentView extends f.ItemView {
     ((this.messagesEl = void 0),
       (this.inputEl = void 0),
       (this.promptQueueEl = void 0),
+      (this.extensionWidgetsAboveEl = void 0),
+      (this.extensionWidgetsBelowEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
       (this.composerBarExpandEl = void 0),
@@ -265,6 +271,27 @@ export class PiAgentView extends f.ItemView {
       (this.threadMenu = void 0),
       (e = this.suggestions) == null || e.close(),
       (this.suggestions = void 0));
+  }
+  renderExtensionWidgets() {
+    this.extensionWidgetsAboveEl?.empty();
+    this.extensionWidgetsBelowEl?.empty();
+    for (const [key, widget] of this.plugin.extensionWidgets ?? []) {
+      const target =
+        widget.placement === "belowEditor"
+          ? this.extensionWidgetsBelowEl
+          : this.extensionWidgetsAboveEl;
+      if (!target) continue;
+      const widgetEl = target.createDiv({ cls: "pi-agent-extension-widget" });
+      widgetEl.setAttr("data-widget-key", key);
+      for (const line of widget.lines) widgetEl.createDiv({ text: line });
+    }
+  }
+  setExtensionEditorText(text) {
+    if (!this.inputEl) return;
+    this.inputEl.value = text;
+    this.resizeInput();
+    this.suggestions?.update();
+    this.inputEl.focus();
   }
   renderToolBadges() {
     let e = this.toolBadgesEl;

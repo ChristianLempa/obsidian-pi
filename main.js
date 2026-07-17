@@ -42,7 +42,7 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 
 // src/plugin/PiAgentPlugin.mjs
-var import_node_fs5 = __toESM(require("node:fs"), 1);
+var import_node_fs3 = __toESM(require("node:fs"), 1);
 var P = __toESM(require("obsidian"), 1);
 
 // src/plugin/settings.mjs
@@ -178,183 +178,6 @@ function formatTokenAmount(value) {
       : String(value);
 }
 
-// src/context/prompt-templates.mjs
-var import_node_fs = __toESM(require("node:fs"), 1);
-var import_node_path = __toESM(require("node:path"), 1);
-var PROMPT_TEMPLATE_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
-var RESERVED_SLASH_COMMANDS = /* @__PURE__ */ new Set([
-  "backlinks",
-  "compact",
-  "current",
-  "links",
-  "search",
-  "skill"
-]);
-async function expandPromptTemplate(prompt, basePath) {
-  const match = String(prompt || "").match(
-    /^\/([A-Za-z0-9_-]+)(?:\s+([^\r\n]*))?(?:\r?\n([\s\S]*))?$/
-  );
-  if (!match) return prompt;
-  if (RESERVED_SLASH_COMMANDS.has(match[1].toLowerCase())) return prompt;
-  const template = await findPromptTemplate(basePath, match[1]);
-  if (!template) return prompt;
-  const args = parseTemplateArgs(match[2] ?? "");
-  const expanded = applyTemplateArguments(template.content, args).trim();
-  const remainder = (match[3] ?? "").trim();
-  return [expanded, remainder].filter(Boolean).join("\n\n");
-}
-function getPromptTemplateSlashCommands(basePath) {
-  return discoverPromptTemplates(basePath).map((template) => ({
-    command: `/${template.name}`,
-    label: "Prompt template",
-    detail: template.description || `Expand ${template.relativePath}`,
-    insertText: `/${template.name} `,
-    argumentHint: template.argumentHint,
-    implemented: true
-  }));
-}
-function discoverPromptTemplates(basePath) {
-  const promptsDir = basePath ? import_node_path.default.join(basePath, ".pi", "prompts") : "";
-  if (!promptsDir) return [];
-  try {
-    return import_node_fs.default
-      .readdirSync(promptsDir, { withFileTypes: true })
-      .filter(
-        (entry) =>
-          entry.isFile() &&
-          entry.name.toLowerCase().endsWith(".md") &&
-          PROMPT_TEMPLATE_NAME_PATTERN.test(import_node_path.default.basename(entry.name, ".md")) &&
-          !RESERVED_SLASH_COMMANDS.has(
-            import_node_path.default.basename(entry.name, ".md").toLowerCase()
-          )
-      )
-      .map((entry) =>
-        readPromptTemplate(import_node_path.default.join(promptsDir, entry.name), basePath)
-      )
-      .filter(Boolean)
-      .sort((a, b) => a.command.localeCompare(b.command));
-  } catch {
-    return [];
-  }
-}
-async function findPromptTemplate(basePath, name) {
-  if (!basePath || !PROMPT_TEMPLATE_NAME_PATTERN.test(name)) return void 0;
-  return readPromptTemplateFile(
-    import_node_path.default.join(basePath, ".pi", "prompts", `${name}.md`),
-    basePath
-  );
-}
-function readPromptTemplate(filePath, basePath) {
-  try {
-    return createPromptTemplate(
-      filePath,
-      basePath,
-      import_node_fs.default.readFileSync(filePath, "utf8")
-    );
-  } catch {
-    return void 0;
-  }
-}
-async function readPromptTemplateFile(filePath, basePath) {
-  try {
-    return createPromptTemplate(
-      filePath,
-      basePath,
-      await import_node_fs.default.promises.readFile(filePath, "utf8")
-    );
-  } catch {
-    return void 0;
-  }
-}
-function createPromptTemplate(filePath, basePath, raw) {
-  const parsed = parsePromptTemplateContent(raw);
-  const name = import_node_path.default.basename(filePath, ".md");
-  return {
-    name,
-    command: `/${name}`,
-    path: filePath,
-    relativePath: basePath ? import_node_path.default.relative(basePath, filePath) : filePath,
-    ...parsed
-  };
-}
-function parsePromptTemplateContent(raw) {
-  const frontmatter = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-  const metadata = frontmatter ? parseFrontmatter(frontmatter[1]) : {};
-  const content = frontmatter ? raw.slice(frontmatter[0].length) : raw;
-  return {
-    content,
-    description: metadata.description || firstNonEmptyLine(content),
-    argumentHint: metadata["argument-hint"] || ""
-  };
-}
-function parseFrontmatter(frontmatter) {
-  const metadata = {};
-  for (const line of frontmatter.split(/\r?\n/)) {
-    const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (match) metadata[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, "");
-  }
-  return metadata;
-}
-function firstNonEmptyLine(content) {
-  return content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find(Boolean);
-}
-function applyTemplateArguments(content, args) {
-  const allArgs = args.join(" ");
-  return content.replace(
-    /\$ARGUMENTS|\$@|\$\{@:(\d+)(?::(\d+))?\}|\$(\d+)/g,
-    (match, sliceStart, sliceLength, positionalIndex) => {
-      if (match === "$ARGUMENTS" || match === "$@") return allArgs;
-      if (positionalIndex) return args[Number(positionalIndex) - 1] ?? "";
-      const startIndex = Number(sliceStart) - 1;
-      const selected = args.slice(
-        startIndex,
-        sliceLength === void 0 ? void 0 : startIndex + Number(sliceLength)
-      );
-      return selected.join(" ");
-    }
-  );
-}
-function parseTemplateArgs(input) {
-  const args = [];
-  let current = "";
-  let quote = "";
-  let escaping = false;
-  for (const char of input.trim()) {
-    if (escaping) {
-      current += char;
-      escaping = false;
-      continue;
-    }
-    if (char === "\\") {
-      escaping = true;
-      continue;
-    }
-    if (quote) {
-      if (char === quote) quote = "";
-      else current += char;
-      continue;
-    }
-    if (char === '"' || char === "'") {
-      quote = char;
-      continue;
-    }
-    if (/\s/.test(char)) {
-      if (current) {
-        args.push(current);
-        current = "";
-      }
-      continue;
-    }
-    current += char;
-  }
-  if (escaping) current += "\\";
-  if (current) args.push(current);
-  return args;
-}
-
 // src/context/prompt-references.mjs
 function parsePromptReferences(prompt) {
   const references = [];
@@ -378,14 +201,6 @@ function parsePromptReferences(prompt) {
     references.push({ type: "tag", value: `#${match[1]}` });
   }
   for (const line of prompt.split(/\r?\n/)) {
-    const skillCommand = line.match(/^\/skill:([a-z0-9-]+)(?:\s+(.+))?$/i);
-    if (skillCommand) {
-      references.push({
-        type: "skill",
-        value: skillCommand[1].toLowerCase(),
-        argument: skillCommand[2]?.trim() ?? ""
-      });
-    }
     const contextCommand = line.match(/^\/([A-Za-z0-9_-]+)(?:\s+(.+))?$/);
     if (contextCommand) {
       references.push({
@@ -405,263 +220,6 @@ function dedupeReferences(references) {
     seen.add(key);
     return true;
   });
-}
-
-// src/context/skills.mjs
-var import_node_fs2 = __toESM(require("node:fs"), 1);
-var import_node_path2 = __toESM(require("node:path"), 1);
-
-// src/shared/paths.mjs
-function normalizeVaultFolder(value, fallback = "Pi") {
-  const cleaned = String(value || "")
-    .split(/[\\/]+/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .join("/");
-  return cleaned || fallback;
-}
-function normalizeList(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim()).filter(Boolean);
-  }
-  if (typeof value === "string") {
-    return value
-      .split(/\r?\n|,/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  return [];
-}
-
-// src/context/skills.mjs
-var DEFAULT_SKILL_SEARCH_LIMIT = 100;
-var DEFAULT_SKILL_SEARCH_DEPTH = 5;
-var skillCommandCache = { key: "", at: 0, commands: [] };
-function normalizeSkillFolderList(value) {
-  return normalizeList(value);
-}
-function getConfiguredSkillPaths(settings, basePath) {
-  return normalizeSkillFolderList(settings?.additionalSkillFolders)
-    .map((skillPath) => resolveSkillPath(skillPath, basePath))
-    .filter(Boolean);
-}
-function getSkillSlashCommands(settings, basePath) {
-  const cacheKey = JSON.stringify({
-    defaults: !settings || settings.includeDefaultSkills !== false,
-    additional: normalizeSkillFolderList(settings?.additionalSkillFolders),
-    base: basePath || ""
-  });
-  const now = Date.now();
-  if (skillCommandCache.key === cacheKey && now - skillCommandCache.at < 5e3) {
-    return skillCommandCache.commands;
-  }
-  skillCommandCache = {
-    key: cacheKey,
-    at: now,
-    commands: discoverSkillCommands(settings, basePath)
-  };
-  return skillCommandCache.commands;
-}
-function discoverSkillCommands(settings, basePath) {
-  return discoverSkills(settings, basePath)
-    .sort(
-      (left, right) => left.sourceRank - right.sourceRank || left.name.localeCompare(right.name)
-    )
-    .map((skill) => ({
-      command: `/skill:${skill.name}`,
-      label: skill.name,
-      detail: skill.description || "Pi skill",
-      insertText: `/skill:${skill.name} `,
-      implemented: true
-    }));
-}
-function discoverSkills(settings, basePath) {
-  const roots = [];
-  const addRoot = (skillPath, rank) => {
-    if (skillPath && !roots.some((root) => root.path === skillPath))
-      roots.push({ path: skillPath, rank });
-  };
-  for (const skillPath of normalizeSkillFolderList(settings?.additionalSkillFolders)) {
-    addRoot(resolveSkillPath(skillPath, basePath), 0);
-  }
-  if (!settings || settings.includeDefaultSkills !== false) {
-    if (basePath) {
-      addRoot(import_node_path2.default.join(basePath, ".pi", "skills"), 1);
-      addRoot(import_node_path2.default.join(basePath, ".agents", "skills"), 1);
-    }
-    for (const skillPath of getSettingsSkillPaths(basePath)) addRoot(skillPath, 1);
-  }
-  const skills = /* @__PURE__ */ new Map();
-  for (const root of roots) {
-    for (const skillFile of findSkillFiles(root.path)) {
-      try {
-        const skill = parseSkillFile(skillFile, root.rank);
-        if (skill?.name && !skills.has(skill.name)) skills.set(skill.name, skill);
-      } catch {}
-    }
-  }
-  return [...skills.values()];
-}
-function findSkillByName(settings, basePath, name) {
-  return discoverSkills(settings, basePath).find((skill) => skill.name === name);
-}
-function readSkillContent(skillPath) {
-  return import_node_fs2.default.readFileSync(skillPath, "utf8");
-}
-function resolveSkillPath(skillPath, basePath) {
-  let resolved = String(skillPath || "").trim();
-  if (!resolved) return "";
-  if (resolved.startsWith("~")) return "";
-  return import_node_path2.default.isAbsolute(resolved)
-    ? resolved
-    : import_node_path2.default.join(basePath || "", resolved);
-}
-function findSkillFiles(
-  skillPath,
-  depth = DEFAULT_SKILL_SEARCH_DEPTH,
-  includeSiblingMarkdown = true,
-  results = []
-) {
-  if (!skillPath || results.length >= DEFAULT_SKILL_SEARCH_LIMIT) return results;
-  let stats;
-  try {
-    stats = import_node_fs2.default.statSync(skillPath);
-  } catch {
-    return results;
-  }
-  if (stats.isFile()) {
-    if (/(^|\/)SKILL\.md$/i.test(skillPath) || /\.md$/i.test(skillPath)) results.push(skillPath);
-    return results;
-  }
-  if (!stats.isDirectory() || depth < 0) return results;
-  const directSkillFile = import_node_path2.default.join(skillPath, "SKILL.md");
-  try {
-    if (import_node_fs2.default.existsSync(directSkillFile)) results.push(directSkillFile);
-  } catch {}
-  let entries;
-  try {
-    entries = import_node_fs2.default.readdirSync(skillPath, { withFileTypes: true });
-  } catch {
-    return results;
-  }
-  for (const entry of entries) {
-    if (results.length >= DEFAULT_SKILL_SEARCH_LIMIT) break;
-    const childPath = import_node_path2.default.join(skillPath, entry.name);
-    if (entry.isDirectory()) {
-      findSkillFiles(childPath, depth - 1, false, results);
-    } else if (
-      includeSiblingMarkdown &&
-      /\.md$/i.test(entry.name) &&
-      entry.name.toUpperCase() !== "SKILL.MD"
-    ) {
-      results.push(childPath);
-    }
-  }
-  return results;
-}
-function parseSkillFile(skillPath, sourceRank = 1) {
-  const content = import_node_fs2.default.readFileSync(skillPath, "utf8").slice(0, 8192);
-  const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
-  const frontmatter = frontmatterMatch ? parseSkillFrontmatter(frontmatterMatch[1]) : {};
-  const name = normalizeSkillName(frontmatter.name || inferSkillNameFromPath(skillPath));
-  const description = frontmatter.description || inferSkillDescription(content, frontmatterMatch);
-  return name
-    ? {
-        name,
-        description: description || "Pi skill",
-        path: skillPath,
-        sourceRank
-      }
-    : void 0;
-}
-function parseSkillFrontmatter(raw) {
-  const values = {};
-  let currentKey = "";
-  let currentBlockStyle = "";
-  let currentLines = [];
-  const flushBlock = () => {
-    if (!currentKey) return;
-    values[currentKey] = cleanSkillYamlValue(
-      (currentBlockStyle === "|"
-        ? currentLines.join("\n")
-        : currentLines.join(" ").replace(/\s+/g, " ")
-      ).trim()
-    );
-    currentKey = "";
-    currentBlockStyle = "";
-    currentLines = [];
-  };
-  for (const line of raw.split(/\r?\n/)) {
-    const entry = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (entry) {
-      flushBlock();
-      const key = entry[1];
-      const value = entry[2].trim();
-      if (/^[>|][+-]?$/.test(value)) {
-        currentKey = key;
-        currentBlockStyle = value.charAt(0);
-        currentLines = [];
-        continue;
-      }
-      values[key] = cleanSkillYamlValue(value);
-    } else if (currentKey && /^\s+/.test(line)) {
-      currentLines.push(line.trim());
-    }
-  }
-  flushBlock();
-  return values;
-}
-function normalizeSkillName(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-+/g, "-")
-    .slice(0, 64);
-}
-function getSettingsSkillPaths(basePath) {
-  const skillPaths = [];
-  const collect = (settings, settingsBasePath) => {
-    for (const skillPath of normalizeSkillFolderList(settings.skills)) {
-      skillPaths.push(resolveSkillPath(skillPath, settingsBasePath));
-    }
-  };
-  if (basePath)
-    collect(
-      readJsonFile(import_node_path2.default.join(basePath, ".pi", "settings.json")),
-      basePath
-    );
-  return skillPaths.filter(Boolean);
-}
-function readJsonFile(filePath) {
-  try {
-    return filePath && import_node_fs2.default.existsSync(filePath)
-      ? JSON.parse(import_node_fs2.default.readFileSync(filePath, "utf8"))
-      : {};
-  } catch {
-    return {};
-  }
-}
-function cleanSkillYamlValue(value) {
-  return String(value || "")
-    .trim()
-    .replace(/^[']|[']$/g, "")
-    .replace(/^["]|["]$/g, "");
-}
-function inferSkillNameFromPath(skillPath) {
-  return import_node_path2.default.basename(skillPath).toLowerCase() === "skill.md"
-    ? import_node_path2.default.basename(import_node_path2.default.dirname(skillPath))
-    : import_node_path2.default.basename(skillPath, import_node_path2.default.extname(skillPath));
-}
-function inferSkillDescription(content, frontmatterMatch) {
-  const body = frontmatterMatch ? content.slice(frontmatterMatch[0].length) : content;
-  const heading = body.match(/^#\s+(.+)$/m);
-  const firstParagraph = body
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find((line) => line && !line.startsWith("#") && !line.startsWith("---"));
-  return firstParagraph || (heading ? heading[1].trim() : "Pi skill");
 }
 
 // src/context/slash-commands.mjs
@@ -711,28 +269,28 @@ var BUILTIN_SLASH_COMMANDS = [
     implemented: true
   }
 ];
-function getSlashCommands(settings, basePath) {
-  return [
-    ...BUILTIN_SLASH_COMMANDS.map((command) => ({ ...command })),
-    ...getPromptTemplateSlashCommands(basePath),
-    ...getSkillSlashCommands(settings, basePath)
-  ];
+function getSlashCommands(piCommands = []) {
+  const builtins = BUILTIN_SLASH_COMMANDS.map((command) => ({ ...command, source: "obsidian" }));
+  const builtinNames = new Set(builtins.map((command) => command.command));
+  return [...builtins, ...piCommands.filter((command) => !builtinNames.has(command.command))];
 }
 
 // src/context/context-builder.mjs
 var ContextBuilder = class {
-  constructor(graph, settings, bundledInstructions, vaultBasePath) {
+  constructor(graph, settings, bundledInstructions, vaultBasePath, getPiCommands = () => []) {
     this.graph = graph;
     this.settings = settings;
     this.bundledInstructions = bundledInstructions;
     this.vaultBasePath = vaultBasePath;
+    this.getPiCommands = getPiCommands;
   }
   async build(prompt, selection = "") {
-    const userPrompt = await expandPromptTemplate(prompt, this.vaultBasePath);
+    const userPrompt = String(prompt ?? "");
     const parsedPrompt = parsePromptReferences(userPrompt);
     const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
     const toolCatalog = this.getToolCatalog();
-    const slashCommands = getSlashCommands(this.settings, this.vaultBasePath);
+    const slashCommands = getSlashCommands(this.getPiCommands());
+    const piCommand = findPiCommand(userPrompt, slashCommands);
     const inspection = this.createInspection(preAttachedContext);
     return {
       ...preAttachedContext,
@@ -743,6 +301,7 @@ var ContextBuilder = class {
       toolCatalog,
       inspection,
       slashCommands,
+      piCommand,
       userPrompt
     };
   }
@@ -772,14 +331,12 @@ var ContextBuilder = class {
     return (await this.build(prompt, selection)).inspection;
   }
   formatPrompt(prompt, context, threadHistory = []) {
-    return [
+    if (context.piCommand?.source === "extension") return prompt;
+    const contextPacket = [
       "Use the following Obsidian vault context as a starting point.",
       "When read/search/list tools are enabled, inspect additional files yourself instead of assuming the pre-attached context is complete.",
       "Prefer cited wikilinks or vault paths when referring to notes.",
-      "Respect the selected tool mode. Chat has no Pi CLI tools. Review can read/search/list only. Edit can edit/write but not run shell commands. Full agent can edit/write and run shell commands. Tool modes are not an OS-level sandbox.",
-      "",
-      "## User prompt",
-      prompt,
+      "Respect the selected tool mode. Chat has no Pi CLI tools. Review can read/search/list only. Edit can edit/write but not run shell commands. Full agent enables Pi's complete built-in and extension/custom tool set. Tool modes are not an OS-level sandbox.",
       "",
       "## Instructions",
       context.instructions,
@@ -813,6 +370,14 @@ var ContextBuilder = class {
       "## Explicit prompt attachments",
       JSON.stringify(context.attachments, null, 2)
     ].join("\n");
+    return context.piCommand
+      ? `${prompt}
+
+${contextPacket}`
+      : `## User prompt
+${prompt}
+
+${contextPacket}`;
   }
   formatThreadHistory(threadHistory) {
     let remainingBudget = 6e3;
@@ -856,12 +421,6 @@ var ContextBuilder = class {
             label: reference.value,
             content: await this.graph.getNotesByTag(reference.value)
           });
-        } else if (reference.type === "skill") {
-          attachments.push({
-            type: "skill",
-            label: `/skill:${reference.value}`,
-            content: this.resolveSkill(reference.value, reference.argument)
-          });
         } else if (reference.type === "command") {
           attachments.push({
             type: "command",
@@ -878,18 +437,6 @@ var ContextBuilder = class {
       }
     }
     return attachments;
-  }
-  resolveSkill(name, argument = "") {
-    const skill = findSkillByName(this.settings, this.vaultBasePath, name);
-    return skill
-      ? {
-          name: skill.name,
-          description: skill.description,
-          path: skill.path,
-          argument,
-          instructions: readSkillContent(skill.path)
-        }
-      : { error: `Skill not found: ${name}` };
   }
   async resolveCommand(command, argument, activeNote) {
     return command === "current"
@@ -920,7 +467,7 @@ var ContextBuilder = class {
     const tools = ["read(path)", "grep(pattern, path)", "find(glob)", "ls(path)"];
     if (mode === "edit" || mode === "full-agent")
       tools.push("edit(path, oldText, newText)", "write(path, content)");
-    if (mode === "full-agent") tools.push("bash(command)");
+    if (mode === "full-agent") tools.push("bash(command)", "Pi extension/custom tools");
     tools.push(
       "Tool modes are not an OS-level sandbox; avoid destructive actions unless explicitly requested."
     );
@@ -1020,6 +567,14 @@ var ContextBuilder = class {
       : this.settings.model.trim() || "default";
   }
 };
+function findPiCommand(prompt, commands) {
+  const match = String(prompt ?? "").match(/^\/([^\s]+)/);
+  if (!match) return void 0;
+  const command = `/${match[1]}`;
+  return commands.find(
+    (candidate) => candidate.source !== "obsidian" && candidate.command === command
+  );
+}
 function truncateThreadHistoryContent(content, maxLength) {
   const text = String(content ?? "");
   return text.length <= maxLength
@@ -1042,6 +597,56 @@ function formatContextShowResponse(inspection) {
   ].join("\n");
 }
 
+// src/context/skills.mjs
+var import_node_path = __toESM(require("node:path"), 1);
+
+// src/shared/paths.mjs
+function normalizeVaultFolder(value, fallback = "Pi") {
+  const cleaned = String(value || "")
+    .split(/[\\/]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("/");
+  return cleaned || fallback;
+}
+function normalizeList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+// src/context/skills.mjs
+function normalizeSkillFolderList(value) {
+  return normalizeList(value);
+}
+function getConfiguredSkillPaths(settings, basePath) {
+  return normalizeSkillFolderList(settings?.additionalSkillFolders)
+    .map((skillPath) => resolveSkillPath(skillPath, basePath))
+    .filter(Boolean);
+}
+function resolveSkillPath(skillPath, basePath) {
+  const configured = String(skillPath || "").trim();
+  if (!configured || configured.startsWith("~")) return "";
+  if (import_node_path.default.isAbsolute(configured))
+    return import_node_path.default.normalize(configured);
+  if (!basePath) return "";
+  const base = import_node_path.default.resolve(basePath);
+  const resolved = import_node_path.default.resolve(base, configured);
+  const relative = import_node_path.default.relative(base, resolved);
+  return relative === ".." ||
+    relative.startsWith(`..${import_node_path.default.sep}`) ||
+    import_node_path.default.isAbsolute(relative)
+    ? ""
+    : resolved;
+}
+
 // src/context/vault-graph.mjs
 var import_obsidian = require("obsidian");
 
@@ -1053,10 +658,10 @@ function tokenizeQuery(query) {
     .map((term) => term.trim())
     .filter((term) => term.length > 1);
 }
-function scoreSearchResult(path5, content, terms) {
-  const normalizedPath = path5.toLowerCase();
+function scoreSearchResult(path4, content, terms) {
+  const normalizedPath = path4.toLowerCase();
   const normalizedContent = content.toLowerCase();
-  const basename = path5.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path5;
+  const basename = path4.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path4;
   let score = 0;
   for (const term of terms) {
     if (basename.includes(term)) score += 12;
@@ -1223,7 +828,7 @@ var VaultGraph = class {
   }
   async getBacklinks(filePath) {
     const backlinkEntries = Object.entries(this.app.metadataCache.resolvedLinks)
-      .map(([path5, links]) => ({ path: path5, count: links[filePath] || 0 }))
+      .map(([path4, links]) => ({ path: path4, count: links[filePath] || 0 }))
       .filter(
         (backlink) =>
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
@@ -1250,10 +855,10 @@ var VaultGraph = class {
   getOutgoingLinks(filePath) {
     const links = this.app.metadataCache.resolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .filter(([path5]) => this.isPathAllowed(path5))
-      .map(([path5, count]) => ({
-        path: path5,
-        display: path5.replace(/\.md$/i, ""),
+      .filter(([path4]) => this.isPathAllowed(path4))
+      .map(([path4, count]) => ({
+        path: path4,
+        display: path4.replace(/\.md$/i, ""),
         count
       }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
@@ -1261,7 +866,7 @@ var VaultGraph = class {
   getUnresolvedLinks(filePath) {
     const links = this.app.metadataCache.unresolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .map(([path5, count]) => ({ path: path5, display: path5, count }))
+      .map(([path4, count]) => ({ path: path4, display: path4, count }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
   }
   async getLinkedNeighborhood(filePath, depth = 1) {
@@ -1270,9 +875,9 @@ var VaultGraph = class {
     const notes = [];
     for (let index = 0; index < depth; index++) {
       const nextFrontier = /* @__PURE__ */ new Set();
-      for (const path5 of frontier) {
-        const outgoingLinks = this.getOutgoingLinks(path5);
-        const backlinks = await this.getBacklinks(path5);
+      for (const path4 of frontier) {
+        const outgoingLinks = this.getOutgoingLinks(path4);
+        const backlinks = await this.getBacklinks(path4);
         for (const link of [...outgoingLinks, ...backlinks]) {
           if (!seen.has(link.path) && link.path.endsWith(".md")) {
             seen.add(link.path);
@@ -1281,9 +886,9 @@ var VaultGraph = class {
         }
       }
       const limitedNextFrontier = [...nextFrontier].slice(0, CONTEXT_RESULT_LIMIT);
-      for (const path5 of limitedNextFrontier) {
+      for (const path4 of limitedNextFrontier) {
         try {
-          notes.push(await this.getNoteContext(path5));
+          notes.push(await this.getNoteContext(path4));
         } catch {}
       }
       frontier = limitedNextFrontier;
@@ -1399,8 +1004,8 @@ function getErrorMessage(error) {
 }
 
 // src/pi/environment.mjs
-var import_node_fs3 = __toESM(require("node:fs"), 1);
-var import_node_path3 = __toESM(require("node:path"), 1);
+var import_node_fs = __toESM(require("node:fs"), 1);
+var import_node_path2 = __toESM(require("node:path"), 1);
 var POSIX_PI_CANDIDATES = ["/opt/homebrew/bin/pi", "/usr/local/bin/pi", "/usr/bin/pi"];
 var WINDOWS_PI_CANDIDATES = ["pi.cmd", "pi.exe", "pi"];
 var POSIX_PATH_CANDIDATES = [
@@ -1416,7 +1021,7 @@ function findPiExecutable(configuredPath = "") {
   if (configuredExecutable) return configuredExecutable;
   if (process.platform === "win32") return WINDOWS_PI_CANDIDATES[0];
   for (const candidate of POSIX_PI_CANDIDATES) {
-    if (import_node_fs3.default.existsSync(candidate)) return candidate;
+    if (import_node_fs.default.existsSync(candidate)) return candidate;
   }
   const piNode = findPiNodeExecutable();
   if (piNode) return piNode;
@@ -1431,8 +1036,8 @@ function expandHomeDirectory(executablePath) {
   const home = process.env.HOME;
   if (!home) return executablePath;
   if (executablePath === "~") return home;
-  return executablePath.startsWith(`~${import_node_path3.default.sep}`)
-    ? import_node_path3.default.join(home, executablePath.slice(2))
+  return executablePath.startsWith(`~${import_node_path2.default.sep}`)
+    ? import_node_path2.default.join(home, executablePath.slice(2))
     : executablePath;
 }
 function expandEnvironmentVariables(executablePath) {
@@ -1444,15 +1049,15 @@ function expandEnvironmentVariables(executablePath) {
 function findPiNodeExecutable() {
   const home = process.env.HOME;
   if (!home) return null;
-  const root = import_node_path3.default.join(home, ".local", "share", "pi-node");
+  const root = import_node_path2.default.join(home, ".local", "share", "pi-node");
   try {
-    const versions = import_node_fs3.default
+    const versions = import_node_fs.default
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => import_node_path3.default.join(root, d.name));
+      .map((d) => import_node_path2.default.join(root, d.name));
     for (const v of versions) {
-      const candidate = import_node_path3.default.join(v, "bin", "pi");
-      if (import_node_fs3.default.existsSync(candidate)) return candidate;
+      const candidate = import_node_path2.default.join(v, "bin", "pi");
+      if (import_node_fs.default.existsSync(candidate)) return candidate;
     }
   } catch {
     return null;
@@ -1503,55 +1108,55 @@ function buildPosixPath(piExecutable) {
     ...getPiNodePaths(),
     ...getNodeVersionManagerDirectories(),
     ...getExistingPathEntries()
-  ]).join(import_node_path3.default.delimiter);
+  ]).join(import_node_path2.default.delimiter);
 }
 function getPiNodePaths() {
   const home = process.env.HOME;
   if (!home) return [];
-  const root = import_node_path3.default.join(home, ".local", "share", "pi-node");
+  const root = import_node_path2.default.join(home, ".local", "share", "pi-node");
   try {
-    return import_node_fs3.default
+    return import_node_fs.default
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => import_node_path3.default.join(root, d.name, "bin"));
+      .map((d) => import_node_path2.default.join(root, d.name, "bin"));
   } catch {
     return [];
   }
 }
 function getExistingPathEntries() {
-  return (process.env.PATH ?? "").split(import_node_path3.default.delimiter).filter(Boolean);
+  return (process.env.PATH ?? "").split(import_node_path2.default.delimiter).filter(Boolean);
 }
 function getExecutableDirectory(executable) {
-  return import_node_path3.default.isAbsolute(executable)
-    ? [import_node_path3.default.dirname(executable)]
+  return import_node_path2.default.isAbsolute(executable)
+    ? [import_node_path2.default.dirname(executable)]
     : [];
 }
 function getNodeVersionManagerDirectories() {
   const home = process.env.HOME;
   if (!home) return [];
   return [
-    ...getNvmNodeBinDirectories(import_node_path3.default.join(home, ".nvm", "versions", "node")),
-    ...getFnmNodeBinDirectories(import_node_path3.default.join(home, ".fnm", "node-versions")),
-    import_node_path3.default.join(home, ".asdf", "shims"),
-    import_node_path3.default.join(home, ".volta", "bin")
+    ...getNvmNodeBinDirectories(import_node_path2.default.join(home, ".nvm", "versions", "node")),
+    ...getFnmNodeBinDirectories(import_node_path2.default.join(home, ".fnm", "node-versions")),
+    import_node_path2.default.join(home, ".asdf", "shims"),
+    import_node_path2.default.join(home, ".volta", "bin")
   ];
 }
 function getNvmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path3.default.join(directory, "bin")
+    import_node_path2.default.join(directory, "bin")
   );
 }
 function getFnmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path3.default.join(directory, "installation", "bin")
+    import_node_path2.default.join(directory, "installation", "bin")
   );
 }
 function getChildDirectories(root) {
   try {
-    return import_node_fs3.default
+    return import_node_fs.default
       .readdirSync(root, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => import_node_path3.default.join(root, entry.name));
+      .map((entry) => import_node_path2.default.join(root, entry.name));
   } catch {
     return [];
   }
@@ -1559,7 +1164,7 @@ function getChildDirectories(root) {
 function uniqueExistingDirectories(directories) {
   const seen = /* @__PURE__ */ new Set();
   return directories.filter((directory) => {
-    if (!directory || seen.has(directory) || !import_node_fs3.default.existsSync(directory))
+    if (!directory || seen.has(directory) || !import_node_fs.default.existsSync(directory))
       return false;
     seen.add(directory);
     return true;
@@ -1626,6 +1231,65 @@ function checkPiInstallation(piExecutablePath = "") {
 // src/pi/rpc-client.mjs
 var import_node_child_process2 = require("node:child_process");
 var import_node_string_decoder = require("node:string_decoder");
+
+// src/pi/extension-ui.mjs
+var DIALOG_METHODS = /* @__PURE__ */ new Set(["select", "confirm", "input", "editor"]);
+var FIRE_AND_FORGET_METHODS = /* @__PURE__ */ new Set([
+  "notify",
+  "setStatus",
+  "setWidget",
+  "setTitle",
+  "set_editor_text"
+]);
+function createExtensionUiHandler(handlers = {}) {
+  return async (request) => {
+    const method = String(request?.method ?? "");
+    if (!DIALOG_METHODS.has(method) && !FIRE_AND_FORGET_METHODS.has(method)) {
+      throw new Error(`Unsupported Pi extension UI method: ${method || "unknown"}`);
+    }
+    const handler = handlers[method];
+    if (typeof handler !== "function") {
+      if (DIALOG_METHODS.has(method)) return { cancelled: true };
+      return void 0;
+    }
+    if (!DIALOG_METHODS.has(method)) {
+      await handler(request);
+      return void 0;
+    }
+    const timeout = normalizeTimeout(request?.timeout);
+    const controller = timeout ? new globalThis.AbortController() : void 0;
+    const handlerPromise = Promise.resolve(
+      handler(controller ? { ...request, signal: controller.signal } : request)
+    );
+    const value = timeout
+      ? await Promise.race([
+          handlerPromise,
+          new Promise((resolve) => {
+            const timer = setTimeout(() => {
+              controller.abort();
+              resolve(void 0);
+            }, timeout);
+            handlerPromise.finally(() => clearTimeout(timer)).catch(() => {});
+          })
+        ])
+      : await handlerPromise;
+    if (value === void 0 || value === null) return { cancelled: true };
+    if (method === "confirm") return { confirmed: value === true };
+    return { value: String(value) };
+  };
+}
+function normalizeTimeout(timeout) {
+  const value = Number(timeout);
+  return Number.isFinite(value) && value > 0 ? value : void 0;
+}
+function isExtensionUiDialog(method) {
+  return DIALOG_METHODS.has(method);
+}
+function isExtensionUiMethod(method) {
+  return DIALOG_METHODS.has(method) || FIRE_AND_FORGET_METHODS.has(method);
+}
+
+// src/pi/rpc-client.mjs
 var DEFAULT_REQUEST_TIMEOUT_MS = 3e4;
 var PiRpcClient = class {
   constructor(options = {}) {
@@ -1784,7 +1448,30 @@ var PiRpcClient = class {
       }
       return;
     }
+    if (message.type === "extension_ui_request") {
+      this.handleExtensionUiRequest(message);
+      return;
+    }
     this.emit(message);
+  }
+  async handleExtensionUiRequest(request) {
+    const method = String(request.method ?? "");
+    try {
+      if (!isExtensionUiMethod(method))
+        throw new Error(`Unsupported Pi extension UI method: ${method || "unknown"}`);
+      const response = await this.options.extensionUiHandler?.(request);
+      if (isExtensionUiDialog(method)) {
+        this.notify("extension_ui_response", {
+          id: request.id,
+          ...(response ?? { cancelled: true })
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isExtensionUiDialog(method))
+        this.notify("extension_ui_response", { id: request.id, cancelled: true });
+      this.emit({ type: "extension_ui_error", method, error: message, request });
+    }
   }
   emit(message) {
     for (const listener of [...this.listeners]) {
@@ -1841,6 +1528,72 @@ var PiRpcClient = class {
     this.pending.clear();
   }
 };
+
+// src/pi/command-catalog.mjs
+var PiCommandCatalog = class {
+  constructor(pluginDirectory, settings = {}, extensionUiHandler) {
+    this.pluginDirectory = pluginDirectory;
+    this.settings = settings;
+    this.extensionUiHandler = extensionUiHandler;
+  }
+  async getCommands(vaultBasePath) {
+    const client = new PiRpcClient({
+      piExecutablePath: this.settings.piExecutablePath,
+      cwd: vaultBasePath ?? this.pluginDirectory,
+      args: buildCommandDiscoveryArgs(this.settings, vaultBasePath),
+      extensionUiHandler: this.extensionUiHandler
+    });
+    try {
+      const result = await client.request("get_commands");
+      return normalizeRpcCommands(result?.commands);
+    } finally {
+      client.dispose();
+    }
+  }
+};
+function buildCommandDiscoveryArgs(settings = {}, basePath) {
+  const args = ["--mode", "rpc", "--no-session", "--no-tools"];
+  if (settings.includeDefaultSkills === false) args.push("--no-skills");
+  for (const skillPath of getConfiguredSkillPaths(settings, basePath))
+    args.push("--skill", skillPath);
+  return args;
+}
+function normalizeRpcCommands(commands) {
+  if (!Array.isArray(commands)) return [];
+  return commands.flatMap((command) => {
+    const name = String(command?.name ?? "")
+      .trim()
+      .replace(/^\/+/, "");
+    const source = command?.source;
+    if (!name || !["extension", "prompt", "skill"].includes(source)) return [];
+    const description = String(command.description ?? "").trim();
+    return [
+      {
+        command: `/${name}`,
+        label:
+          source === "skill"
+            ? name.replace(/^skill:/, "")
+            : source === "prompt"
+              ? "Prompt template"
+              : name,
+        detail:
+          description ||
+          (source === "skill"
+            ? "Pi skill"
+            : source === "prompt"
+              ? "Pi prompt template"
+              : "Pi extension command"),
+        insertText: `/${name} `,
+        implemented: true,
+        source,
+        sourceInfo: command.sourceInfo,
+        // Keep the legacy fields for compatibility with older Pi RPC versions.
+        location: command.location,
+        path: command.path ?? command.sourceInfo?.path
+      }
+    ];
+  });
+}
 
 // src/pi/model-catalog.mjs
 var REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
@@ -1905,8 +1658,8 @@ function getSupportedReasoningLevels(model) {
 
 // src/pi/runner.mjs
 var import_node_child_process3 = require("node:child_process");
-var import_node_fs4 = __toESM(require("node:fs"), 1);
-var import_node_path4 = __toESM(require("node:path"), 1);
+var import_node_fs2 = __toESM(require("node:fs"), 1);
+var import_node_path3 = __toESM(require("node:path"), 1);
 
 // src/pi/token-usage.mjs
 function calculateContextTokens(usage) {
@@ -2147,12 +1900,20 @@ function getCompactInstructions(prompt) {
   return match ? (match[1] ?? "").trim() : void 0;
 }
 var PiRunner = class {
-  constructor(settings, contextBuilder, workingDirectory, pluginDirectory, rpcClient) {
+  constructor(
+    settings,
+    contextBuilder,
+    workingDirectory,
+    pluginDirectory,
+    rpcClient,
+    extensionUiHandler
+  ) {
     this.settings = settings;
     this.contextBuilder = contextBuilder;
     this.workingDirectory = workingDirectory;
     this.pluginDirectory = pluginDirectory;
     this.rpcClient = rpcClient;
+    this.extensionUiHandler = extensionUiHandler;
     this.cancelRequested = false;
   }
   async run(prompt, context, sessionId, threadHistory = [], callbacks) {
@@ -2225,7 +1986,8 @@ var PiRunner = class {
     const client = new PiRpcClient({
       piExecutablePath: this.settings.piExecutablePath,
       cwd: this.workingDirectory ?? this.pluginDirectory,
-      args: this.buildPiArgs(session.path, "rpc")
+      args: this.buildPiArgs(session.path, "rpc"),
+      extensionUiHandler: this.extensionUiHandler
     });
     this.rpcClient = client;
     this.rpcSession = session;
@@ -2544,51 +2306,47 @@ var PiRunner = class {
       this.settings.sandboxMode === "workspace-write" ? "edit" : this.settings.sandboxMode;
     if (toolMode === "chat") {
       args.push("--no-tools");
-    } else {
+    } else if (toolMode !== "full-agent") {
       args.push(
         "--tools",
-        toolMode === "full-agent"
-          ? "read,grep,find,ls,edit,write,bash"
-          : toolMode === "edit"
-            ? "read,grep,find,ls,edit,write"
-            : "read,grep,find,ls"
+        toolMode === "edit" ? "read,grep,find,ls,edit,write" : "read,grep,find,ls"
       );
     }
     return args;
   }
   getSessionDirectory() {
-    return import_node_path4.default.resolve(this.pluginDirectory ?? ".", "pi-sessions");
+    return import_node_path3.default.resolve(this.pluginDirectory ?? ".", "pi-sessions");
   }
   createSessionFilePath() {
     const sessionDir = this.getSessionDirectory();
-    import_node_fs4.default.mkdirSync(sessionDir, { recursive: true });
-    return import_node_path4.default.join(
+    import_node_fs2.default.mkdirSync(sessionDir, { recursive: true });
+    return import_node_path3.default.join(
       sessionDir,
       `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
     );
   }
   createSessionReference(sessionPath) {
     const sessionDir = this.getSessionDirectory();
-    const relativePath = import_node_path4.default.relative(
+    const relativePath = import_node_path3.default.relative(
       sessionDir,
-      import_node_path4.default.resolve(sessionPath)
+      import_node_path3.default.resolve(sessionPath)
     );
     return relativePath && isSafeRelativePath(relativePath) ? relativePath : void 0;
   }
   resolveSessionPath(sessionReference) {
     if (!sessionReference) return void 0;
     const sessionDir = this.getSessionDirectory();
-    const resolvedPath = import_node_path4.default.isAbsolute(sessionReference)
-      ? import_node_path4.default.resolve(sessionReference)
-      : import_node_path4.default.resolve(sessionDir, sessionReference);
-    const relativePath = import_node_path4.default.relative(sessionDir, resolvedPath);
+    const resolvedPath = import_node_path3.default.isAbsolute(sessionReference)
+      ? import_node_path3.default.resolve(sessionReference)
+      : import_node_path3.default.resolve(sessionDir, sessionReference);
+    const relativePath = import_node_path3.default.relative(sessionDir, resolvedPath);
     if (!relativePath || !isSafeRelativePath(relativePath)) return void 0;
     return resolvedPath;
   }
   resolveOrCreateSession(sessionReference) {
     const existingPath = this.resolveSessionPath(sessionReference);
     const sessionPath =
-      existingPath && import_node_fs4.default.existsSync(existingPath)
+      existingPath && import_node_fs2.default.existsSync(existingPath)
         ? existingPath
         : this.createSessionFilePath();
     return {
@@ -2598,8 +2356,8 @@ var PiRunner = class {
   }
   createForkSessionFile(sessionReference) {
     const sessionPath = this.resolveSessionPath(sessionReference);
-    if (!sessionPath || !import_node_fs4.default.existsSync(sessionPath)) return void 0;
-    const events = import_node_fs4.default
+    if (!sessionPath || !import_node_fs2.default.existsSync(sessionPath)) return void 0;
+    const events = import_node_fs2.default
       .readFileSync(sessionPath, "utf8")
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -2615,7 +2373,7 @@ var PiRunner = class {
       cwd: this.workingDirectory || sessionEvent.cwd,
       parentSession: this.createSessionReference(sessionPath) ?? sessionPath
     };
-    import_node_fs4.default.writeFileSync(
+    import_node_fs2.default.writeFileSync(
       forkSessionPath,
       `${JSON.stringify(forkSessionEvent)}
 ${events
@@ -2685,8 +2443,8 @@ ${events
 function isSafeRelativePath(relativePath) {
   return (
     relativePath !== ".." &&
-    !relativePath.startsWith(`..${import_node_path4.default.sep}`) &&
-    !import_node_path4.default.isAbsolute(relativePath)
+    !relativePath.startsWith(`..${import_node_path3.default.sep}`) &&
+    !import_node_path3.default.isAbsolute(relativePath)
   );
 }
 function createSessionId() {
@@ -3168,18 +2926,95 @@ pi --version`;
   }
 };
 
+// src/ui/modals/extension-ui-modal.mjs
+var import_obsidian6 = require("obsidian");
+function showExtensionUiDialog(app, request) {
+  return new Promise((resolve) => new ExtensionUiModal(app, request, resolve).open());
+}
+var ExtensionUiModal = class extends import_obsidian6.Modal {
+  constructor(app, request, resolve) {
+    super(app);
+    this.request = request;
+    this.resolve = resolve;
+  }
+  onOpen() {
+    this.contentEl.empty();
+    this.abortHandler = () => this.finish();
+    if (this.request.signal?.aborted) {
+      this.finish();
+      return;
+    }
+    this.request.signal?.addEventListener("abort", this.abortHandler, { once: true });
+    new import_obsidian6.Setting(this.contentEl)
+      .setName(this.request.title || "Pi extension")
+      .setHeading();
+    if (this.request.method === "confirm") {
+      if (this.request.message) this.contentEl.createEl("p", { text: this.request.message });
+      this.renderActions(() => this.finish(true), "Confirm");
+      return;
+    }
+    if (this.request.method === "select") {
+      const select = this.contentEl.createEl("select", { cls: "dropdown" });
+      for (const option of this.request.options ?? [])
+        select.createEl("option", { text: String(option), attr: { value: String(option) } });
+      this.renderActions(() => this.finish(select.value), "Select");
+      select.focus();
+      return;
+    }
+    const field = this.contentEl.createEl(this.request.method === "editor" ? "textarea" : "input");
+    field.addClass("pi-agent-extension-input");
+    if (this.request.method === "editor") field.value = String(this.request.prefill ?? "");
+    else field.setAttr("placeholder", String(this.request.placeholder ?? ""));
+    field.addEventListener("keydown", (event) => {
+      if (
+        event.key === "Enter" &&
+        (this.request.method !== "editor" || event.metaKey || event.ctrlKey)
+      ) {
+        event.preventDefault();
+        this.finish(field.value);
+      }
+    });
+    this.renderActions(
+      () => this.finish(field.value),
+      this.request.method === "editor" ? "Apply" : "Submit"
+    );
+    field.focus();
+  }
+  renderActions(onSubmit, submitText) {
+    const actions = this.contentEl.createDiv({ cls: "pi-agent-modal-actions" });
+    actions.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.finish());
+    actions
+      .createEl("button", { text: submitText, cls: "mod-cta" })
+      .addEventListener("click", onSubmit);
+  }
+  finish(value) {
+    if (this.settled) return;
+    this.settled = true;
+    this.resolve(value);
+    this.close();
+  }
+  onClose() {
+    if (this.abortHandler) this.request.signal?.removeEventListener("abort", this.abortHandler);
+    if (!this.settled) {
+      this.settled = true;
+      this.resolve(void 0);
+    }
+    this.contentEl.empty();
+  }
+};
+
 // src/ui/PiAgentView.mjs
 var f5 = __toESM(require("obsidian"), 1);
 
 // src/ui/message-actions.mjs
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var MessageActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
     this.callbacks = callbacks;
   }
   showMessageMenu(event, message, messageIndex) {
-    const menu = new import_obsidian6.Menu();
+    const menu = new import_obsidian7.Menu();
     if (message.role === "user") {
       menu.addItem((item) =>
         item
@@ -3245,12 +3080,12 @@ ${message.content}`)
   }
   async copyResponse(content) {
     await navigator.clipboard.writeText(content);
-    new import_obsidian6.Notice("Copied response.");
+    new import_obsidian7.Notice("Copied response.");
   }
 };
 
 // src/ui/note-actions.mjs
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 var NoteActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -3258,27 +3093,27 @@ var NoteActions = class {
   }
   async copyText(text) {
     await navigator.clipboard.writeText(text);
-    new import_obsidian7.Notice("Copied to clipboard.");
+    new import_obsidian8.Notice("Copied to clipboard.");
   }
   insertIntoCurrentNote(text) {
     const editor = this.plugin.app.workspace.activeEditor?.editor;
     if (!editor) {
-      new import_obsidian7.Notice("Open a note first.");
+      new import_obsidian8.Notice("Open a note first.");
       return;
     }
     editor.replaceSelection(text);
   }
   async createNoteFromResponse(response) {
     const title = this.getResponseTitle(response);
-    const path5 = await this.getAvailableNotePath(`${title}.md`);
+    const path4 = await this.getAvailableNotePath(`${title}.md`);
     await this.ensureFolder("Pi");
-    const file = await this.plugin.app.vault.create(path5, response);
+    const file = await this.plugin.app.vault.create(path4, response);
     await this.plugin.app.workspace.getLeaf(false).openFile(file);
   }
   async openCitedNotes(text) {
     const links = this.extractVaultLinks(text);
     if (links.length === 0) {
-      new import_obsidian7.Notice("No vault links found.");
+      new import_obsidian8.Notice("No vault links found.");
       return;
     }
     for (const link of links.slice(0, 5)) await this.callbacks.openVaultLink(link);
@@ -3332,8 +3167,8 @@ var NoteActions = class {
   }
   async getAvailableNotePath(name, folder = "Pi") {
     const normalizedFolder = normalizeArchiveFolder(folder);
-    const path5 = `${normalizedFolder}/${name}`;
-    if (!this.plugin.app.vault.getAbstractFileByPath(path5)) return path5;
+    const path4 = `${normalizedFolder}/${name}`;
+    if (!this.plugin.app.vault.getAbstractFileByPath(path4)) return path4;
     const basename = name.replace(/\.md$/i, "");
     for (let index = 2; index < 100; index++) {
       const candidate = `${normalizedFolder}/${basename} ${index}.md`;
@@ -3343,7 +3178,7 @@ var NoteActions = class {
   }
 };
 function normalizeArchiveFolder(folder) {
-  return (0, import_obsidian7.normalizePath)(normalizeVaultFolder(folder, "Pi"));
+  return (0, import_obsidian8.normalizePath)(normalizeVaultFolder(folder, "Pi"));
 }
 
 // src/ui/prompt-queue.mjs
@@ -3849,8 +3684,8 @@ function formatToolTarget(toolName, toolArgs) {
   if (toolName === "bash") return "command";
   if (toolName === "grep") {
     const pattern = sanitizeActivityDetail(pickNestedString(toolArgs, ["pattern", "query"]));
-    const path5 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
-    return pattern && path5 ? `"${pattern}" in ${path5}` : pattern ? `"${pattern}"` : path5;
+    const path4 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+    return pattern && path4 ? `"${pattern}" in ${path4}` : pattern ? `"${pattern}"` : path4;
   }
   if (toolName === "find") {
     return sanitizeActivityDetail(pickNestedString(toolArgs, ["glob", "pattern", "query", "path"]));
@@ -3872,8 +3707,8 @@ function formatToolTarget(toolName, toolArgs) {
   );
 }
 function formatPathForActivity(value) {
-  const path5 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
-  return path5 ? path5.split("/").pop() || path5 : "";
+  const path4 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
+  return path4 ? path4.split("/").pop() || path4 : "";
 }
 function sanitizeActivityDetail(value) {
   return value ? String(value).replace(/\s+/g, " ").trim() : "";
@@ -4205,6 +4040,14 @@ function handleRunEvent(e) {
     this.setActivity("Retrying", "finishing", formatRetryDetail(e.raw));
     return;
   }
+  if (t === "extension_error" || t === "extension_ui_error") {
+    this.setActivity(
+      "Extension failed",
+      "error",
+      String(e.raw?.error ?? e.raw?.message ?? "Pi extension error")
+    );
+    return;
+  }
   if (
     t === "pi_start" ||
     t === "agent_start" ||
@@ -4294,7 +4137,7 @@ function formatActiveToolStatus() {
 }
 
 // src/ui/run-settings.mjs
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var RunSettingsControls = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -4319,7 +4162,7 @@ var RunSettingsControls = class {
         this.plugin.settings.model = value;
         this.plugin.settings.reasoningEffort = "";
         if (value === CUSTOM_MODEL_VALUE && !this.plugin.settings.customModel) {
-          new import_obsidian8.Notice("Set custom model ID in plugin settings.");
+          new import_obsidian9.Notice("Set custom model ID in plugin settings.");
         }
         await this.plugin.saveSettings();
         this.refresh();
@@ -4374,11 +4217,11 @@ var RunSettingsControls = class {
       cls: `clickable-icon pi-agent-run-setting ${this.getRunSettingClass(name, selectedValue)}`,
       attr: { "aria-label": `${name}: ${selectedLabel}`, title: `${name}: ${selectedLabel}` }
     });
-    (0, import_obsidian8.setIcon)(buttonEl, icon);
+    (0, import_obsidian9.setIcon)(buttonEl, icon);
     buttonEl.createSpan({ cls: "pi-agent-control-label", text: displayLabel });
     buttonEl.addEventListener("click", async (event) => {
       event.preventDefault();
-      const menu = new import_obsidian8.Menu();
+      const menu = new import_obsidian9.Menu();
       for (const [optionValue, optionLabel] of Object.entries(options)) {
         menu.addItem((item) => {
           item.setTitle(optionLabel).onClick(async () => {
@@ -4579,7 +4422,7 @@ var ComposerSuggestions = class {
       .map((tag) => ({ label: tag, detail: "Tag", insertText: `${tag} ` }));
   }
   getCommandSuggestions(query) {
-    return getSlashCommands(this.plugin.settings, this.plugin.getVaultBasePath())
+    return getSlashCommands(this.plugin.getPiCommands?.() ?? [])
       .map((command) => ({
         label: command.command,
         detail: command.command.startsWith("/skill:")
@@ -4636,7 +4479,7 @@ var ComposerSuggestions = class {
 };
 
 // src/ui/thread-actions.mjs
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var ThreadActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -4655,7 +4498,7 @@ var ThreadActions = class {
         this.callbacks.renderThreadTitle(),
         this.callbacks.renderMessages(),
         this.callbacks.renderToolBadges?.())
-      : new import_obsidian9.Notice("Nothing to fork yet.");
+      : new import_obsidian10.Notice("Nothing to fork yet.");
   }
 };
 
@@ -4712,7 +4555,7 @@ var PiAgentView = class extends f5.ItemView {
     return PI_AGENT_VIEW_TYPE;
   }
   getDisplayText() {
-    return PI_AGENT_DISPLAY_NAME;
+    return this.plugin.extensionTitle || PI_AGENT_DISPLAY_NAME;
   }
   getIcon() {
     return PI_AGENT_ICON_ID;
@@ -4738,6 +4581,7 @@ var PiAgentView = class extends f5.ItemView {
       })
     );
     this.renderChatView();
+    this.plugin.refreshCommandCatalog(false);
   }
   renderChatView() {
     this.showingThreadList = false;
@@ -4860,6 +4704,7 @@ var PiAgentView = class extends f5.ItemView {
       this.renderToolBadges(),
       (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
       this.renderPromptQueue(),
+      (this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
       (this.inputEl = d.createEl("textarea", {
         placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
       })),
@@ -4894,6 +4739,8 @@ var PiAgentView = class extends f5.ItemView {
       (this.suggestions = new ComposerSuggestions(this.inputEl, this.plugin, () =>
         this.resizeInput()
       )),
+      (this.extensionWidgetsBelowEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
+      this.renderExtensionWidgets(),
       this.resizeInput());
     let h = d.createDiv({ cls: "pi-agent-composer-bar" });
     ((this.composerBarEl = h),
@@ -4916,6 +4763,8 @@ var PiAgentView = class extends f5.ItemView {
     ((this.messagesEl = void 0),
       (this.inputEl = void 0),
       (this.promptQueueEl = void 0),
+      (this.extensionWidgetsAboveEl = void 0),
+      (this.extensionWidgetsBelowEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
       (this.composerBarExpandEl = void 0),
@@ -4930,6 +4779,27 @@ var PiAgentView = class extends f5.ItemView {
       (this.threadMenu = void 0),
       (e = this.suggestions) == null || e.close(),
       (this.suggestions = void 0));
+  }
+  renderExtensionWidgets() {
+    this.extensionWidgetsAboveEl?.empty();
+    this.extensionWidgetsBelowEl?.empty();
+    for (const [key, widget] of this.plugin.extensionWidgets ?? []) {
+      const target =
+        widget.placement === "belowEditor"
+          ? this.extensionWidgetsBelowEl
+          : this.extensionWidgetsAboveEl;
+      if (!target) continue;
+      const widgetEl = target.createDiv({ cls: "pi-agent-extension-widget" });
+      widgetEl.setAttr("data-widget-key", key);
+      for (const line of widget.lines) widgetEl.createDiv({ text: line });
+    }
+  }
+  setExtensionEditorText(text) {
+    if (!this.inputEl) return;
+    this.inputEl.value = text;
+    this.resizeInput();
+    this.suggestions?.update();
+    this.inputEl.focus();
   }
   renderToolBadges() {
     let e = this.toolBadgesEl;
@@ -5670,7 +5540,7 @@ Your primary role is agentic coding and technical knowledge work inside the vaul
 - Chat: no Pi CLI tools are enabled. Use only the Obsidian context attached by the plugin and ask for more context when needed.
 - Review: read/search/list tools are enabled. Inspect files and explain, review, summarize, or propose changes, but do not modify files.
 - Edit: read/search/list plus edit/write tools are enabled. Make focused file changes when the user asks. Shell commands are not available, so ask the user to run tests/builds manually when needed.
-- Full agent: read/search/list/edit/write/bash tools are enabled. You may run appropriate shell commands for coding tasks, tests, builds, repo inspection, and diagnostics.
+- Full agent: Pi's complete tool set is enabled, including extension/custom tools and read/search/list/edit/write/bash. You may run appropriate shell commands for coding tasks, tests, builds, repo inspection, and diagnostics.
 
 Pi CLI tools are controlled by the selected tool mode. They are not an OS-level sandbox. Use tools intentionally, keep edits small, and avoid destructive commands unless explicitly requested and clearly safe.
 
@@ -5737,6 +5607,11 @@ var PiAgentPlugin = class extends P.Plugin {
     this.threadHistory = new ThreadStore();
     this.dataSaveChain = Promise.resolve();
     this.threadRunners = /* @__PURE__ */ new Map();
+    this.piCommands = [];
+    this.commandCatalogLoaded = false;
+    this.extensionStatuses = /* @__PURE__ */ new Map();
+    this.extensionWidgets = /* @__PURE__ */ new Map();
+    this.extensionTitle = "";
   }
   async onload() {
     await this.loadSettings();
@@ -5745,11 +5620,13 @@ var PiAgentPlugin = class extends P.Plugin {
       return;
     }
     (0, P.addIcon)(PI_AGENT_ICON_ID, PI_AGENT_ICON_SVG);
+    this.extensionStatusEl = this.addStatusBarItem();
     this.rebuildServices();
     if (!this.settings.dryRun) {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
     this.refreshModelCatalog(false);
+    this.refreshCommandCatalog(false);
     this.refreshCurrentContextFile();
     this.registerEvent(
       this.app.workspace.on("file-open", (e) => {
@@ -5842,7 +5719,10 @@ var PiAgentPlugin = class extends P.Plugin {
   async saveSettings() {
     await this.savePluginData();
     if (this.hasActivePiRuns()) this.pendingServiceRebuild = true;
-    else this.rebuildServices();
+    else {
+      this.rebuildServices();
+      this.refreshCommandCatalog(false);
+    }
   }
   hasActivePiRuns() {
     return [...this.threadRunners.values()].some((runner) => runner.isRunning);
@@ -5851,6 +5731,7 @@ var PiAgentPlugin = class extends P.Plugin {
     if (this.pendingServiceRebuild && !this.hasActivePiRuns()) {
       this.pendingServiceRebuild = false;
       this.rebuildServices();
+      this.refreshCommandCatalog(false);
     }
   }
   showPiSetupIfNeeded() {
@@ -5900,6 +5781,22 @@ var PiAgentPlugin = class extends P.Plugin {
       (e && new P.Notice(s), console.warn("Pi Agent: failed to refresh model catalog", n));
     }
   }
+  async refreshCommandCatalog(showNotice = false) {
+    this.commandCatalog || this.rebuildServices();
+    try {
+      this.piCommands = (await this.commandCatalog?.getCommands(this.getVaultBasePath())) ?? [];
+      this.commandCatalogLoaded = true;
+      if (showNotice) new P.Notice(`Loaded ${this.piCommands.length} Pi commands.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (showNotice) new P.Notice(message);
+      console.warn("Pi Agent: failed to refresh Pi commands", error);
+    }
+    return this.piCommands;
+  }
+  getPiCommands() {
+    return this.piCommands;
+  }
   addMessage(e) {
     return this.addMessageToThread(this.threadHistory.currentThreadId, e);
   }
@@ -5935,9 +5832,9 @@ var PiAgentPlugin = class extends P.Plugin {
   }
   countPiSessionChatMessages(e) {
     let t = this.pi?.resolveSessionPath(e);
-    if (!t || !import_node_fs5.default.existsSync(t)) return 0;
+    if (!t || !import_node_fs3.default.existsSync(t)) return 0;
     try {
-      return import_node_fs5.default
+      return import_node_fs3.default
         .readFileSync(t, "utf8")
         .split(/\r?\n/)
         .reduce((t2, n) => {
@@ -5993,6 +5890,59 @@ var PiAgentPlugin = class extends P.Plugin {
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
       : false;
   }
+  getExtensionUiHandler() {
+    this.extensionUiHandler ??= createExtensionUiHandler({
+      select: (request) => showExtensionUiDialog(this.app, request),
+      confirm: (request) => showExtensionUiDialog(this.app, request),
+      input: (request) => showExtensionUiDialog(this.app, request),
+      editor: (request) => showExtensionUiDialog(this.app, request),
+      notify: (request) => {
+        const prefix =
+          request.notifyType === "error"
+            ? "Error: "
+            : request.notifyType === "warning"
+              ? "Warning: "
+              : "";
+        new P.Notice(`${prefix}${String(request.message ?? "")}`);
+      },
+      setStatus: (request) => this.setExtensionStatus(request.statusKey, request.statusText),
+      setWidget: (request) =>
+        this.setExtensionWidget(request.widgetKey, request.widgetLines, request.widgetPlacement),
+      setTitle: (request) => this.setExtensionTitle(request.title),
+      set_editor_text: (request) => this.setExtensionEditorText(request.text)
+    });
+    return this.extensionUiHandler;
+  }
+  setExtensionStatus(key, text) {
+    const statusKey = String(key || "extension");
+    if (text === void 0 || text === null || text === "") this.extensionStatuses.delete(statusKey);
+    else this.extensionStatuses.set(statusKey, String(text));
+    this.extensionStatusEl?.setText([...this.extensionStatuses.values()].join(" \xB7 "));
+  }
+  setExtensionWidget(key, lines, placement = "aboveEditor") {
+    const widgetKey = String(key || "extension");
+    if (!Array.isArray(lines)) this.extensionWidgets.delete(widgetKey);
+    else
+      this.extensionWidgets.set(widgetKey, {
+        lines: lines.map(String),
+        placement: placement === "belowEditor" ? "belowEditor" : "aboveEditor"
+      });
+    this.refreshExtensionUiViews();
+  }
+  setExtensionTitle(title) {
+    this.extensionTitle = String(title || "");
+    this.refreshExtensionUiViews();
+  }
+  setExtensionEditorText(text) {
+    const leaf = this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE)[0];
+    leaf?.view?.setExtensionEditorText?.(String(text ?? ""));
+  }
+  refreshExtensionUiViews() {
+    for (const leaf of this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE)) {
+      leaf.view?.renderExtensionWidgets?.();
+      leaf.updateHeader?.();
+    }
+  }
   async activateView() {
     var n;
     let t = (n = this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE)[0]) != null ? n : null;
@@ -6013,8 +5963,10 @@ var PiAgentPlugin = class extends P.Plugin {
       !this.graph || !this.contextBuilder || !this.pi)
     )
       throw new Error("Pi services are not available.");
-    let s = this.getEditorSelection(),
-      a = getCompactInstructions(e) === void 0 ? await this.contextBuilder.build(e, s) : void 0;
+    let s = this.getEditorSelection();
+    if (getCompactInstructions(e) === void 0 && !this.commandCatalogLoaded)
+      await this.refreshCommandCatalog(false);
+    let a = getCompactInstructions(e) === void 0 ? await this.contextBuilder.build(e, s) : void 0;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     if (isContextShowPrompt(e)) {
       return {
@@ -6096,7 +6048,9 @@ var PiAgentPlugin = class extends P.Plugin {
       this.settings,
       this.contextBuilder,
       this.getVaultBasePath(),
-      this.getPluginDirectory()
+      this.getPluginDirectory(),
+      void 0,
+      this.getExtensionUiHandler()
     );
     this.threadRunners.set(threadId, runner);
     return runner;
@@ -6107,19 +6061,29 @@ var PiAgentPlugin = class extends P.Plugin {
   }
   rebuildServices() {
     this.disposeThreadRunners();
+    this.piCommands = [];
+    this.commandCatalogLoaded = false;
     ((this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile())),
       (this.contextBuilder = new ContextBuilder(
         this.graph,
         this.settings,
         be,
-        this.getVaultBasePath()
+        this.getVaultBasePath(),
+        () => this.piCommands
       )),
       (this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings)),
+      (this.commandCatalog = new PiCommandCatalog(
+        this.getPluginDirectory(),
+        this.settings,
+        this.getExtensionUiHandler()
+      )),
       (this.pi = new PiRunner(
         this.settings,
         this.contextBuilder,
         this.getVaultBasePath(),
-        this.getPluginDirectory()
+        this.getPluginDirectory(),
+        void 0,
+        this.getExtensionUiHandler()
       )));
   }
   syncCurrentThreadState() {

@@ -170,6 +170,14 @@ export function handleRunEvent(e) {
     this.setActivity("Retrying", "finishing", formatRetryDetail(e.raw));
     return;
   }
+  if (t === "extension_error" || t === "extension_ui_error") {
+    this.setActivity(
+      "Extension failed",
+      "error",
+      String(e.raw?.error ?? e.raw?.message ?? "Pi extension error")
+    );
+    return;
+  }
   if (
     t === "pi_start" ||
     t === "agent_start" ||

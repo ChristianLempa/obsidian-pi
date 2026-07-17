@@ -43,6 +43,35 @@ describe("PiRpcClient protocol framing", () => {
     expect(events).toEqual([]);
   });
 
+  it("responds to extension dialogs and reports handler failures", async () => {
+    const writes = [];
+    const client = new PiRpcClient({
+      extensionUiHandler: async (request) => {
+        if (request.method === "select") return { value: "Allow" };
+        throw new Error("unsupported UI");
+      }
+    });
+    client.child = { stdin: { writable: true, write: (line) => writes.push(JSON.parse(line)) } };
+    const events = [];
+    client.subscribe((event) => events.push(event));
+
+    client.handleLine(
+      JSON.stringify({ type: "extension_ui_request", id: "ui-1", method: "select" })
+    );
+    client.handleLine(
+      JSON.stringify({ type: "extension_ui_request", id: "ui-2", method: "input" })
+    );
+    await vi.waitFor(() => expect(writes).toHaveLength(2));
+
+    expect(writes).toEqual([
+      { type: "extension_ui_response", id: "ui-1", value: "Allow" },
+      { type: "extension_ui_response", id: "ui-2", cancelled: true }
+    ]);
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: "extension_ui_error", method: "input" })
+    );
+  });
+
   it("emits parse errors without crashing the process", () => {
     const client = new PiRpcClient();
     const events = [];
