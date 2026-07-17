@@ -27,6 +27,9 @@ describe("annotation processing UX", () => {
     expect(styles).toMatch(
       /\.pi-agent-annotation-range \{[\s\S]*?background:[\s\S]*?border-bottom:/
     );
+    expect(extensionSource).toContain("mouseup(_event, view)");
+    expect(extensionSource).toContain("controller.chooseEditorSelection(view)");
+    expect(extensionSource).toContain("view.state.selection.main.empty");
   });
 
   it("uses a gray accent sweep with a static reduced-motion fallback", () => {

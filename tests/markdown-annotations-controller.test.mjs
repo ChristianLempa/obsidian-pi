@@ -123,6 +123,58 @@ describe("MarkdownAnnotationsController", () => {
     expect(controller.openCreateModal).toHaveBeenCalledOnce();
   });
 
+  it("opens one exact selection dialog when text is released in editor pick mode", () => {
+    const controller = new MarkdownAnnotationsController({});
+    const leaf = {};
+    const view = {
+      dom: {},
+      state: {
+        doc: { toString: () => "Select these words" },
+        selection: { main: { empty: false, from: 7, to: 12 } }
+      }
+    };
+    controller.pickState = { kind: "editor", leaf, editorView: view };
+    controller.leaves.set(leaf, {
+      leaf,
+      view: { file: { path: "Note.md" }, editor: { cm: view } }
+    });
+    controller.openCreateModal = vi.fn();
+
+    expect(controller.chooseEditorSelection(view)).toBe(true);
+    expect(controller.chooseEditorSelection(view)).toBe(true);
+    expect(controller.openCreateModal).toHaveBeenCalledOnce();
+    expect(controller.openCreateModal).toHaveBeenCalledWith(
+      "Note.md",
+      expect.objectContaining({ quote: "these" }),
+      "selection"
+    );
+  });
+
+  it("clears native selections after saving so every annotation uses only its decoration", () => {
+    const controller = new MarkdownAnnotationsController({});
+    const editorSetCursor = vi.fn();
+    const removeAllRanges = vi.fn();
+    controller.leaves.set("editor", {
+      view: {
+        file: { path: "Note.md" },
+        getMode: () => "source",
+        editor: { getCursor: () => ({ line: 1, ch: 2 }), setCursor: editorSetCursor }
+      }
+    });
+    controller.leaves.set("reading", {
+      view: {
+        file: { path: "Note.md" },
+        getMode: () => "preview",
+        containerEl: { ownerDocument: { getSelection: () => ({ removeAllRanges }) } }
+      }
+    });
+
+    controller.clearNativeSelection("Note.md");
+
+    expect(editorSetCursor).toHaveBeenCalledWith({ line: 1, ch: 2 });
+    expect(removeAllRanges).toHaveBeenCalledOnce();
+  });
+
   it("rejects oversized source blocks instead of silently truncating the target", () => {
     const controller = new MarkdownAnnotationsController({});
     const leaf = {};
@@ -352,6 +404,33 @@ describe("MarkdownAnnotationsController", () => {
 
     expect(controller.renderedRecords.size).toBe(0);
     expect(element.classList.remove).toHaveBeenCalledWith("pi-agent-annotation-rendered-block");
+  });
+
+  it("opens a rendered multi-element selection on mouse release without a duplicate click", async () => {
+    vi.useFakeTimers();
+    const controller = new MarkdownAnnotationsController({});
+    const state = {};
+    const selection = { state, startRecord: {}, endRecord: {}, range: {}, text: "Two blocks" };
+    controller.renderedSelectionForState = vi.fn(() => selection);
+    controller.captureRenderedSelection = vi.fn().mockResolvedValue(undefined);
+    const listeners = {};
+    const record = {
+      state,
+      element: { addEventListener: (type, listener) => (listeners[type] = listener) },
+      listeners: []
+    };
+    controller.pickState = { kind: "rendered", state };
+    const event = { preventDefault: vi.fn(), stopPropagation: vi.fn() };
+    controller.addRenderedListeners(record);
+
+    listeners.mouseup(event);
+    listeners.click(event);
+    await Promise.resolve();
+
+    expect(controller.captureRenderedSelection).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(100);
+    vi.useRealTimers();
   });
 
   it("handles rendered keyboard picks only in their owning split", () => {
