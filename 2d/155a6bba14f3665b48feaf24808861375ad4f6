@@ -1,0 +1,78 @@
+tests/context-builder.test.mjs
+  s_f72892f98dcdd3::t_6dd01145270c7f 2,65-78
+  s_f72892f98dcdd3::t_f0fa2aced43d15 79-80
+CHANGELOG.md
+  s_f72892f98dcdd3::t_6dd01145270c7f 5
+src/context/context-builder.mjs
+  s_f72892f98dcdd3::t_6dd01145270c7f 6,11,15,19-20,28,69-71,75,103-106,188,296-302
+  s_f72892f98dcdd3::t_b4b32ed2678efd 295
+  s_dc93e0ab64026b::t_994b6871287e0b 303
+PRIVACY.md
+  s_f72892f98dcdd3::t_cfb4e491c40fc6 13-14,29,36
+README.md
+  s_f72892f98dcdd3::t_cde9b7986cfa81 55,57
+main.js
+  s_f72892f98dcdd3::t_c245db84e6b940 45,272-275,280,285,288,292-293,304,334-335,339,373-380,470,570-577,600-649,661-662,664,831,858-861,869,878-880,889,891,1007-1008,1024,1039-1040,1052,1054,1057,1059-1060,1111,1116,1118,1121,1127,1130-1131,1138-1141,1146,1151,1156,1159,1167,1234-1292,1451-1454,1457-1475,1532-1597,1661-1662,1903-1910,1916,1989-1990,2309,2312,2318,2322-2323,2330,2332,2339-2342,2349,2359-2360,2376,2446-2447,2929-3005,3010,3017,3083,3088,3096,3101,3108,3110,3116,3170-3171,3181,3687-3688,3710-3711,4043-4050,4140,4165,4220,4224,4425,4482,4501,4558,4584,4707,4742-4743,4766-4767,4783-4803,5543,5610-5614,5623,5629,5722-5725,5734,5784-5799,5835,5837,5893-5945,5966-5969,6051-6053,6064-6065,6071-6072,6075-6079,6084-6086
+src/context/skills.mjs
+  s_f72892f98dcdd3::t_53c6f246fc4f64 8-11,19-29
+src/context/slash-commands.mjs
+  s_f72892f98dcdd3::t_43467b8a5b8840 48-51
+src/pi/command-catalog.mjs
+  s_f72892f98dcdd3::t_cc8ce468976323 1-73
+src/pi/extension-ui.mjs
+  s_f72892f98dcdd3::t_812c45d369e22f 1-66
+src/pi/rpc-client.mjs
+  s_f72892f98dcdd3::t_c9a376b57b18d6 5,179-183,187-206
+src/pi/runner.mjs
+  s_f72892f98dcdd3::t_eddebbae2cfa1f 22-29,35,115-116,470,473
+src/plugin/PiAgentPlugin.mjs
+  s_f72892f98dcdd3::t_9a24b48b3225e2 8-9,21,40,107-111,122,130,224-227,236,288-303,397-450,471-475,556-558,569-570,576-577,580-584,589-591
+src/ui/PiAgentView.mjs
+  s_f72892f98dcdd3::t_48293a427bd611 50,76,199,234-235,258-259,275-295
+src/ui/modals/extension-ui-modal.mjs
+  s_f72892f98dcdd3::t_5d74b70ebc8431 1,3-4,7-11,14-22,24-28,30-37,39-56,59-64,67-72,74-78,80
+src/ui/run-activity-state.mjs
+  s_f72892f98dcdd3::t_9b3400e89d5019 173-180
+src/ui/suggestions.mjs
+  s_f72892f98dcdd3::t_abb9b996ff017e 153
+styles.css
+  s_f72892f98dcdd3::t_afea1a3f022b87 912-935
+tests/command-catalog.test.mjs
+  s_f72892f98dcdd3::t_e581c85c4f03ca 3-23,25-32,36-50
+tests/extension-ui.test.mjs
+  s_f72892f98dcdd3::t_44019ffc7f5557 1-45
+tests/prompt-references.test.mjs
+  s_f72892f98dcdd3::t_6cb5347618c72c 5
+tests/rpc-client.test.mjs
+  s_f72892f98dcdd3::t_9de0ab12388f57 46-74
+tests/runner.test.mjs
+  s_f72892f98dcdd3::t_05f40835c9fe96 47,53-55
+tests/skills.test.mjs
+  s_f72892f98dcdd3::t_3d4c83189324c0 2,9-11,13,16-21,24-28
+tests/suggestions.test.mjs
+  s_f72892f98dcdd3::t_a926373d4b5c1f 23-31,76-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "2d155a6bba14f3665b48feaf24808861375ad4f6",
+  "prompts": {},
+  "sessions": {
+    "s_dc93e0ab64026b": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7004-08aa-78f5-9c15-ab523f797160",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_f72892f98dcdd3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7010-17b0-738c-8bf7-476562995acc",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
