@@ -1,12 +1,14 @@
 import { PluginSettingTab, Setting } from "obsidian";
 import {
   CUSTOM_MODEL_VALUE,
-  getModelOptions,
   getReasoningOptions,
+  getResolvedReasoning,
+  getSelectedModelInfo,
   getToolModeOptions
 } from "./settings.mjs";
 import { normalizeSkillFolderList } from "../context/skills.mjs";
 import { confirmWithModal } from "../ui/modals/confirm-modal.mjs";
+import { ModelPickerModal, ThinkingPickerModal } from "../ui/modals/model-picker-modal.mjs";
 
 export class PiAgentSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -23,15 +25,17 @@ export class PiAgentSettingTab extends PluginSettingTab {
       .setDesc(
         "Provider/model from Pi's built-in and custom model registry. Use default to follow ~/.pi/agent/settings.json or .pi/settings.json."
       )
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOptions(getModelOptions(this.plugin.settings))
-          .setValue(this.getModelDropdownValue())
-          .onChange(async (value) => {
-            this.plugin.settings.model = value;
-            this.plugin.settings.reasoningEffort = "";
-            await this.plugin.saveSettings();
-            this.display();
+      .addButton((button) =>
+        button
+          .setButtonText(this.getModelButtonLabel())
+          .setTooltip("Choose model")
+          .onClick(() => {
+            new ModelPickerModal(this.app, this.plugin.settings, async (value) => {
+              this.plugin.settings.model = value;
+              this.plugin.settings.reasoningEffort = "";
+              await this.plugin.saveSettings();
+              this.display();
+            }).open();
           })
       )
       .addButton((button) =>
@@ -46,33 +50,21 @@ export class PiAgentSettingTab extends PluginSettingTab {
           })
       );
 
-    if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) {
-      new Setting(containerEl)
-        .setName("Custom model ID")
-        .setDesc("Provider/model ID, for example anthropic/claude-sonnet-4-5.")
-        .addText((text) =>
-          text
-            .setPlaceholder("e.g. anthropic/claude-sonnet-4-5")
-            .setValue(this.plugin.settings.customModel)
-            .onChange(async (value) => {
-              this.plugin.settings.customModel = value.trim();
-              await this.plugin.saveSettings();
-            })
-        );
-    }
-
     new Setting(containerEl)
       .setName("Thinking level")
       .setDesc(
         "Controls reasoning effort only. Values come from the selected model returned by Pi."
       )
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOptions(this.getReasoningOptions())
-          .setValue(this.getReasoningDropdownValue())
-          .onChange(async (value) => {
-            this.plugin.settings.reasoningEffort = value;
-            await this.plugin.saveSettings();
+      .addButton((button) =>
+        button
+          .setButtonText(this.getReasoningButtonLabel())
+          .setTooltip("Choose thinking level")
+          .onClick(() => {
+            new ThinkingPickerModal(this.app, this.plugin.settings, async (value) => {
+              this.plugin.settings.reasoningEffort = value;
+              await this.plugin.saveSettings();
+              this.display();
+            }).open();
           })
       );
 
@@ -119,6 +111,38 @@ export class PiAgentSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl).setName("Advanced").setHeading();
+    let useCustomButton;
+    new Setting(containerEl)
+      .setName("Custom model slug")
+      .setDesc(
+        "Fallback for a provider/model slug that Pi does not expose in its catalog. Custom slugs are only selectable here."
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("provider/model")
+          .setValue(this.plugin.settings.customModel)
+          .onChange(async (value) => {
+            this.plugin.settings.customModel = value.trim();
+            useCustomButton?.setDisabled(!this.plugin.settings.customModel);
+            await this.plugin.saveSettings();
+          })
+      )
+      .addButton((button) => {
+        useCustomButton = button;
+        button
+          .setButtonText(
+            this.plugin.settings.model === CUSTOM_MODEL_VALUE ? "Using custom" : "Use custom"
+          )
+          .setDisabled(!this.plugin.settings.customModel)
+          .onClick(async () => {
+            this.plugin.settings.model = CUSTOM_MODEL_VALUE;
+            this.plugin.settings.reasoningEffort = "";
+            await this.plugin.saveSettings();
+            this.display();
+          });
+      });
 
     new Setting(containerEl).setName("Pi CLI").setHeading();
     new Setting(containerEl)
@@ -200,11 +224,27 @@ export class PiAgentSettingTab extends PluginSettingTab {
       );
   }
 
-  getModelDropdownValue() {
-    const { model } = this.plugin.settings;
-    return Object.prototype.hasOwnProperty.call(getModelOptions(this.plugin.settings), model)
-      ? model
-      : "";
+  getModelButtonLabel() {
+    if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) {
+      return this.plugin.settings.customModel || "Custom model";
+    }
+    const selected = getSelectedModelInfo(this.plugin.settings);
+    if (selected) return selected.displayName;
+    const effective = this.plugin.settings.availableModels.find(
+      (model) => model.slug === this.plugin.settings.effectiveModel
+    );
+    return effective?.displayName || this.plugin.settings.effectiveModel || "Pi default";
+  }
+
+  getReasoningButtonLabel() {
+    const value = this.getReasoningDropdownValue();
+    if (value) return this.getReasoningOptions()[value] || value;
+    const resolved = getResolvedReasoning(this.plugin.settings);
+    return resolved === "pi-default"
+      ? "Pi/model default"
+      : `Default — ${
+          resolved === "xhigh" ? "XHigh" : resolved.charAt(0).toUpperCase() + resolved.slice(1)
+        }`;
   }
 
   getReasoningOptions() {
