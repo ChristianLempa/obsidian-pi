@@ -204,7 +204,7 @@ export class PiAgentSettingTab extends PluginSettingTab {
     const { model } = this.plugin.settings;
     return Object.prototype.hasOwnProperty.call(getModelOptions(this.plugin.settings), model)
       ? model
-      : CUSTOM_MODEL_VALUE;
+      : "";
   }
 
   getReasoningOptions() {

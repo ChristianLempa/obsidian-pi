@@ -96,6 +96,7 @@ export class PiRunner {
     if (this.rpcClient) {
       this.rpcSession ??= this.resolveOrCreateSession(sessionReference);
       await this.rpcClient.start();
+      await this.configureRpcState(this.rpcClient);
       return { client: this.rpcClient, session: this.rpcSession };
     }
 
@@ -108,7 +109,30 @@ export class PiRunner {
     this.rpcClient = client;
     this.rpcSession = session;
     await client.start();
+    await this.configureRpcState(client);
     return { client, session };
+  }
+
+  async configureRpcState(client) {
+    if (this.rpcConfigured && this.rpcConfiguredProcess === client.child) return;
+
+    const model =
+      this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
+    if (model) {
+      const separator = model.indexOf("/");
+      if (separator <= 0 || separator === model.length - 1) {
+        throw new Error(`Invalid Pi model ID: ${model}. Expected provider/model.`);
+      }
+      await client.request("set_model", {
+        provider: model.slice(0, separator),
+        modelId: model.slice(separator + 1)
+      });
+    }
+    if (this.settings.reasoningEffort) {
+      await client.request("set_thinking_level", { level: this.settings.reasoningEffort });
+    }
+    this.rpcConfigured = true;
+    this.rpcConfiguredProcess = client.child;
   }
 
   async runPiRpc(prompt, sessionId, callbacks) {
@@ -422,11 +446,6 @@ export class PiRunner {
 
   buildPiArgs(sessionId, mode = "rpc") {
     const args = ["--mode", mode, "--session", sessionId];
-    const model =
-      this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
-
-    if (model) args.push("--model", model);
-    if (this.settings.reasoningEffort) args.push("--thinking", this.settings.reasoningEffort);
     if (this.settings.includeDefaultSkills === false) args.push("--no-skills");
 
     for (const skillPath of getConfiguredSkillPaths(this.settings, this.workingDirectory)) {

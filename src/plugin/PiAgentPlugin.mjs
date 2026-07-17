@@ -5,7 +5,7 @@ import { formatContextShowResponse, isContextShowPrompt } from "../context/conte
 import { normalizeSkillFolderList } from "../context/skills.mjs";
 import { VaultGraph } from "../context/vault-graph.mjs";
 import { checkPiInstallation, warmupPiCli } from "../pi/health.mjs";
-import { PiModelCatalog, getEffectiveConfig } from "../pi/model-catalog.mjs";
+import { PiModelCatalog } from "../pi/model-catalog.mjs";
 import { getCompactInstructions, PiRunner } from "../pi/runner.mjs";
 import { CUSTOM_MODEL_VALUE as b, DEFAULT_SETTINGS as H, normalizeSettings } from "./settings.mjs";
 import { PiAgentSettingTab } from "./settings-tab.mjs";
@@ -200,9 +200,8 @@ export class PiAgentPlugin extends P.Plugin {
         this.settings.additionalSkillFolders
       )),
       (this.threadHistory = new ThreadStore(t, n, a != null ? a : s)));
-    let l = getEffectiveConfig(this.getVaultBasePath());
-    ((this.settings.effectiveModel = l.effectiveModel || ""),
-      (this.settings.effectiveReasoning = l.effectiveReasoning || ""),
+    ((this.settings.effectiveModel = ""),
+      (this.settings.effectiveReasoning = ""),
       this.syncCurrentThreadState(),
       this.settings.model &&
         isLegacyBareModelId(this.settings.model) &&
@@ -244,13 +243,22 @@ export class PiAgentPlugin extends P.Plugin {
     var t;
     this.catalog || this.rebuildServices();
     try {
-      let n = await ((t = this.catalog) == null ? void 0 : t.getAvailableModels()),
-        s = this.catalog ? this.catalog.getEffectiveConfig(this.getVaultBasePath()) : {};
+      let n = await ((t = this.catalog) == null
+          ? void 0
+          : t.getAvailableModels(this.getVaultBasePath())),
+        s = this.catalog ? this.catalog.getEffectiveConfig() : {};
       if (!n || n.length === 0) {
         e && new P.Notice("Pi returned no models.");
         return;
       }
       ((this.settings.availableModels = n),
+        this.settings.model === "__custom" &&
+          this.settings.customModel &&
+          n.some((model) => model.slug === this.settings.customModel) &&
+          (this.settings.model = this.settings.customModel),
+        this.settings.model &&
+          !n.some((model) => model.slug === this.settings.model) &&
+          ((this.settings.model = ""), (this.settings.reasoningEffort = "")),
         (this.settings.effectiveModel = s.effectiveModel || ""),
         (this.settings.effectiveReasoning = s.effectiveReasoning || ""),
         await this.saveSettings(),

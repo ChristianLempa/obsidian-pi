@@ -15,18 +15,25 @@ describe("plugin settings helpers", () => {
     slug: "provider/model",
     displayName: "provider: model",
     defaultReasoningLevel: "medium",
-    supportedReasoningLevels: ["low", "medium", "high"]
+    supportedReasoningLevels: ["low", "medium", "high", "max"],
+    reasoning: true,
+    supportsImages: true,
+    contextWindow: 200000
   };
 
   it("builds model options", () => {
-    expect(getModelOptions({ ...DEFAULT_SETTINGS, availableModels: [] })).toMatchObject({
-      "": "Use Pi default",
-      [CUSTOM_MODEL_VALUE]: "Custom model ID"
+    expect(getModelOptions({ ...DEFAULT_SETTINGS, availableModels: [] })).toEqual({
+      "": "Use Pi configured default"
     });
-    expect(getModelOptions({ ...DEFAULT_SETTINGS, availableModels: [model] })).toMatchObject({
-      "": "Use Pi default",
-      "provider/model": "provider: model - thinking low/medium/high",
-      [CUSTOM_MODEL_VALUE]: "Custom model ID"
+    expect(
+      getModelOptions({
+        ...DEFAULT_SETTINGS,
+        availableModels: [model],
+        effectiveModel: "provider/model"
+      })
+    ).toEqual({
+      "": "Use Pi configured default — provider/model",
+      "provider/model": "provider: model — provider/model · thinking · images · 200K context"
     });
   });
 
@@ -41,8 +48,15 @@ describe("plugin settings helpers", () => {
       "": "Use Pi/model default",
       low: "Low",
       medium: "Medium",
-      high: "High"
+      high: "High",
+      max: "Max - deepest"
     });
+    expect(
+      getReasoningOptions({
+        ...DEFAULT_SETTINGS,
+        effectiveReasoning: "high"
+      })
+    ).toEqual({ "": "Use Pi/model default — High" });
   });
 
   it("resolves reasoning defaults", () => {

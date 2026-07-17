@@ -28,7 +28,7 @@ function createRunner(settings = {}) {
 }
 
 describe("PiRunner", () => {
-  it("builds Pi CLI args for tool modes, models, thinking, and skills", () => {
+  it("builds Pi CLI args for tool modes and skills", () => {
     expect(
       createRunner({
         model: "provider/model",
@@ -42,10 +42,6 @@ describe("PiRunner", () => {
       "rpc",
       "--session",
       "session.jsonl",
-      "--model",
-      "provider/model",
-      "--thinking",
-      "high",
       "--no-skills",
       "--skill",
       path.join("/vault", ".pi/skills"),
@@ -132,6 +128,80 @@ describe("PiRunner", () => {
       { type: "prompt", payload: { message: "two" } }
     ]);
     expect(rpcClient.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("configures model and thinking through RPC before the first prompt", async () => {
+    const requests = [];
+    const listeners = new Set();
+    const rpcClient = {
+      start: vi.fn(async () => {}),
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      async request(type, payload) {
+        requests.push({ type, payload });
+        if (type === "prompt") {
+          for (const listener of listeners) listener({ type: "agent_settled" });
+        }
+      }
+    };
+    const runner = new PiRunner(
+      { ...DEFAULT_SETTINGS, model: "provider/model/name", reasoningEffort: "max" },
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      createTempDir(),
+      rpcClient
+    );
+
+    await runner.runPiRpc("one", undefined);
+    await runner.runPiRpc("two", runner.rpcSession.reference);
+
+    expect(requests).toEqual([
+      { type: "set_model", payload: { provider: "provider", modelId: "model/name" } },
+      { type: "set_thinking_level", payload: { level: "max" } },
+      { type: "prompt", payload: { message: "one" } },
+      { type: "prompt", payload: { message: "two" } }
+    ]);
+  });
+
+  it("reapplies RPC overrides after the Pi process restarts", async () => {
+    const requests = [];
+    const listeners = new Set();
+    const rpcClient = {
+      child: { pid: 1 },
+      start: vi.fn(async () => {}),
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      async request(type, payload) {
+        requests.push({ type, payload });
+        if (type === "prompt") {
+          for (const listener of listeners) listener({ type: "agent_settled" });
+        }
+      }
+    };
+    const runner = new PiRunner(
+      { ...DEFAULT_SETTINGS, model: "provider/model", reasoningEffort: "high" },
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      createTempDir(),
+      rpcClient
+    );
+
+    await runner.runPiRpc("one", undefined);
+    rpcClient.child = { pid: 2 };
+    await runner.runPiRpc("two", runner.rpcSession.reference);
+
+    expect(requests.map(({ type }) => type)).toEqual([
+      "set_model",
+      "set_thinking_level",
+      "prompt",
+      "set_model",
+      "set_thinking_level",
+      "prompt"
+    ]);
   });
 
   it("cancels persistent runs through RPC abort", () => {
