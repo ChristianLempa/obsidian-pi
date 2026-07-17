@@ -719,9 +719,11 @@ export class PiAgentPlugin extends P.Plugin {
   }
   async enrichPromptDelivery(delivery, context) {
     const enriched = await applyPromptEnricher(delivery, this.promptEnricher, context);
+    const hasAnnotationSnapshot = Object.prototype.hasOwnProperty.call(enriched, "annotations");
     const promptContext = await this.contextBuilder.build(
       enriched.prompt,
-      this.getEditorSelection()
+      this.getEditorSelection(),
+      hasAnnotationSnapshot ? { annotations: enriched.annotations } : undefined
     );
     return { ...enriched, promptContext };
   }
@@ -729,7 +731,8 @@ export class PiAgentPlugin extends P.Plugin {
     return this.localPromptQueue.map((item) => ({
       ...item,
       images: item.images.map((image) => ({ ...image })),
-      attachments: item.attachments.map((attachment) => ({ ...attachment }))
+      attachments: item.attachments.map((attachment) => ({ ...attachment })),
+      annotations: item.annotations.map((annotation) => ({ ...annotation }))
     }));
   }
   isLocalPromptQueuePaused() {
@@ -846,6 +849,37 @@ export class PiAgentPlugin extends P.Plugin {
         undefined,
         this.getExtensionUiHandler()
       )));
+  }
+  async consumeAnnotationsForPrompt() {
+    this.annotationController?.cancelPick();
+    const file = this.getCurrentContextFile();
+    if (!file) return [];
+    const annotations = await this.getAnnotationsForContext(file.path);
+    if (annotations.length > 0) this.annotationStore.deletePath(file.path);
+    return annotations;
+  }
+  restoreConsumedAnnotations(annotations) {
+    const byPath = new Map();
+    for (const annotation of Array.isArray(annotations) ? annotations : []) {
+      if (!annotation?.path) continue;
+      const items = byPath.get(annotation.path) ?? [];
+      items.push(annotation);
+      byPath.set(annotation.path, items);
+    }
+    try {
+      for (const [path, items] of byPath) {
+        const current = this.annotationStore.list(path);
+        const ids = new Set(current.map((annotation) => annotation.id));
+        this.annotationStore.replacePath(path, [
+          ...current,
+          ...items.filter((annotation) => !ids.has(annotation.id))
+        ]);
+      }
+    } catch (error) {
+      new P.Notice(
+        error instanceof Error ? error.message : "Could not restore queued annotations."
+      );
+    }
   }
   async getAnnotationsForContext(path) {
     const annotations = this.annotationStore.list(path);

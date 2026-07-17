@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { captureAnchor } from "../src/annotations/annotation-anchors.mjs";
 import {
   claimLocalPrompt,
   enqueueLocalPrompt,
@@ -53,12 +54,26 @@ describe("local prompt queue", () => {
 
   it("persists text attachments through claim, restore, retrieve-style edit, and one-time take", () => {
     const attachment = {
-      id: "file-1", kind: "text", fileName: "config.yaml", mimeType: "application/yaml",
-      content: "enabled: true", originalSize: 13, includedBytes: 13, truncated: false,
-      source: "vault", path: "config.yaml"
+      id: "file-1",
+      kind: "text",
+      fileName: "config.yaml",
+      mimeType: "application/yaml",
+      content: "enabled: true",
+      originalSize: 13,
+      includedBytes: 13,
+      truncated: false,
+      source: "vault",
+      path: "config.yaml"
     };
     const normalized = normalizeLocalPromptQueue([
-      { id: "files", prompt: "review", images: [], attachments: [attachment], threadId: "a", createdAt: 1 }
+      {
+        id: "files",
+        prompt: "review",
+        images: [],
+        attachments: [attachment],
+        threadId: "a",
+        createdAt: 1
+      }
     ]);
     expect(normalized[0].attachments).toEqual([attachment]);
     const taken = takeLocalPrompt(normalized, "files");
@@ -66,6 +81,35 @@ describe("local prompt queue", () => {
     expect(takeLocalPrompt(taken.queue, "files").item).toBeUndefined();
     const restored = restoreLocalPrompt(taken.queue, taken.item, taken.index);
     expect(claimLocalPrompt(restored, "files", "delivering").item.state).toBe("delivering");
+  });
+
+  it("persists a consumed annotation snapshot through queue claims and restoration", () => {
+    const annotation = {
+      id: "annotation-1",
+      path: "Note.md",
+      intent: "change",
+      context: "Rewrite this",
+      targetKind: "selection",
+      ...captureAnchor("before target after", 7, 13)
+    };
+    const normalized = normalizeLocalPromptQueue([
+      {
+        id: "annotated",
+        prompt: "Apply annotations",
+        annotations: [annotation],
+        threadId: "a",
+        createdAt: 1
+      }
+    ]);
+
+    expect(normalized[0].annotations).toHaveLength(1);
+    const taken = takeLocalPrompt(normalized, "annotated");
+    const restored = restoreLocalPrompt(taken.queue, taken.item, taken.index);
+    expect(restored[0].annotations[0]).toMatchObject({
+      id: "annotation-1",
+      path: "Note.md",
+      context: "Rewrite this"
+    });
   });
 
   it("supports safe edit and removal by stable id", () => {

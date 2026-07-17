@@ -33,6 +33,53 @@ describe("MarkdownAnnotationsController", () => {
     expect(controller.pickRangeForEditor(view)).toMatchObject({ from: 0, to: 23 });
   });
 
+  it("keeps source pick mode active after choosing an annotation target", () => {
+    const controller = new MarkdownAnnotationsController({});
+    const leaf = {};
+    const view = editorView("One paragraph", 5);
+    controller.pickState = { kind: "editor", leaf, editorView: view, hoverOffset: undefined };
+    controller.leaves.set(leaf, { leaf, view: { file: { path: "Note.md" } } });
+    controller.openCreateModal = vi.fn();
+    controller.cancelPick = vi.fn();
+
+    controller.choosePickTarget(view, 5);
+
+    expect(controller.openCreateModal).toHaveBeenCalledOnce();
+    expect(controller.cancelPick).not.toHaveBeenCalled();
+    expect(controller.pickState?.leaf).toBe(leaf);
+  });
+
+  it("uses a second annotation-button click only to leave persistent pick mode", async () => {
+    const controller = new MarkdownAnnotationsController({});
+    const leaf = {};
+    controller.leaves.set(leaf, { leaf });
+    controller.pickState = { kind: "editor", leaf };
+    controller.cancelPick = vi.fn();
+
+    await controller.handleHeaderAction(leaf);
+
+    expect(controller.cancelPick).toHaveBeenCalledOnce();
+  });
+
+  it("enters persistent pick mode when annotating an editor selection", async () => {
+    const controller = new MarkdownAnnotationsController({});
+    const leaf = {};
+    const editor = {
+      getValue: () => "selected text",
+      getCursor: (which) => (which === "from" ? { line: 0, ch: 0 } : { line: 0, ch: 8 }),
+      posToOffset: (position) => position.ch
+    };
+    const state = { leaf, view: { file: { path: "Note.md" }, editor, getMode: () => "source" } };
+    controller.leaves.set(leaf, state);
+    controller.activateEditorPick = vi.fn(() => true);
+    controller.openCreateModal = vi.fn();
+
+    await controller.handleHeaderAction(leaf);
+
+    expect(controller.activateEditorPick).toHaveBeenCalledWith(state);
+    expect(controller.openCreateModal).toHaveBeenCalledOnce();
+  });
+
   it("rejects oversized source blocks instead of silently truncating the target", () => {
     const controller = new MarkdownAnnotationsController({});
     const leaf = {};

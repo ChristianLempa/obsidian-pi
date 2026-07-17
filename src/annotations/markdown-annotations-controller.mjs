@@ -49,6 +49,17 @@ export class MarkdownAnnotationsController {
     this.plugin.registerEvent(
       this.plugin.app.workspace.on("active-leaf-change", () => this.refresh())
     );
+    this.plugin.registerDomEvent(
+      document,
+      "keydown",
+      (event) => {
+        if (event.key !== "Escape" || !this.pickState) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.cancelPick();
+      },
+      { capture: true }
+    );
     this.plugin.registerEvent(
       this.plugin.app.vault.on("modify", (file) => {
         if (file.extension === "md") this.reanchorModifiedFile(file);
@@ -159,11 +170,17 @@ export class MarkdownAnnotationsController {
   async handleHeaderAction(leaf) {
     const state = this.leaves.get(leaf);
     if (!state) return;
+    if (this.pickState?.leaf === leaf) {
+      this.cancelPick();
+      return;
+    }
     if (this.isReadingState(state)) {
       const selection = this.renderedSelectionForState(state);
       if (selection?.invalid) return;
-      if (selection) await this.captureRendered(selection.record, selection.text);
-      else this.toggleRenderedPick(state);
+      if (selection) {
+        if (!this.activateRenderedPick(state)) return;
+        await this.captureRendered(selection.record, selection.text);
+      } else this.activateRenderedPick(state);
       return;
     }
 
@@ -182,19 +199,25 @@ export class MarkdownAnnotationsController {
         new Notice("The selected Markdown text is too large to annotate.");
         return;
       }
+      if (!this.activateEditorPick(state)) return;
       this.openCreateModal(state.view.file?.path, captureAnchor(text, from, to), "selection");
       return;
     }
-    this.toggleEditorPick(state);
+    this.activateEditorPick(state);
   }
 
   toggleEditorPick(state) {
     if (this.pickState?.leaf === state.leaf) return this.cancelPick();
+    this.activateEditorPick(state);
+  }
+
+  activateEditorPick(state) {
+    if (this.pickState?.kind === "editor" && this.pickState.leaf === state.leaf) return true;
     this.cancelPick();
     const editorView = this.editorViewForState(state);
     if (!editorView) {
       new Notice("The Markdown editor is not ready yet.");
-      return;
+      return false;
     }
     this.pickState = {
       kind: "editor",
@@ -212,21 +235,28 @@ export class MarkdownAnnotationsController {
     );
     state.view.editor.focus();
     requestAnnotationRefresh(editorView);
+    return true;
   }
 
   toggleRenderedPick(state) {
     if (this.pickState?.leaf === state.leaf) return this.cancelPick();
+    this.activateRenderedPick(state);
+  }
+
+  activateRenderedPick(state) {
+    if (this.pickState?.kind === "rendered" && this.pickState.leaf === state.leaf) return true;
     this.cancelPick();
     const records = this.recordsForState(state);
     if (records.length === 0) {
       new Notice("No source-backed Markdown blocks are available in this reading view.");
-      return;
+      return false;
     }
     this.pickState = { kind: "rendered", leaf: state.leaf, state, focused: undefined };
     state.actionEl.addClass("is-active");
     state.actionEl.setAttr("aria-pressed", "true");
     state.view.containerEl.addClass("pi-agent-annotation-reading-pick-mode");
     for (const record of records) this.enableRenderedTarget(record);
+    return true;
   }
 
   cancelPick() {
@@ -281,7 +311,6 @@ export class MarkdownAnnotationsController {
       return;
     }
     const anchor = captureAnchor(text, range.from, range.to);
-    this.cancelPick();
     this.openCreateModal(state.view.file?.path, anchor, "block");
   }
 
@@ -467,7 +496,6 @@ export class MarkdownAnnotationsController {
         renderedText: resolved.renderedText,
         anchorLabel: resolved.anchorLabel
       };
-      this.cancelPick();
       this.openCreateModal(record.sourcePath, anchor, resolved.targetKind);
     } catch {
       new Notice("Could not read the current Markdown source.");

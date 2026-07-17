@@ -828,6 +828,17 @@ var MarkdownAnnotationsController = class {
     this.plugin.registerEvent(
       this.plugin.app.workspace.on("active-leaf-change", () => this.refresh())
     );
+    this.plugin.registerDomEvent(
+      document,
+      "keydown",
+      (event) => {
+        if (event.key !== "Escape" || !this.pickState) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.cancelPick();
+      },
+      { capture: true }
+    );
     this.plugin.registerEvent(
       this.plugin.app.vault.on("modify", (file) => {
         if (file.extension === "md") this.reanchorModifiedFile(file);
@@ -931,11 +942,17 @@ var MarkdownAnnotationsController = class {
   async handleHeaderAction(leaf) {
     const state = this.leaves.get(leaf);
     if (!state) return;
+    if (this.pickState?.leaf === leaf) {
+      this.cancelPick();
+      return;
+    }
     if (this.isReadingState(state)) {
       const selection = this.renderedSelectionForState(state);
       if (selection?.invalid) return;
-      if (selection) await this.captureRendered(selection.record, selection.text);
-      else this.toggleRenderedPick(state);
+      if (selection) {
+        if (!this.activateRenderedPick(state)) return;
+        await this.captureRendered(selection.record, selection.text);
+      } else this.activateRenderedPick(state);
       return;
     }
     const editor = state.view.editor;
@@ -953,18 +970,23 @@ var MarkdownAnnotationsController = class {
         new import_obsidian2.Notice("The selected Markdown text is too large to annotate.");
         return;
       }
+      if (!this.activateEditorPick(state)) return;
       this.openCreateModal(state.view.file?.path, captureAnchor(text, from, to), "selection");
       return;
     }
-    this.toggleEditorPick(state);
+    this.activateEditorPick(state);
   }
   toggleEditorPick(state) {
     if (this.pickState?.leaf === state.leaf) return this.cancelPick();
+    this.activateEditorPick(state);
+  }
+  activateEditorPick(state) {
+    if (this.pickState?.kind === "editor" && this.pickState.leaf === state.leaf) return true;
     this.cancelPick();
     const editorView = this.editorViewForState(state);
     if (!editorView) {
       new import_obsidian2.Notice("The Markdown editor is not ready yet.");
-      return;
+      return false;
     }
     this.pickState = {
       kind: "editor",
@@ -982,22 +1004,28 @@ var MarkdownAnnotationsController = class {
     );
     state.view.editor.focus();
     requestAnnotationRefresh(editorView);
+    return true;
   }
   toggleRenderedPick(state) {
     if (this.pickState?.leaf === state.leaf) return this.cancelPick();
+    this.activateRenderedPick(state);
+  }
+  activateRenderedPick(state) {
+    if (this.pickState?.kind === "rendered" && this.pickState.leaf === state.leaf) return true;
     this.cancelPick();
     const records = this.recordsForState(state);
     if (records.length === 0) {
       new import_obsidian2.Notice(
         "No source-backed Markdown blocks are available in this reading view."
       );
-      return;
+      return false;
     }
     this.pickState = { kind: "rendered", leaf: state.leaf, state, focused: void 0 };
     state.actionEl.addClass("is-active");
     state.actionEl.setAttr("aria-pressed", "true");
     state.view.containerEl.addClass("pi-agent-annotation-reading-pick-mode");
     for (const record of records) this.enableRenderedTarget(record);
+    return true;
   }
   cancelPick() {
     const pick = this.pickState;
@@ -1047,7 +1075,6 @@ var MarkdownAnnotationsController = class {
       return;
     }
     const anchor = captureAnchor(text, range.from, range.to);
-    this.cancelPick();
     this.openCreateModal(state.view.file?.path, anchor, "block");
   }
   registerRenderedSection(root, ctx) {
@@ -1222,7 +1249,6 @@ var MarkdownAnnotationsController = class {
         renderedText: resolved.renderedText,
         anchorLabel: resolved.anchorLabel
       };
-      this.cancelPick();
       this.openCreateModal(record.sourcePath, anchor, resolved.targetKind);
     } catch {
       new import_obsidian2.Notice("Could not read the current Markdown source.");
@@ -1639,10 +1665,10 @@ var ContextBuilder = class {
     this.getPiCommands = getPiCommands;
     this.annotationProvider = annotationProvider;
   }
-  async build(prompt, selection = "") {
+  async build(prompt, selection = "", options = void 0) {
     const userPrompt = String(prompt ?? "");
     const parsedPrompt = parsePromptReferences(userPrompt);
-    const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
+    const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection, options);
     const toolCatalog = this.getToolCatalog();
     const slashCommands = getSlashCommands(this.getPiCommands());
     const piCommand = findPiCommand(userPrompt, slashCommands);
@@ -1665,29 +1691,35 @@ var ContextBuilder = class {
    * and Full agent modes. Chat mode has no tools, so users can still attach
    * additional context explicitly with @note, #tag, /search, or folder refs.
    */
-  async buildPreAttachedContext(parsedPrompt, selection = "") {
+  async buildPreAttachedContext(parsedPrompt, selection = "", options = void 0) {
     const activeNote = await this.graph.getActiveNoteContext(selection);
     const linkedNeighborhood = activeNote
       ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
       : [];
     const attachments = await this.resolveAttachments(parsedPrompt.references, activeNote);
-    return this.enrichPromptContext({
-      activeNote,
-      annotations: [],
-      linkedNeighborhood,
-      searchResults: [],
-      attachments
-    });
+    return this.enrichPromptContext(
+      {
+        activeNote,
+        annotations: [],
+        linkedNeighborhood,
+        searchResults: [],
+        attachments
+      },
+      options
+    );
   }
   /**
    * Reusable prompt-time enrichment hook. Local queue or steer-now callers can
    * pass their normal context packet here without introducing a separate
    * annotation selector or queue path.
    */
-  async enrichPromptContext(context) {
-    const annotations = context.activeNote
-      ? await Promise.resolve(this.annotationProvider(context.activeNote.path))
-      : [];
+  async enrichPromptContext(context, options = void 0) {
+    const hasSnapshot = Object.prototype.hasOwnProperty.call(options ?? {}, "annotations");
+    const annotations = hasSnapshot
+      ? options.annotations
+      : context.activeNote
+        ? await Promise.resolve(this.annotationProvider(context.activeNote.path))
+        : [];
     return { ...context, annotations: Array.isArray(annotations) ? annotations : [] };
   }
   async inspectContext(prompt, selection = "") {
@@ -3464,6 +3496,7 @@ function createQueuedPrompt({
   prompt = "",
   images = [],
   attachments = [],
+  annotations = [],
   threadId,
   id,
   createdAt
@@ -3471,6 +3504,7 @@ function createQueuedPrompt({
   const normalizedPrompt = String(prompt).trim();
   const normalizedImages = normalizePromptImages(images);
   const normalizedAttachments = normalizeTextAttachments(attachments);
+  const normalizedAnnotations = normalizePromptAnnotations(annotations);
   if (!normalizedPrompt && normalizedImages.length === 0 && normalizedAttachments.length === 0)
     return void 0;
   return {
@@ -3478,10 +3512,18 @@ function createQueuedPrompt({
     prompt: normalizedPrompt,
     images: normalizedImages,
     attachments: normalizedAttachments,
+    annotations: normalizedAnnotations,
     threadId: String(threadId || ""),
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
     state: "pending"
   };
+}
+function normalizePromptAnnotations(annotations) {
+  if (!Array.isArray(annotations)) return [];
+  return annotations
+    .slice(0, ANNOTATION_LIMITS.promptRecords)
+    .map((annotation) => normalizeAnnotation(annotation, annotation?.path))
+    .filter(Boolean);
 }
 function normalizePromptImages(images) {
   if (!Array.isArray(images)) return [];
@@ -5385,9 +5427,16 @@ function enqueuePrompt(
   prompt,
   threadId = this.plugin.getCurrentThread().id,
   images = [],
-  attachments = []
+  attachments = [],
+  annotations = []
 ) {
-  const item = this.plugin.enqueueLocalPrompt({ prompt, images, attachments, threadId });
+  const item = this.plugin.enqueueLocalPrompt({
+    prompt,
+    images,
+    attachments,
+    annotations,
+    threadId
+  });
   if (!item) return;
   this.promptQueue = this.plugin.getLocalPromptQueue();
   this.renderPromptQueue();
@@ -5410,7 +5459,14 @@ function runNextQueuedPrompt() {
   this.promptQueue = claimed.queue;
   this.plugin.replaceLocalPromptQueue(this.promptQueue);
   this.renderPromptQueue();
-  this.runPrompt(item.prompt, item.threadId, item.images, item.id, item.attachments);
+  this.runPrompt(
+    item.prompt,
+    item.threadId,
+    item.images,
+    item.id,
+    item.attachments,
+    item.annotations
+  );
 }
 function removeQueuedPrompt(id) {
   const item = this.promptQueue.find((candidate) => candidate.id === id);
@@ -5426,6 +5482,7 @@ function retrieveQueuedPrompt(id) {
   if (this.inputEl) this.inputEl.value = item.prompt;
   this.composerImages = item.images.map((image) => ({ ...image }));
   this.composerAttachments = item.attachments.map((attachment) => ({ ...attachment }));
+  this.plugin.restoreConsumedAnnotations(item.annotations);
   this.removeQueuedPrompt(id);
   this.renderComposerImages();
   this.resizeInput();
@@ -7006,6 +7063,22 @@ function getSendActionState({ running, canceling, hasInput, queuedCount = 0 }) {
   };
 }
 
+// src/ui/editor-file-refresh.mjs
+async function refreshOpenMarkdownViews(app, file) {
+  if (!app?.vault?.read || !file?.path || file.extension !== "md") return 0;
+  const content = await app.vault.read(file);
+  let refreshed = 0;
+  for (const leaf of app.workspace?.getLeavesOfType?.("markdown") ?? []) {
+    const view = leaf.view;
+    if (view?.file?.path !== file.path || typeof view.setViewData !== "function") continue;
+    const current = view.editor?.getValue?.() ?? view.getViewData?.();
+    if (current === content) continue;
+    view.setViewData(content, false);
+    refreshed += 1;
+  }
+  return refreshed;
+}
+
 // src/ui/PiAgentView.mjs
 var PiAgentView = class extends f4.ItemView {
   constructor(e, t) {
@@ -7037,6 +7110,7 @@ var PiAgentView = class extends f4.ItemView {
     this.messageRenderComponents = [];
     this.activeRuns = /* @__PURE__ */ new Map();
     this.activeEditorScrollSnapshot = void 0;
+    this.agentFileRefreshUntil = 0;
     this.stickToBottom = true;
   }
   getViewType() {
@@ -7452,9 +7526,7 @@ var PiAgentView = class extends f4.ItemView {
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
-      this.running
-        ? this.enqueuePrompt(e, this.plugin.getCurrentThread().id, images, attachments)
-        : this.runPrompt(e, void 0, images, void 0, attachments),
+      this.runPrompt(e, void 0, images, void 0, attachments),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
@@ -7783,8 +7855,20 @@ var PiAgentView = class extends f4.ItemView {
     t = this.plugin.getCurrentThread().id,
     images = [],
     queuedId,
-    attachments = []
+    attachments = [],
+    annotations
   ) {
+    if (annotations === void 0) {
+      try {
+        annotations = await this.plugin.consumeAnnotationsForPrompt();
+      } catch (error) {
+        new f4.Notice(error instanceof Error ? error.message : String(error));
+        return;
+      }
+    }
+    const restoreUnsentAnnotations = () => {
+      if (!queuedId && annotations.length > 0) this.plugin.restoreConsumedAnnotations(annotations);
+    };
     if (this.isThreadRunning(t)) {
       if (queuedId) {
         this.promptQueue = this.promptQueue.map((item) =>
@@ -7793,14 +7877,14 @@ var PiAgentView = class extends f4.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments);
+        this.enqueuePrompt(e, t, images, attachments, annotations);
       }
       return;
     }
     let delivery;
     try {
       delivery = await this.plugin.enrichPromptDelivery(
-        { prompt: e, images, attachments },
+        { prompt: e, images, attachments, annotations },
         { mode: "prompt", threadId: t }
       );
     } catch (error) {
@@ -7810,7 +7894,7 @@ var PiAgentView = class extends f4.ItemView {
         );
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
-      }
+      } else restoreUnsentAnnotations();
       new f4.Notice(error instanceof Error ? error.message : String(error));
       return;
     }
@@ -7827,7 +7911,7 @@ var PiAgentView = class extends f4.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
         new f4.Notice("The queued message became empty and was not sent.");
-      }
+      } else restoreUnsentAnnotations();
       return;
     }
     if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
@@ -7838,7 +7922,7 @@ var PiAgentView = class extends f4.ItemView {
         );
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
-      }
+      } else restoreUnsentAnnotations();
       new f4.Notice("The selected Pi model does not support image input.");
       return;
     }
@@ -7850,7 +7934,7 @@ var PiAgentView = class extends f4.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments);
+        this.enqueuePrompt(e, t, images, attachments, annotations);
       }
       return;
     }
@@ -7879,8 +7963,9 @@ var PiAgentView = class extends f4.ItemView {
     };
     const acknowledgeQueuedDelivery = () => {
       addUserMessage();
-      if (!queuedId || n.accepted) return;
+      if (n.accepted) return;
       n.accepted = true;
+      if (!queuedId) return;
       this.promptQueue = this.promptQueue.filter((item) => item.id !== queuedId);
       this.plugin.replaceLocalPromptQueue(this.promptQueue);
       this.renderPromptQueue();
@@ -7979,7 +8064,7 @@ var PiAgentView = class extends f4.ItemView {
         );
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         skipQueueDrain = true;
-      }
+      } else if (!n.accepted) restoreUnsentAnnotations();
       if (o === "Pi run canceled.") {
         new f4.Notice("Agent run canceled.");
         return;
@@ -8016,8 +8101,10 @@ var PiAgentView = class extends f4.ItemView {
         (this.activityDetail = ""),
         (this.currentRunContextUsage = void 0),
         this.isCurrentThread(t) && (this.nativePiQueue = void 0),
+        (this.agentFileRefreshUntil = Date.now() + 2e3),
         this.activeEditorScrollSnapshot &&
-          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
+          (this.refreshOpenMarkdownPath(this.activeEditorScrollSnapshot.path),
+          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path)),
         (this.activeEditorScrollSnapshot = void 0),
         this.renderPromptQueue(),
         (this.runningThreadId = void 0),
@@ -8041,9 +8128,21 @@ var PiAgentView = class extends f4.ItemView {
     }
   }
   handleVaultFileModify(e) {
-    this.syncCurrentRunFlags();
-    if (!(e instanceof f4.TFile) || !this.running || e.extension !== "md") return;
+    if (
+      !(e instanceof f4.TFile) ||
+      e.extension !== "md" ||
+      (this.activeRuns.size === 0 && Date.now() > this.agentFileRefreshUntil)
+    )
+      return;
     this.scheduleEditorScrollRestore(e.path);
+    this.refreshOpenMarkdownPath(e.path, e);
+  }
+  refreshOpenMarkdownPath(path4, knownFile) {
+    const file = knownFile ?? this.plugin.app.vault.getAbstractFileByPath(path4);
+    if (!(file instanceof f4.TFile) || file.extension !== "md") return;
+    void refreshOpenMarkdownViews(this.plugin.app, file).catch((error) => {
+      console.warn("Pi Agent: failed to refresh an externally changed Markdown file", error);
+    });
   }
   scheduleEditorScrollRestore(e) {
     let t = this.activeEditorScrollSnapshot;
@@ -9151,9 +9250,11 @@ var PiAgentPlugin = class extends P.Plugin {
   }
   async enrichPromptDelivery(delivery, context) {
     const enriched = await applyPromptEnricher(delivery, this.promptEnricher, context);
+    const hasAnnotationSnapshot = Object.prototype.hasOwnProperty.call(enriched, "annotations");
     const promptContext = await this.contextBuilder.build(
       enriched.prompt,
-      this.getEditorSelection()
+      this.getEditorSelection(),
+      hasAnnotationSnapshot ? { annotations: enriched.annotations } : void 0
     );
     return { ...enriched, promptContext };
   }
@@ -9161,7 +9262,8 @@ var PiAgentPlugin = class extends P.Plugin {
     return this.localPromptQueue.map((item) => ({
       ...item,
       images: item.images.map((image) => ({ ...image })),
-      attachments: item.attachments.map((attachment) => ({ ...attachment }))
+      attachments: item.attachments.map((attachment) => ({ ...attachment })),
+      annotations: item.annotations.map((annotation) => ({ ...annotation }))
     }));
   }
   isLocalPromptQueuePaused() {
@@ -9279,6 +9381,37 @@ var PiAgentPlugin = class extends P.Plugin {
         void 0,
         this.getExtensionUiHandler()
       )));
+  }
+  async consumeAnnotationsForPrompt() {
+    this.annotationController?.cancelPick();
+    const file = this.getCurrentContextFile();
+    if (!file) return [];
+    const annotations = await this.getAnnotationsForContext(file.path);
+    if (annotations.length > 0) this.annotationStore.deletePath(file.path);
+    return annotations;
+  }
+  restoreConsumedAnnotations(annotations) {
+    const byPath = /* @__PURE__ */ new Map();
+    for (const annotation of Array.isArray(annotations) ? annotations : []) {
+      if (!annotation?.path) continue;
+      const items = byPath.get(annotation.path) ?? [];
+      items.push(annotation);
+      byPath.set(annotation.path, items);
+    }
+    try {
+      for (const [path4, items] of byPath) {
+        const current = this.annotationStore.list(path4);
+        const ids = new Set(current.map((annotation) => annotation.id));
+        this.annotationStore.replacePath(path4, [
+          ...current,
+          ...items.filter((annotation) => !ids.has(annotation.id))
+        ]);
+      }
+    } catch (error) {
+      new P.Notice(
+        error instanceof Error ? error.message : "Could not restore queued annotations."
+      );
+    }
   }
   async getAnnotationsForContext(path4) {
     const annotations = this.annotationStore.list(path4);

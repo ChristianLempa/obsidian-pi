@@ -119,13 +119,14 @@ Use non-sensitive PNG, JPEG, and WebP files.
 
 - [ ] **Pending disabled-plugin baseline:** Disable Pi Agent, fully reload Obsidian, and open several Markdown notes in source and live-preview modes; confirm every editor opens and the exact CodeMirror error above is absent from the Developer Console.
 - [ ] **Pending:** Enable Pi Agent, fully reload Obsidian, repeat the same editor-opening cases, and confirm they still open without the exact CodeMirror error. Inspect the installed `main.js` and confirm it requires `@codemirror/state` and `@codemirror/view` from Obsidian rather than containing bundled `node_modules/@codemirror` implementations.
-- [ ] **Pending:** Confirm one **Annotations** action appears in every Markdown view, indicates pick mode, and accepts an existing exact selection or a source/reading-mode block by click or Enter.
+- [ ] **Pending:** Confirm one **Annotations** action appears in every Markdown view, indicates pick mode, and accepts an existing exact selection or a source/reading-mode block by click or Enter. Add several annotations without re-enabling the action; confirm pick mode remains active until Escape, a second action click, or prompt submission.
 - [ ] **Pending:** Verify accent-color target highlighting in source and reading modes, light and dark themes, without moving to an ambiguous duplicate quote.
 - [ ] **Pending:** In the **Annotations** modal, exercise labelled context, Change/Question intent, validation, keyboard operation, cancel, and focus restoration.
 - [ ] **Pending:** Use the responsive bottom-right per-note list to navigate, edit, and delete; confirm UI cleanup on file/view changes and plugin unload.
 - [ ] **Pending:** Reload and edit around targets; confirm UTF-16 ranges re-anchor only on unique high-confidence matches, ambiguous/missing targets remain detached, and malformed/oversized records are normalized or bounded.
 - [ ] **Pending:** Rename and delete notes; confirm persisted records move or are retained/cleaned safely without modifying note content or frontmatter.
-- [ ] **Pending:** Send a normal prompt, queued follow-up, and promoted steer; confirm every path includes all active-note attached/detached annotations as bounded structured context while visible chat text remains unchanged.
+- [ ] **Pending:** Send a normal prompt, queued follow-up, and promoted steer; confirm every path snapshots all active-note attached/detached annotations exactly once as bounded structured context, immediately clears their highlights/list, and exits pick mode while visible chat text remains unchanged. Retrieve a queued follow-up and confirm its annotations return to the note.
+- [ ] **Pending:** During an Edit or Full agent run, let Pi change the currently open Markdown note; confirm every open split of that note reloads from the vault automatically without a manual close/reopen and retains the existing scroll-restoration behavior.
 - [ ] **Pending:** Run `/context show`; confirm it reports annotation counts without leaking quote or context text.
 
 ## Links, rendering, and accessibility

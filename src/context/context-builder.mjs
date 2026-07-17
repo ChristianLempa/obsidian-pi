@@ -20,10 +20,10 @@ export class ContextBuilder {
     this.annotationProvider = annotationProvider;
   }
 
-  async build(prompt, selection = "") {
+  async build(prompt, selection = "", options = undefined) {
     const userPrompt = String(prompt ?? "");
     const parsedPrompt = parsePromptReferences(userPrompt);
-    const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection);
+    const preAttachedContext = await this.buildPreAttachedContext(parsedPrompt, selection, options);
     const toolCatalog = this.getToolCatalog();
     const slashCommands = getSlashCommands(this.getPiCommands());
     const piCommand = findPiCommand(userPrompt, slashCommands);
@@ -48,20 +48,23 @@ export class ContextBuilder {
    * and Full agent modes. Chat mode has no tools, so users can still attach
    * additional context explicitly with @note, #tag, /search, or folder refs.
    */
-  async buildPreAttachedContext(parsedPrompt, selection = "") {
+  async buildPreAttachedContext(parsedPrompt, selection = "", options = undefined) {
     const activeNote = await this.graph.getActiveNoteContext(selection);
     const linkedNeighborhood = activeNote
       ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
       : [];
     const attachments = await this.resolveAttachments(parsedPrompt.references, activeNote);
 
-    return this.enrichPromptContext({
-      activeNote,
-      annotations: [],
-      linkedNeighborhood,
-      searchResults: [],
-      attachments
-    });
+    return this.enrichPromptContext(
+      {
+        activeNote,
+        annotations: [],
+        linkedNeighborhood,
+        searchResults: [],
+        attachments
+      },
+      options
+    );
   }
 
   /**
@@ -69,10 +72,13 @@ export class ContextBuilder {
    * pass their normal context packet here without introducing a separate
    * annotation selector or queue path.
    */
-  async enrichPromptContext(context) {
-    const annotations = context.activeNote
-      ? await Promise.resolve(this.annotationProvider(context.activeNote.path))
-      : [];
+  async enrichPromptContext(context, options = undefined) {
+    const hasSnapshot = Object.prototype.hasOwnProperty.call(options ?? {}, "annotations");
+    const annotations = hasSnapshot
+      ? options.annotations
+      : context.activeNote
+        ? await Promise.resolve(this.annotationProvider(context.activeNote.path))
+        : [];
     return { ...context, annotations: Array.isArray(annotations) ? annotations : [] };
   }
 

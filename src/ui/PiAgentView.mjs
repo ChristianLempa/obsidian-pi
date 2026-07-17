@@ -32,6 +32,7 @@ import {
 } from "./prompt-payload.mjs";
 import { formatToolError, getThinkingDelta } from "./activity.mjs";
 import { getSendActionState } from "./send-state.mjs";
+import { refreshOpenMarkdownViews } from "./editor-file-refresh.mjs";
 
 export class PiAgentView extends f.ItemView {
   constructor(e, t) {
@@ -63,6 +64,7 @@ export class PiAgentView extends f.ItemView {
     this.messageRenderComponents = [];
     this.activeRuns = new Map();
     this.activeEditorScrollSnapshot = void 0;
+    this.agentFileRefreshUntil = 0;
     this.stickToBottom = !0;
   }
   getViewType() {
@@ -478,9 +480,7 @@ export class PiAgentView extends f.ItemView {
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
-      this.running
-        ? this.enqueuePrompt(e, this.plugin.getCurrentThread().id, images, attachments)
-        : this.runPrompt(e, undefined, images, undefined, attachments),
+      this.runPrompt(e, undefined, images, undefined, attachments),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
@@ -808,8 +808,20 @@ export class PiAgentView extends f.ItemView {
     t = this.plugin.getCurrentThread().id,
     images = [],
     queuedId,
-    attachments = []
+    attachments = [],
+    annotations
   ) {
+    if (annotations === undefined) {
+      try {
+        annotations = await this.plugin.consumeAnnotationsForPrompt();
+      } catch (error) {
+        new f.Notice(error instanceof Error ? error.message : String(error));
+        return;
+      }
+    }
+    const restoreUnsentAnnotations = () => {
+      if (!queuedId && annotations.length > 0) this.plugin.restoreConsumedAnnotations(annotations);
+    };
     if (this.isThreadRunning(t)) {
       if (queuedId) {
         this.promptQueue = this.promptQueue.map((item) =>
@@ -818,14 +830,14 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments);
+        this.enqueuePrompt(e, t, images, attachments, annotations);
       }
       return;
     }
     let delivery;
     try {
       delivery = await this.plugin.enrichPromptDelivery(
-        { prompt: e, images, attachments },
+        { prompt: e, images, attachments, annotations },
         { mode: "prompt", threadId: t }
       );
     } catch (error) {
@@ -835,7 +847,7 @@ export class PiAgentView extends f.ItemView {
         );
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
-      }
+      } else restoreUnsentAnnotations();
       new f.Notice(error instanceof Error ? error.message : String(error));
       return;
     }
@@ -852,7 +864,7 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
         new f.Notice("The queued message became empty and was not sent.");
-      }
+      } else restoreUnsentAnnotations();
       return;
     }
     if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
@@ -863,7 +875,7 @@ export class PiAgentView extends f.ItemView {
         );
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
-      }
+      } else restoreUnsentAnnotations();
       new f.Notice("The selected Pi model does not support image input.");
       return;
     }
@@ -875,7 +887,7 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments);
+        this.enqueuePrompt(e, t, images, attachments, annotations);
       }
       return;
     }
@@ -904,8 +916,9 @@ export class PiAgentView extends f.ItemView {
     };
     const acknowledgeQueuedDelivery = () => {
       addUserMessage();
-      if (!queuedId || n.accepted) return;
+      if (n.accepted) return;
       n.accepted = true;
+      if (!queuedId) return;
       this.promptQueue = this.promptQueue.filter((item) => item.id !== queuedId);
       this.plugin.replaceLocalPromptQueue(this.promptQueue);
       this.renderPromptQueue();
@@ -1004,7 +1017,7 @@ export class PiAgentView extends f.ItemView {
         );
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         skipQueueDrain = true;
-      }
+      } else if (!n.accepted) restoreUnsentAnnotations();
       if (o === "Pi run canceled.") {
         new f.Notice("Agent run canceled.");
         return;
@@ -1041,8 +1054,10 @@ export class PiAgentView extends f.ItemView {
         (this.activityDetail = ""),
         (this.currentRunContextUsage = void 0),
         this.isCurrentThread(t) && (this.nativePiQueue = void 0),
+        (this.agentFileRefreshUntil = Date.now() + 2_000),
         this.activeEditorScrollSnapshot &&
-          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
+          (this.refreshOpenMarkdownPath(this.activeEditorScrollSnapshot.path),
+          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path)),
         (this.activeEditorScrollSnapshot = void 0),
         this.renderPromptQueue(),
         (this.runningThreadId = void 0),
@@ -1066,9 +1081,21 @@ export class PiAgentView extends f.ItemView {
     }
   }
   handleVaultFileModify(e) {
-    this.syncCurrentRunFlags();
-    if (!(e instanceof f.TFile) || !this.running || e.extension !== "md") return;
+    if (
+      !(e instanceof f.TFile) ||
+      e.extension !== "md" ||
+      (this.activeRuns.size === 0 && Date.now() > this.agentFileRefreshUntil)
+    )
+      return;
     this.scheduleEditorScrollRestore(e.path);
+    this.refreshOpenMarkdownPath(e.path, e);
+  }
+  refreshOpenMarkdownPath(path, knownFile) {
+    const file = knownFile ?? this.plugin.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof f.TFile) || file.extension !== "md") return;
+    void refreshOpenMarkdownViews(this.plugin.app, file).catch((error) => {
+      console.warn("Pi Agent: failed to refresh an externally changed Markdown file", error);
+    });
   }
   scheduleEditorScrollRestore(e) {
     let t = this.activeEditorScrollSnapshot;

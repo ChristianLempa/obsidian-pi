@@ -16,9 +16,16 @@ export function enqueuePrompt(
   prompt,
   threadId = this.plugin.getCurrentThread().id,
   images = [],
-  attachments = []
+  attachments = [],
+  annotations = []
 ) {
-  const item = this.plugin.enqueueLocalPrompt({ prompt, images, attachments, threadId });
+  const item = this.plugin.enqueueLocalPrompt({
+    prompt,
+    images,
+    attachments,
+    annotations,
+    threadId
+  });
   if (!item) return;
   this.promptQueue = this.plugin.getLocalPromptQueue();
   this.renderPromptQueue();
@@ -42,7 +49,14 @@ export function runNextQueuedPrompt() {
   this.promptQueue = claimed.queue;
   this.plugin.replaceLocalPromptQueue(this.promptQueue);
   this.renderPromptQueue();
-  this.runPrompt(item.prompt, item.threadId, item.images, item.id, item.attachments);
+  this.runPrompt(
+    item.prompt,
+    item.threadId,
+    item.images,
+    item.id,
+    item.attachments,
+    item.annotations
+  );
 }
 
 export function removeQueuedPrompt(id) {
@@ -60,6 +74,7 @@ export function retrieveQueuedPrompt(id) {
   if (this.inputEl) this.inputEl.value = item.prompt;
   this.composerImages = item.images.map((image) => ({ ...image }));
   this.composerAttachments = item.attachments.map((attachment) => ({ ...attachment }));
+  this.plugin.restoreConsumedAnnotations(item.annotations);
   this.removeQueuedPrompt(id);
   this.renderComposerImages();
   this.resizeInput();

@@ -1,3 +1,5 @@
+import { ANNOTATION_LIMITS, normalizeAnnotation } from "../annotations/annotation-model.mjs";
+
 export const SUPPORTED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
 export const MAX_PROMPT_IMAGE_BYTES = 20 * 1024 * 1024;
 export const MAX_TEXT_ATTACHMENT_BYTES = 64 * 1024;
@@ -96,6 +98,7 @@ export function createQueuedPrompt({
   prompt = "",
   images = [],
   attachments = [],
+  annotations = [],
   threadId,
   id,
   createdAt
@@ -103,6 +106,7 @@ export function createQueuedPrompt({
   const normalizedPrompt = String(prompt).trim();
   const normalizedImages = normalizePromptImages(images);
   const normalizedAttachments = normalizeTextAttachments(attachments);
+  const normalizedAnnotations = normalizePromptAnnotations(annotations);
   if (!normalizedPrompt && normalizedImages.length === 0 && normalizedAttachments.length === 0)
     return undefined;
   return {
@@ -110,10 +114,19 @@ export function createQueuedPrompt({
     prompt: normalizedPrompt,
     images: normalizedImages,
     attachments: normalizedAttachments,
+    annotations: normalizedAnnotations,
     threadId: String(threadId || ""),
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
     state: "pending"
   };
+}
+
+export function normalizePromptAnnotations(annotations) {
+  if (!Array.isArray(annotations)) return [];
+  return annotations
+    .slice(0, ANNOTATION_LIMITS.promptRecords)
+    .map((annotation) => normalizeAnnotation(annotation, annotation?.path))
+    .filter(Boolean);
 }
 
 export function normalizePromptImages(images) {
