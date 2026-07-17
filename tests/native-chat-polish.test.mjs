@@ -52,10 +52,14 @@ const threadListSource = readFileSync(
   "utf8"
 );
 const viewSource = readFileSync(new URL("../src/ui/PiAgentView.mjs", import.meta.url), "utf8");
+const messageRendererSource = readFileSync(
+  new URL("../src/ui/message-renderer.mjs", import.meta.url),
+  "utf8"
+);
 const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 
 describe("native chat polish", () => {
-  it("renders live thinking as an open native disclosure with a chevron and status", () => {
+  it("renders live thinking as an open native disclosure with an animated status label", () => {
     const root = new FakeElement("div");
     const rendered = renderThinkingDisclosure(
       root,
@@ -71,11 +75,13 @@ describe("native chat polish", () => {
     expect(rendered.text.tag).toBe("div");
     expect(rendered.text.text).toContain("wrapped reasoning");
     expect(descendants.some((element) => element.tag === "pre")).toBe(false);
-    expect(descendants.map((element) => element.icon).filter(Boolean)).toEqual([
-      "chevron-right",
-      "loader"
-    ]);
-    expect(descendants.some((element) => element.attr.role === "status")).toBe(true);
+    expect(descendants.map((element) => element.icon).filter(Boolean)).toEqual(["chevron-right"]);
+    expect(descendants.some((element) => element.text === "Live")).toBe(false);
+    expect(
+      descendants.some(
+        (element) => element.cls === "pi-agent-thinking-label" && element.attr.role === "status"
+      )
+    ).toBe(true);
 
     rendered.setExpanded(false);
     expect(rendered.details.open).toBe(false);
@@ -120,10 +126,16 @@ describe("native chat polish", () => {
     );
   });
 
-  it("removes decorative thinking treatments and respects reduced motion", () => {
-    expect(styles).not.toContain("pi-agent-activity-flow");
+  it("restores animated activity text with a reduced-motion fallback", () => {
+    expect(messageRendererSource).toContain('cls: "pi-agent-inline-activity-text"');
+    expect(messageRendererSource).not.toContain("pi-agent-inline-activity-spinner");
+    expect(messageRendererSource).not.toContain("pi-agent-thinking-spinner");
+    expect(styles).toContain("@keyframes pi-agent-activity-flow");
     expect(styles).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pi-agent-thinking-chevron \{\s*transition: none;/
+      /\.pi-agent-inline-activity-text,\s*\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label \{[\s\S]*?animation: pi-agent-activity-flow 1\.2s linear infinite;/
+    );
+    expect(styles).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label,[\s\S]*?animation: none;[\s\S]*?-webkit-text-fill-color: var\(--text-muted\);[\s\S]*?\.pi-agent-thinking-chevron \{\s*transition: none;/
     );
     expect(viewSource).not.toContain('setIcon)(icon, "brain")');
   });
