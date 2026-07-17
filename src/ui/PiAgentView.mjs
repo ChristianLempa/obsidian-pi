@@ -557,11 +557,37 @@ export class PiAgentView extends f.ItemView {
         a.contextCompacted && this.invalidatedContextThreadIds.add(t),
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
+      if (
+        typeof window.Notification !== "undefined" &&
+        typeof document !== "undefined" &&
+        !document.hasFocus()
+      ) {
+        const notif = new window.Notification("Pi Agent", {
+          body: "Response completed! Click to open Obsidian.",
+          silent: false
+        });
+        notif.onclick = () => {
+          window.focus();
+        };
+      }
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
       if (o === "Pi run canceled.") {
         new f.Notice("Agent run canceled.");
         return;
+      }
+      if (
+        typeof window.Notification !== "undefined" &&
+        typeof document !== "undefined" &&
+        !document.hasFocus()
+      ) {
+        const notif = new window.Notification("Pi Agent", {
+          body: `Agent run failed: ${o}`,
+          silent: false
+        });
+        notif.onclick = () => {
+          window.focus();
+        };
       }
       (this.plugin.addMessageToThread(t, {
         role: "assistant",
