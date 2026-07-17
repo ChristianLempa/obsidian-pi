@@ -1,0 +1,19 @@
+main.js
+  s_b3d65b86d2af53::t_c74a6eda7b2d3f 787-792
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9ae08726d53af6ec683a867953a1b0efdb2f2111",
+  "prompts": {},
+  "sessions": {
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
