@@ -1,0 +1,52 @@
+src/plugin/PiAgentPlugin.mjs
+  s_f72892f98dcdd3::t_64160a6734a118 431-438
+CHANGELOG.md
+  s_f72892f98dcdd3::t_64160a6734a118 13
+src/ui/PiAgentView.mjs
+  s_f72892f98dcdd3::t_64160a6734a118 26-27,51-54,168-170,175-179,306,394-411,496-498,655-657,731-740,743,757,777-779,793-815,822-830,836,839-841,863-865,876-878,935-953,975-993
+src/ui/thread-list-view.mjs
+  s_f72892f98dcdd3::t_64160a6734a118 3-4,25,48-53,93-94,97-100,105,109-112,119-157
+  s_f72892f98dcdd3::t_02acb579bd1cc8 158
+main.js
+  s_f72892f98dcdd3::t_b15c5acf9c2360 1782-1786,1805-1806,3282,3289,3295-3320,3339,3362-3367,3406-3407,3410-3413,3418,3422-3425,3431-3468,3690-3691,3706-3708,3741-3752,3756-3782,3809-3819,3836-3846,3901-4043,4107,4658-4696,4716-4719,4834-4836,4841-4845,4953,5041-5058,5129-5131,5229-5231,5243-5250,5266-5268,5287-5309,5314-5319,5321,5327,5330-5332,5347-5349,5360-5362,5418-5436,5458-5476,5566-5577,5754-5758,6145-6151
+src/pi/events.mjs
+  s_f72892f98dcdd3::t_c75f235e9fd7ad 46-50,71-72
+src/threads/thread-store.mjs
+  s_f72892f98dcdd3::t_20d3a35855edd9 83-97,313-317
+src/ui/activity.mjs
+  s_f72892f98dcdd3::t_420a49e30b60f6 71-84
+src/ui/message-renderer.mjs
+  s_f72892f98dcdd3::t_c205a26c036aae 13-15,49-60,65-93,124-134,152-162
+src/ui/run-activity-state.mjs
+  s_f72892f98dcdd3::t_2f19ecffefb658 85
+src/ui/send-state.mjs
+  s_f72892f98dcdd3::t_cc2c2667bd36d3 1-40
+src/ui/thread-bulk-actions.mjs
+  s_f72892f98dcdd3::t_ef24c3ecd08c29 1-24
+styles.css
+  s_f72892f98dcdd3::t_35d90038f1e4bd 113-116,630-642,781-782,785-786,789-829
+tests/activity.test.mjs
+  s_f72892f98dcdd3::t_957214c8af20d1 4,6,46-60
+tests/chat-ux-state.test.mjs
+  s_f72892f98dcdd3::t_57dea69d190fdc 1-42
+tests/events.test.mjs
+  s_f72892f98dcdd3::t_c170e3bd38e220 75-93
+tests/thread-store.test.mjs
+  s_f72892f98dcdd3::t_fcdda71b56eb3e 59-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "757c0caa2b013d0e65efea35ea53c549782ae041",
+  "prompts": {},
+  "sessions": {
+    "s_f72892f98dcdd3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7010-17b0-738c-8bf7-476562995acc",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
