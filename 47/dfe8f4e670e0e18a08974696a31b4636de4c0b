@@ -1,0 +1,69 @@
+tests/chat-ux-state.test.mjs
+  s_ac0afd84bc4882::t_64172172cc15c1 3
+  s_9dff4a762f1ffc::t_5c19f2b4265d03 1-2,4-42
+src/ui/PiAgentView.mjs
+  s_9dff4a762f1ffc::t_49de000e5e562c 427-429,540-547,563-565,584-603,605-606,618,624,627-629,657-659,715-733,755-773
+  s_9dff4a762f1ffc::t_49420625ea3076 604
+  s_9dff4a762f1ffc::t_f3d52d454ee64d 611-616
+  s_9dff4a762f1ffc::t_275e035bf1e5e6 20-21,41-44,158-160,165-169,272,339-356,526-528
+  s_9dff4a762f1ffc::t_7627d0e3d9e5f7 644-646
+src/ui/thread-bulk-actions.mjs
+  s_9dff4a762f1ffc::t_2dbbebf34e12de 1-3,10-24
+  s_ac0afd84bc4882::t_64172172cc15c1 4-9
+tests/thread-store.test.mjs
+  s_9dff4a762f1ffc::t_4a63771b9408b8 59-107
+tests/activity.test.mjs
+  s_9dff4a762f1ffc::t_4fcb059fc31bf2 4,6,46-59
+  s_9dff4a762f1ffc::t_6cdc51165c3ca3 60
+CHANGELOG.md
+  s_9dff4a762f1ffc::t_30f4a66c60c730 6
+src/ui/activity.mjs
+  s_9dff4a762f1ffc::t_22ec3505bbbac0 71-84
+src/ui/message-renderer.mjs
+  s_9dff4a762f1ffc::t_f949e4e7365b39 15,72,79-91,133,161
+  s_9dff4a762f1ffc::t_a5feab467a20c5 13-14,49-60,65-71,73-78,92-93,124-132,134,152-160,162
+tests/events.test.mjs
+  s_9dff4a762f1ffc::t_b0f2953aa41c28 75-93
+src/threads/thread-store.mjs
+  s_9dff4a762f1ffc::t_bbe93edd70aed7 83-97,313-317
+src/ui/send-state.mjs
+  s_9dff4a762f1ffc::t_ae999229b556ec 1-40
+styles.css
+  s_9dff4a762f1ffc::t_fbe96c2de2e2ca 586
+  s_9dff4a762f1ffc::t_f30355b870600a 113-116,577-585,587-589,728-729,732-733,736-776
+src/plugin/PiAgentPlugin.mjs
+  s_9dff4a762f1ffc::t_cdb0f05c5d8079 337-343
+src/ui/thread-list-view.mjs
+  s_9dff4a762f1ffc::t_12b611aca7e76a 146-148,150-153
+  s_9dff4a762f1ffc::t_84d15f6bbbff64 24
+  s_9dff4a762f1ffc::t_80ab230247d676 3,47-52,92-93,96-99,104,108-111,118-145,149,154-156
+  s_9dff4a762f1ffc::t_a7d3060713d130 157
+src/ui/run-activity-state.mjs
+  s_ac0afd84bc4882::t_12da131a72de08 85
+src/pi/events.mjs
+  s_9dff4a762f1ffc::t_f9a9aabe441bb8 46-50,71-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "47dfe8f4e670e0e18a08974696a31b4636de4c0b",
+  "prompts": {},
+  "sessions": {
+    "s_9dff4a762f1ffc": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fef-e6bb-7432-9b77-bbbafc764a1a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_ac0afd84bc4882": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6ff8-e0dc-7eb3-8ccf-b0eb4ea29e2d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
