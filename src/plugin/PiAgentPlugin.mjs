@@ -850,13 +850,25 @@ export class PiAgentPlugin extends P.Plugin {
         this.getExtensionUiHandler()
       )));
   }
-  async consumeAnnotationsForPrompt() {
+  async consumeAnnotationsForPrompt(processingToken, threadId) {
     this.annotationController?.cancelPick();
     const file = this.getCurrentContextFile();
     if (!file) return [];
     const annotations = await this.getAnnotationsForContext(file.path);
-    if (annotations.length > 0) this.annotationStore.deletePath(file.path);
+    if (annotations.length > 0) {
+      this.beginAnnotationProcessing(processingToken, annotations, threadId);
+      this.annotationStore.deletePath(file.path);
+    }
     return annotations;
+  }
+  beginAnnotationProcessing(token, annotations, threadId) {
+    this.annotationController?.beginProcessing(token, annotations, threadId);
+  }
+  endAnnotationProcessing(token) {
+    this.annotationController?.endProcessing(token);
+  }
+  endAnnotationProcessingForThread(threadId) {
+    this.annotationController?.endProcessingForThread(threadId);
   }
   restoreConsumedAnnotations(annotations) {
     const byPath = new Map();

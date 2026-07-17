@@ -99,6 +99,7 @@ export function createQueuedPrompt({
   images = [],
   attachments = [],
   annotations = [],
+  annotationBatchId,
   threadId,
   id,
   createdAt
@@ -109,12 +110,15 @@ export function createQueuedPrompt({
   const normalizedAnnotations = normalizePromptAnnotations(annotations);
   if (!normalizedPrompt && normalizedImages.length === 0 && normalizedAttachments.length === 0)
     return undefined;
+  const normalizedId = String(id || createId());
   return {
-    id: id || createId(),
+    id: normalizedId,
     prompt: normalizedPrompt,
     images: normalizedImages,
     attachments: normalizedAttachments,
     annotations: normalizedAnnotations,
+    annotationBatchId:
+      normalizedAnnotations.length > 0 ? String(annotationBatchId || normalizedId) : undefined,
     threadId: String(threadId || ""),
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
     state: "pending"

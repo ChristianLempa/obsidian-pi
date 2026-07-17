@@ -1200,6 +1200,54 @@ textarea.pi-agent-extension-input {
   outline-offset: 3px;
 }
 
+.pi-agent-annotation-processing-range,
+.cm-line.pi-agent-annotation-processing-line,
+.pi-agent-annotation-processing-rendered {
+  animation: pi-agent-annotation-processing-flow 1.2s linear infinite;
+  background-color: var(--background-modifier-border);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 30%,
+    color-mix(in srgb, var(--interactive-accent) 20%, transparent) 40%,
+    color-mix(in srgb, var(--interactive-accent) 85%, transparent) 50%,
+    color-mix(in srgb, var(--interactive-accent) 20%, transparent) 60%,
+    transparent 70%,
+    transparent 100%
+  );
+  background-position: 140% 50%;
+  background-repeat: no-repeat;
+  background-size: 220% 100%;
+  border-radius: var(--radius-s);
+}
+
+.pi-agent-annotation-processing-range,
+.cm-line.pi-agent-annotation-processing-line,
+.cm-line.pi-agent-annotation-processing-line *,
+.pi-agent-annotation-processing-rendered,
+.pi-agent-annotation-processing-rendered * {
+  -webkit-text-fill-color: transparent !important;
+  caret-color: transparent !important;
+  color: transparent !important;
+  text-decoration-color: transparent !important;
+}
+
+.pi-agent-annotation-processing-range {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+@keyframes pi-agent-annotation-processing-flow {
+  0% {
+    background-position: 140% 50%;
+  }
+
+  48%,
+  100% {
+    background-position: -30% 50%;
+  }
+}
+
 .pi-agent-annotations-list {
   background: color-mix(in srgb, var(--background-primary) 94%, transparent);
   border: 1px solid var(--background-modifier-border);
@@ -1353,6 +1401,13 @@ textarea.pi-agent-extension-input {
   .pi-agent-annotation-range {
     scroll-behavior: auto;
     transition: none;
+  }
+
+  .pi-agent-annotation-processing-range,
+  .cm-line.pi-agent-annotation-processing-line,
+  .pi-agent-annotation-processing-rendered {
+    animation: none;
+    background-image: none;
   }
 }
 
