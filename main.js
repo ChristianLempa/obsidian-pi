@@ -42,15 +42,11 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 
 // src/plugin/PiAgentPlugin.mjs
-var import_node_fs6 = __toESM(require("node:fs"), 1);
+var import_node_fs5 = __toESM(require("node:fs"), 1);
 var P = __toESM(require("obsidian"), 1);
 
 // src/plugin/settings.mjs
 var CUSTOM_MODEL_VALUE = "__custom";
-var EMPTY_MODEL_OPTIONS = {
-  "": "Use Pi default",
-  [CUSTOM_MODEL_VALUE]: "Custom model ID"
-};
 var REASONING_LABELS = {
   "": "Pi default",
   off: "Off",
@@ -58,7 +54,8 @@ var REASONING_LABELS = {
   low: "Low",
   medium: "Medium",
   high: "High",
-  xhigh: "XHigh - deepest"
+  xhigh: "XHigh",
+  max: "Max - deepest"
 };
 var DEFAULT_SETTINGS = {
   model: "",
@@ -110,18 +107,19 @@ function normalizeSettings(rawSettings = {}) {
 }
 function getModelOptions(settings) {
   const models = settings.availableModels;
-  const options = { "": "Use Pi default" };
-  if (models.length === 0)
-    return { ...EMPTY_MODEL_OPTIONS, ...options, [CUSTOM_MODEL_VALUE]: "Custom model ID" };
+  const effective = settings.effectiveModel ? ` \u2014 ${settings.effectiveModel}` : "";
+  const options = { "": `Use Pi configured default${effective}` };
   for (const model of models) options[model.slug] = formatModelOptionLabel(model);
-  options[CUSTOM_MODEL_VALUE] = "Custom model ID";
   return options;
 }
 function getReasoningOptions(settings) {
   const model = getSelectedModelInfo(settings) ?? getEffectiveModelInfo(settings);
   const supportedReasoningLevels = model?.supportedReasoningLevels ?? [];
-  if (supportedReasoningLevels.length === 0) return { "": "Use Pi/model default" };
-  const options = { "": "Use Pi/model default" };
+  const effective = settings.effectiveReasoning
+    ? ` \u2014 ${REASONING_LABELS[settings.effectiveReasoning] ?? settings.effectiveReasoning}`
+    : "";
+  if (supportedReasoningLevels.length === 0) return { "": `Use Pi/model default${effective}` };
+  const options = { "": `Use Pi/model default${effective}` };
   for (const reasoningLevel of supportedReasoningLevels) {
     options[reasoningLevel] = REASONING_LABELS[reasoningLevel] ?? reasoningLevel;
   }
@@ -165,11 +163,19 @@ function normalizeToolMode(value) {
 }
 function formatModelOptionLabel(model) {
   const details = [
-    model.supportedReasoningLevels.length > 0
-      ? `thinking ${model.supportedReasoningLevels.join("/")}`
-      : ""
+    model.slug,
+    model.reasoning ? "thinking" : "",
+    model.supportsImages ? "images" : "",
+    model.contextWindow ? `${formatTokenAmount(model.contextWindow)} context` : ""
   ].filter(Boolean);
-  return details.length > 0 ? `${model.displayName} - ${details.join(", ")}` : model.displayName;
+  return `${model.displayName} \u2014 ${details.join(" \xB7 ")}`;
+}
+function formatTokenAmount(value) {
+  return value >= 1e6
+    ? `${Number((value / 1e6).toFixed(1))}M`
+    : value >= 1e3
+      ? `${Number((value / 1e3).toFixed(1))}K`
+      : String(value);
 }
 
 // src/context/prompt-templates.mjs
@@ -1047,10 +1053,10 @@ function tokenizeQuery(query) {
     .map((term) => term.trim())
     .filter((term) => term.length > 1);
 }
-function scoreSearchResult(path6, content, terms) {
-  const normalizedPath = path6.toLowerCase();
+function scoreSearchResult(path5, content, terms) {
+  const normalizedPath = path5.toLowerCase();
   const normalizedContent = content.toLowerCase();
-  const basename = path6.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path6;
+  const basename = path5.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path5;
   let score = 0;
   for (const term of terms) {
     if (basename.includes(term)) score += 12;
@@ -1217,7 +1223,7 @@ var VaultGraph = class {
   }
   async getBacklinks(filePath) {
     const backlinkEntries = Object.entries(this.app.metadataCache.resolvedLinks)
-      .map(([path6, links]) => ({ path: path6, count: links[filePath] || 0 }))
+      .map(([path5, links]) => ({ path: path5, count: links[filePath] || 0 }))
       .filter(
         (backlink) =>
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
@@ -1244,10 +1250,10 @@ var VaultGraph = class {
   getOutgoingLinks(filePath) {
     const links = this.app.metadataCache.resolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .filter(([path6]) => this.isPathAllowed(path6))
-      .map(([path6, count]) => ({
-        path: path6,
-        display: path6.replace(/\.md$/i, ""),
+      .filter(([path5]) => this.isPathAllowed(path5))
+      .map(([path5, count]) => ({
+        path: path5,
+        display: path5.replace(/\.md$/i, ""),
         count
       }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
@@ -1255,7 +1261,7 @@ var VaultGraph = class {
   getUnresolvedLinks(filePath) {
     const links = this.app.metadataCache.unresolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .map(([path6, count]) => ({ path: path6, display: path6, count }))
+      .map(([path5, count]) => ({ path: path5, display: path5, count }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
   }
   async getLinkedNeighborhood(filePath, depth = 1) {
@@ -1264,9 +1270,9 @@ var VaultGraph = class {
     const notes = [];
     for (let index = 0; index < depth; index++) {
       const nextFrontier = /* @__PURE__ */ new Set();
-      for (const path6 of frontier) {
-        const outgoingLinks = this.getOutgoingLinks(path6);
-        const backlinks = await this.getBacklinks(path6);
+      for (const path5 of frontier) {
+        const outgoingLinks = this.getOutgoingLinks(path5);
+        const backlinks = await this.getBacklinks(path5);
         for (const link of [...outgoingLinks, ...backlinks]) {
           if (!seen.has(link.path) && link.path.endsWith(".md")) {
             seen.add(link.path);
@@ -1275,9 +1281,9 @@ var VaultGraph = class {
         }
       }
       const limitedNextFrontier = [...nextFrontier].slice(0, CONTEXT_RESULT_LIMIT);
-      for (const path6 of limitedNextFrontier) {
+      for (const path5 of limitedNextFrontier) {
         try {
-          notes.push(await this.getNoteContext(path6));
+          notes.push(await this.getNoteContext(path5));
         } catch {}
       }
       frontier = limitedNextFrontier;
@@ -1617,11 +1623,227 @@ function checkPiInstallation(piExecutablePath = "") {
   };
 }
 
-// src/pi/model-catalog.mjs
+// src/pi/rpc-client.mjs
 var import_node_child_process2 = require("node:child_process");
-var import_node_fs4 = __toESM(require("node:fs"), 1);
-var import_node_path4 = __toESM(require("node:path"), 1);
-var REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
+var import_node_string_decoder = require("node:string_decoder");
+var DEFAULT_REQUEST_TIMEOUT_MS = 3e4;
+var PiRpcClient = class {
+  constructor(options = {}) {
+    this.options = options;
+    this.nextRequestId = 1;
+    this.pending = /* @__PURE__ */ new Map();
+    this.listeners = /* @__PURE__ */ new Set();
+    this.stderr = "";
+    this.stdoutBuffer = "";
+    this.decoder = new import_node_string_decoder.StringDecoder("utf8");
+    this.disposed = false;
+  }
+  get running() {
+    return !!this.child && this.child.exitCode === null && !this.child.killed;
+  }
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  async start() {
+    if (this.disposed) throw new Error("Pi RPC client is disposed.");
+    if (this.running) return;
+    if (this.startPromise) return this.startPromise;
+    this.startPromise = new Promise((resolve, reject) => {
+      const piExecutable = findPiExecutable(this.options.piExecutablePath);
+      const invocation = buildPiProcessInvocation(
+        piExecutable,
+        this.options.args ?? ["--mode", "rpc"],
+        {
+          cwd: this.options.cwd,
+          detached: process.platform !== "win32"
+        }
+      );
+      const child = (0, import_node_child_process2.spawn)(
+        invocation.command,
+        invocation.args,
+        invocation.options
+      );
+      this.child = child;
+      this.stderr = "";
+      this.stdoutBuffer = "";
+      this.decoder = new import_node_string_decoder.StringDecoder("utf8");
+      let started = false;
+      const failStart = (error) => {
+        if (started) return;
+        started = true;
+        this.startPromise = void 0;
+        reject(error);
+      };
+      child.once("spawn", () => {
+        if (started) return;
+        started = true;
+        this.startPromise = void 0;
+        resolve();
+      });
+      child.stdout.on("data", (chunk) => this.handleStdoutChunk(chunk));
+      child.stdout.on("end", () => this.flushDecoder());
+      child.stderr.on("data", (chunk) => {
+        this.stderr += chunk.toString("utf8");
+      });
+      child.once("error", (error) => {
+        const normalized = createPiCliError({ error });
+        failStart(normalized);
+        this.handleExit(normalized);
+      });
+      child.once("close", (exitCode) => {
+        if (this.child === child) this.child = void 0;
+        const error = new Error(
+          formatPiCliFailure({ context: "Pi RPC process stopped", stderr: this.stderr, exitCode })
+        );
+        failStart(error);
+        this.handleExit(error);
+      });
+    });
+    return this.startPromise;
+  }
+  async request(type, payload = {}, options = {}) {
+    if (!this.running) await this.start();
+    if (!this.child?.stdin?.writable) throw new Error("Pi RPC stdin is not writable.");
+    const id = `obsidian-pi-${this.nextRequestId++}`;
+    const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    const command = { id, type, ...payload };
+    return new Promise((resolve, reject) => {
+      const timeout =
+        timeoutMs > 0
+          ? setTimeout(() => {
+              this.pending.delete(id);
+              reject(new Error(`Pi RPC ${type} timed out after ${timeoutMs}ms.`));
+            }, timeoutMs)
+          : void 0;
+      this.pending.set(id, {
+        type,
+        resolve: (response) => {
+          if (timeout) clearTimeout(timeout);
+          response.success
+            ? resolve(response.data)
+            : reject(new Error(response.error || `Pi RPC ${type} failed.`));
+        },
+        reject: (error) => {
+          if (timeout) clearTimeout(timeout);
+          reject(error);
+        }
+      });
+      this.child.stdin.write(
+        `${JSON.stringify(command)}
+`,
+        (error) => {
+          if (!error) return;
+          const pending = this.pending.get(id);
+          this.pending.delete(id);
+          pending?.reject(error);
+        }
+      );
+    });
+  }
+  notify(type, payload = {}) {
+    if (!this.child?.stdin?.writable) return false;
+    this.child.stdin.write(`${JSON.stringify({ type, ...payload })}
+`);
+    return true;
+  }
+  handleStdoutChunk(chunk) {
+    this.stdoutBuffer += this.decoder.write(chunk);
+    while (true) {
+      const newlineIndex = this.stdoutBuffer.indexOf("\n");
+      if (newlineIndex < 0) break;
+      let line = this.stdoutBuffer.slice(0, newlineIndex);
+      this.stdoutBuffer = this.stdoutBuffer.slice(newlineIndex + 1);
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      this.handleLine(line);
+    }
+  }
+  flushDecoder() {
+    this.stdoutBuffer += this.decoder.end();
+    if (!this.stdoutBuffer) return;
+    const line = this.stdoutBuffer.endsWith("\r")
+      ? this.stdoutBuffer.slice(0, -1)
+      : this.stdoutBuffer;
+    this.stdoutBuffer = "";
+    this.handleLine(line);
+  }
+  handleLine(line) {
+    if (!line.trim()) return;
+    let message;
+    try {
+      message = JSON.parse(line);
+    } catch {
+      this.emit({ type: "rpc_parse_error", raw: line });
+      return;
+    }
+    if (message.type === "response" && message.id) {
+      const pending = this.pending.get(message.id);
+      if (pending) {
+        this.pending.delete(message.id);
+        pending.resolve(message);
+      }
+      return;
+    }
+    this.emit(message);
+  }
+  emit(message) {
+    for (const listener of [...this.listeners]) {
+      try {
+        listener(message);
+      } catch (error) {
+        console.error("Pi Agent: RPC event listener failed", error);
+      }
+    }
+  }
+  handleExit(error) {
+    for (const pending of this.pending.values()) pending.reject(error);
+    this.pending.clear();
+    this.emit({ type: "rpc_exit", error: error.message });
+  }
+  async abort() {
+    if (!this.running) return;
+    try {
+      await this.request("abort", {}, { timeoutMs: 5e3 });
+    } catch {
+      this.terminate();
+    }
+  }
+  terminate(signal = "SIGTERM") {
+    const child = this.child;
+    if (!child) return;
+    try {
+      if (process.platform === "win32" && child.pid) {
+        (0, import_node_child_process2.execFileSync)(
+          "taskkill",
+          ["/pid", String(child.pid), "/T", "/F"],
+          {
+            timeout: 2e3,
+            windowsHide: true
+          }
+        );
+      } else if (child.pid) {
+        process.kill(-child.pid, signal);
+      } else {
+        child.kill(signal);
+      }
+    } catch {
+      try {
+        child.kill(signal);
+      } catch {}
+    }
+  }
+  dispose() {
+    this.disposed = true;
+    this.terminate();
+    this.listeners.clear();
+    const error = new Error("Pi RPC client disposed.");
+    for (const pending of this.pending.values()) pending.reject(error);
+    this.pending.clear();
+  }
+};
+
+// src/pi/model-catalog.mjs
+var REASONING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 var ESCAPE_CHARACTER = String.fromCharCode(27);
 var ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-9;?]*[ -/]*[@-~]`, "g");
 var PiModelCatalog = class {
@@ -1629,123 +1851,62 @@ var PiModelCatalog = class {
     this.pluginDirectory = pluginDirectory;
     this.settings = settings;
   }
-  async getAvailableModels() {
-    const piExecutable = findPiExecutable(this.settings.piExecutablePath);
-    const output = await this.execPi(piExecutable, ["--list-models"]);
-    return parseModelCatalog(output);
-  }
-  getEffectiveConfig(vaultBasePath) {
-    return getEffectiveConfig(vaultBasePath);
-  }
-  execPi(command, args) {
-    return new Promise((resolve, reject) => {
-      const invocation = buildPiProcessInvocation(command, args, { timeout: 2e4 });
-      (0, import_node_child_process2.execFile)(
-        invocation.command,
-        invocation.args,
-        invocation.options,
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(
-              new Error(
-                formatPiCliFailure({
-                  context: "Could not query Pi model registry",
-                  error,
-                  stderr,
-                  stdout
-                })
-              )
-            );
-            return;
-          }
-          resolve(stdout || stderr);
-        }
-      );
+  async getAvailableModels(vaultBasePath) {
+    const client = new PiRpcClient({
+      piExecutablePath: this.settings.piExecutablePath,
+      cwd: vaultBasePath ?? this.pluginDirectory,
+      args: ["--mode", "rpc", "--no-session", "--no-tools"]
     });
+    try {
+      const [catalog, state] = await Promise.all([
+        client.request("get_available_models"),
+        client.request("get_state")
+      ]);
+      this.effectiveConfig = {
+        effectiveModel: state?.model ? `${state.model.provider}/${state.model.id}` : "",
+        effectiveReasoning: state?.thinkingLevel ?? ""
+      };
+      return (catalog?.models ?? []).map(normalizeRpcModel);
+    } finally {
+      client.dispose();
+    }
+  }
+  getEffectiveConfig() {
+    return this.effectiveConfig ?? { effectiveModel: "", effectiveReasoning: "" };
   }
 };
-function parseModelCatalog(output) {
-  return output
-    .replace(ANSI_ESCAPE_PATTERN, "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => !line.startsWith("provider"))
-    .map((line) => line.split(/\s{2,}/))
-    .filter((parts) => parts.length >= 5)
-    .map((parts) => {
-      const provider = parts[0];
-      const model = parts[1];
-      const supportedReasoningLevels = normalizeReasoningLevels(parts[4]);
-      return {
-        slug: `${provider}/${model}`,
-        displayName: `${provider}: ${model}`,
-        contextWindow: parseTokenAmount(parts[2]),
-        maxOutputTokens: parseTokenAmount(parts[3]),
-        defaultReasoningLevel: supportedReasoningLevels.includes("medium")
-          ? "medium"
-          : supportedReasoningLevels[0] || "off",
-        supportedReasoningLevels
-      };
-    });
+function normalizeRpcModel(model) {
+  const supportedReasoningLevels = getSupportedReasoningLevels(model);
+  return {
+    slug: `${model.provider}/${model.id}`,
+    provider: model.provider,
+    id: model.id,
+    displayName: model.name || model.id,
+    contextWindow: Number(model.contextWindow) || 0,
+    maxOutputTokens: Number(model.maxTokens) || 0,
+    defaultReasoningLevel: supportedReasoningLevels.includes("medium")
+      ? "medium"
+      : supportedReasoningLevels[0] || "off",
+    supportedReasoningLevels,
+    supportsImages: Array.isArray(model.input) && model.input.includes("image"),
+    reasoning: model.reasoning === true,
+    thinkingLevelMap: model.thinkingLevelMap ?? void 0
+  };
 }
-function parseTokenAmount(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toUpperCase();
-  const match = normalized.match(/^(\d+(?:\.\d+)?)([KMB])?$/);
-  if (!match) return 0;
-  const amount = Number.parseFloat(match[1]);
-  const multiplier = match[2] === "B" ? 1e9 : match[2] === "M" ? 1e6 : match[2] === "K" ? 1e3 : 1;
-  return Math.round(amount * multiplier);
-}
-function normalizeReasoningLevels(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  return !normalized || normalized === "no" || normalized === "false"
-    ? ["off"]
-    : normalized === "yes" || normalized === "true"
-      ? [...REASONING_LEVELS]
-      : normalized
-          .split(/[/,|]+/)
-          .map((level) => level.trim())
-          .filter(Boolean)
-          .filter((level) => REASONING_LEVELS.includes(level));
-}
-function getEffectiveConfig(vaultBasePath) {
-  const vaultSettingsPath = vaultBasePath
-    ? import_node_path4.default.join(vaultBasePath, ".pi", "settings.json")
-    : "";
-  const settings = readJsonFile2(vaultSettingsPath);
-  const defaultModel = settings.defaultModel ? String(settings.defaultModel) : "";
-  const defaultProvider = settings.defaultProvider ? String(settings.defaultProvider) : "";
-  const effectiveModel = defaultModel
-    ? defaultModel.includes("/")
-      ? defaultModel
-      : defaultProvider
-        ? `${defaultProvider}/${defaultModel}`
-        : defaultModel
-    : "";
-  const effectiveReasoning = settings.defaultThinkingLevel
-    ? String(settings.defaultThinkingLevel)
-    : "";
-  return { effectiveModel, effectiveReasoning };
-}
-function readJsonFile2(filePath) {
-  try {
-    return filePath && import_node_fs4.default.existsSync(filePath)
-      ? JSON.parse(import_node_fs4.default.readFileSync(filePath, "utf8"))
-      : {};
-  } catch {
-    return {};
-  }
+function getSupportedReasoningLevels(model) {
+  if (!model?.reasoning) return ["off"];
+  const map = model.thinkingLevelMap ?? {};
+  return REASONING_LEVELS.filter((level) => {
+    if (map[level] === null) return false;
+    if (level === "xhigh" || level === "max") return map[level] !== void 0;
+    return true;
+  });
 }
 
 // src/pi/runner.mjs
-var import_node_child_process4 = require("node:child_process");
-var import_node_fs5 = __toESM(require("node:fs"), 1);
-var import_node_path5 = __toESM(require("node:path"), 1);
+var import_node_child_process3 = require("node:child_process");
+var import_node_fs4 = __toESM(require("node:fs"), 1);
+var import_node_path4 = __toESM(require("node:path"), 1);
 
 // src/pi/token-usage.mjs
 function calculateContextTokens(usage) {
@@ -1977,225 +2138,6 @@ function findLatestAssistantMessage(messages) {
   return void 0;
 }
 
-// src/pi/rpc-client.mjs
-var import_node_child_process3 = require("node:child_process");
-var import_node_string_decoder = require("node:string_decoder");
-var DEFAULT_REQUEST_TIMEOUT_MS = 3e4;
-var PiRpcClient = class {
-  constructor(options = {}) {
-    this.options = options;
-    this.nextRequestId = 1;
-    this.pending = /* @__PURE__ */ new Map();
-    this.listeners = /* @__PURE__ */ new Set();
-    this.stderr = "";
-    this.stdoutBuffer = "";
-    this.decoder = new import_node_string_decoder.StringDecoder("utf8");
-    this.disposed = false;
-  }
-  get running() {
-    return !!this.child && this.child.exitCode === null && !this.child.killed;
-  }
-  subscribe(listener) {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-  async start() {
-    if (this.disposed) throw new Error("Pi RPC client is disposed.");
-    if (this.running) return;
-    if (this.startPromise) return this.startPromise;
-    this.startPromise = new Promise((resolve, reject) => {
-      const piExecutable = findPiExecutable(this.options.piExecutablePath);
-      const invocation = buildPiProcessInvocation(
-        piExecutable,
-        this.options.args ?? ["--mode", "rpc"],
-        {
-          cwd: this.options.cwd,
-          detached: process.platform !== "win32"
-        }
-      );
-      const child = (0, import_node_child_process3.spawn)(
-        invocation.command,
-        invocation.args,
-        invocation.options
-      );
-      this.child = child;
-      this.stderr = "";
-      this.stdoutBuffer = "";
-      this.decoder = new import_node_string_decoder.StringDecoder("utf8");
-      let started = false;
-      const failStart = (error) => {
-        if (started) return;
-        started = true;
-        this.startPromise = void 0;
-        reject(error);
-      };
-      child.once("spawn", () => {
-        if (started) return;
-        started = true;
-        this.startPromise = void 0;
-        resolve();
-      });
-      child.stdout.on("data", (chunk) => this.handleStdoutChunk(chunk));
-      child.stdout.on("end", () => this.flushDecoder());
-      child.stderr.on("data", (chunk) => {
-        this.stderr += chunk.toString("utf8");
-      });
-      child.once("error", (error) => {
-        const normalized = createPiCliError({ error });
-        failStart(normalized);
-        this.handleExit(normalized);
-      });
-      child.once("close", (exitCode) => {
-        if (this.child === child) this.child = void 0;
-        const error = new Error(
-          formatPiCliFailure({ context: "Pi RPC process stopped", stderr: this.stderr, exitCode })
-        );
-        failStart(error);
-        this.handleExit(error);
-      });
-    });
-    return this.startPromise;
-  }
-  async request(type, payload = {}, options = {}) {
-    if (!this.running) await this.start();
-    if (!this.child?.stdin?.writable) throw new Error("Pi RPC stdin is not writable.");
-    const id = `obsidian-pi-${this.nextRequestId++}`;
-    const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-    const command = { id, type, ...payload };
-    return new Promise((resolve, reject) => {
-      const timeout =
-        timeoutMs > 0
-          ? setTimeout(() => {
-              this.pending.delete(id);
-              reject(new Error(`Pi RPC ${type} timed out after ${timeoutMs}ms.`));
-            }, timeoutMs)
-          : void 0;
-      this.pending.set(id, {
-        type,
-        resolve: (response) => {
-          if (timeout) clearTimeout(timeout);
-          response.success
-            ? resolve(response.data)
-            : reject(new Error(response.error || `Pi RPC ${type} failed.`));
-        },
-        reject: (error) => {
-          if (timeout) clearTimeout(timeout);
-          reject(error);
-        }
-      });
-      this.child.stdin.write(
-        `${JSON.stringify(command)}
-`,
-        (error) => {
-          if (!error) return;
-          const pending = this.pending.get(id);
-          this.pending.delete(id);
-          pending?.reject(error);
-        }
-      );
-    });
-  }
-  notify(type, payload = {}) {
-    if (!this.child?.stdin?.writable) return false;
-    this.child.stdin.write(`${JSON.stringify({ type, ...payload })}
-`);
-    return true;
-  }
-  handleStdoutChunk(chunk) {
-    this.stdoutBuffer += this.decoder.write(chunk);
-    while (true) {
-      const newlineIndex = this.stdoutBuffer.indexOf("\n");
-      if (newlineIndex < 0) break;
-      let line = this.stdoutBuffer.slice(0, newlineIndex);
-      this.stdoutBuffer = this.stdoutBuffer.slice(newlineIndex + 1);
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      this.handleLine(line);
-    }
-  }
-  flushDecoder() {
-    this.stdoutBuffer += this.decoder.end();
-    if (!this.stdoutBuffer) return;
-    const line = this.stdoutBuffer.endsWith("\r")
-      ? this.stdoutBuffer.slice(0, -1)
-      : this.stdoutBuffer;
-    this.stdoutBuffer = "";
-    this.handleLine(line);
-  }
-  handleLine(line) {
-    if (!line.trim()) return;
-    let message;
-    try {
-      message = JSON.parse(line);
-    } catch {
-      this.emit({ type: "rpc_parse_error", raw: line });
-      return;
-    }
-    if (message.type === "response" && message.id) {
-      const pending = this.pending.get(message.id);
-      if (pending) {
-        this.pending.delete(message.id);
-        pending.resolve(message);
-      }
-      return;
-    }
-    this.emit(message);
-  }
-  emit(message) {
-    for (const listener of [...this.listeners]) {
-      try {
-        listener(message);
-      } catch (error) {
-        console.error("Pi Agent: RPC event listener failed", error);
-      }
-    }
-  }
-  handleExit(error) {
-    for (const pending of this.pending.values()) pending.reject(error);
-    this.pending.clear();
-    this.emit({ type: "rpc_exit", error: error.message });
-  }
-  async abort() {
-    if (!this.running) return;
-    try {
-      await this.request("abort", {}, { timeoutMs: 5e3 });
-    } catch {
-      this.terminate();
-    }
-  }
-  terminate(signal = "SIGTERM") {
-    const child = this.child;
-    if (!child) return;
-    try {
-      if (process.platform === "win32" && child.pid) {
-        (0, import_node_child_process3.execFileSync)(
-          "taskkill",
-          ["/pid", String(child.pid), "/T", "/F"],
-          {
-            timeout: 2e3,
-            windowsHide: true
-          }
-        );
-      } else if (child.pid) {
-        process.kill(-child.pid, signal);
-      } else {
-        child.kill(signal);
-      }
-    } catch {
-      try {
-        child.kill(signal);
-      } catch {}
-    }
-  }
-  dispose() {
-    this.disposed = true;
-    this.terminate();
-    this.listeners.clear();
-    const error = new Error("Pi RPC client disposed.");
-    for (const pending of this.pending.values()) pending.reject(error);
-    this.pending.clear();
-  }
-};
-
 // src/pi/runner.mjs
 function isPiCliCommandPrompt(prompt) {
   return /^\/(compact)(?:\s|$)/i.test(prompt.trim());
@@ -2253,7 +2195,7 @@ var PiRunner = class {
     if (!child) return;
     try {
       if (process.platform === "win32" && child.pid) {
-        (0, import_node_child_process4.execFileSync)(
+        (0, import_node_child_process3.execFileSync)(
           "taskkill",
           ["/pid", String(child.pid), "/T", "/F"],
           {
@@ -2276,6 +2218,7 @@ var PiRunner = class {
     if (this.rpcClient) {
       this.rpcSession ??= this.resolveOrCreateSession(sessionReference);
       await this.rpcClient.start();
+      await this.configureRpcState(this.rpcClient);
       return { client: this.rpcClient, session: this.rpcSession };
     }
     const session = this.resolveOrCreateSession(sessionReference);
@@ -2287,7 +2230,28 @@ var PiRunner = class {
     this.rpcClient = client;
     this.rpcSession = session;
     await client.start();
+    await this.configureRpcState(client);
     return { client, session };
+  }
+  async configureRpcState(client) {
+    if (this.rpcConfigured && this.rpcConfiguredProcess === client.child) return;
+    const model =
+      this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
+    if (model) {
+      const separator = model.indexOf("/");
+      if (separator <= 0 || separator === model.length - 1) {
+        throw new Error(`Invalid Pi model ID: ${model}. Expected provider/model.`);
+      }
+      await client.request("set_model", {
+        provider: model.slice(0, separator),
+        modelId: model.slice(separator + 1)
+      });
+    }
+    if (this.settings.reasoningEffort) {
+      await client.request("set_thinking_level", { level: this.settings.reasoningEffort });
+    }
+    this.rpcConfigured = true;
+    this.rpcConfiguredProcess = client.child;
   }
   async runPiRpc(prompt, sessionId, callbacks) {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
@@ -2368,7 +2332,7 @@ var PiRunner = class {
         cwd: this.workingDirectory ?? this.pluginDirectory,
         detached: process.platform !== "win32"
       });
-      const child = (0, import_node_child_process4.spawn)(
+      const child = (0, import_node_child_process3.spawn)(
         invocation.command,
         invocation.args,
         invocation.options
@@ -2572,10 +2536,6 @@ var PiRunner = class {
   }
   buildPiArgs(sessionId, mode = "rpc") {
     const args = ["--mode", mode, "--session", sessionId];
-    const model =
-      this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
-    if (model) args.push("--model", model);
-    if (this.settings.reasoningEffort) args.push("--thinking", this.settings.reasoningEffort);
     if (this.settings.includeDefaultSkills === false) args.push("--no-skills");
     for (const skillPath of getConfiguredSkillPaths(this.settings, this.workingDirectory)) {
       args.push("--skill", skillPath);
@@ -2597,38 +2557,38 @@ var PiRunner = class {
     return args;
   }
   getSessionDirectory() {
-    return import_node_path5.default.resolve(this.pluginDirectory ?? ".", "pi-sessions");
+    return import_node_path4.default.resolve(this.pluginDirectory ?? ".", "pi-sessions");
   }
   createSessionFilePath() {
     const sessionDir = this.getSessionDirectory();
-    import_node_fs5.default.mkdirSync(sessionDir, { recursive: true });
-    return import_node_path5.default.join(
+    import_node_fs4.default.mkdirSync(sessionDir, { recursive: true });
+    return import_node_path4.default.join(
       sessionDir,
       `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
     );
   }
   createSessionReference(sessionPath) {
     const sessionDir = this.getSessionDirectory();
-    const relativePath = import_node_path5.default.relative(
+    const relativePath = import_node_path4.default.relative(
       sessionDir,
-      import_node_path5.default.resolve(sessionPath)
+      import_node_path4.default.resolve(sessionPath)
     );
     return relativePath && isSafeRelativePath(relativePath) ? relativePath : void 0;
   }
   resolveSessionPath(sessionReference) {
     if (!sessionReference) return void 0;
     const sessionDir = this.getSessionDirectory();
-    const resolvedPath = import_node_path5.default.isAbsolute(sessionReference)
-      ? import_node_path5.default.resolve(sessionReference)
-      : import_node_path5.default.resolve(sessionDir, sessionReference);
-    const relativePath = import_node_path5.default.relative(sessionDir, resolvedPath);
+    const resolvedPath = import_node_path4.default.isAbsolute(sessionReference)
+      ? import_node_path4.default.resolve(sessionReference)
+      : import_node_path4.default.resolve(sessionDir, sessionReference);
+    const relativePath = import_node_path4.default.relative(sessionDir, resolvedPath);
     if (!relativePath || !isSafeRelativePath(relativePath)) return void 0;
     return resolvedPath;
   }
   resolveOrCreateSession(sessionReference) {
     const existingPath = this.resolveSessionPath(sessionReference);
     const sessionPath =
-      existingPath && import_node_fs5.default.existsSync(existingPath)
+      existingPath && import_node_fs4.default.existsSync(existingPath)
         ? existingPath
         : this.createSessionFilePath();
     return {
@@ -2638,8 +2598,8 @@ var PiRunner = class {
   }
   createForkSessionFile(sessionReference) {
     const sessionPath = this.resolveSessionPath(sessionReference);
-    if (!sessionPath || !import_node_fs5.default.existsSync(sessionPath)) return void 0;
-    const events = import_node_fs5.default
+    if (!sessionPath || !import_node_fs4.default.existsSync(sessionPath)) return void 0;
+    const events = import_node_fs4.default
       .readFileSync(sessionPath, "utf8")
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -2655,7 +2615,7 @@ var PiRunner = class {
       cwd: this.workingDirectory || sessionEvent.cwd,
       parentSession: this.createSessionReference(sessionPath) ?? sessionPath
     };
-    import_node_fs5.default.writeFileSync(
+    import_node_fs4.default.writeFileSync(
       forkSessionPath,
       `${JSON.stringify(forkSessionEvent)}
 ${events
@@ -2725,8 +2685,8 @@ ${events
 function isSafeRelativePath(relativePath) {
   return (
     relativePath !== ".." &&
-    !relativePath.startsWith(`..${import_node_path5.default.sep}`) &&
-    !import_node_path5.default.isAbsolute(relativePath)
+    !relativePath.startsWith(`..${import_node_path4.default.sep}`) &&
+    !import_node_path4.default.isAbsolute(relativePath)
   );
 }
 function createSessionId() {
@@ -2970,7 +2930,7 @@ var PiAgentSettingTab = class extends import_obsidian3.PluginSettingTab {
     const { model } = this.plugin.settings;
     return Object.prototype.hasOwnProperty.call(getModelOptions(this.plugin.settings), model)
       ? model
-      : CUSTOM_MODEL_VALUE;
+      : "";
   }
   getReasoningOptions() {
     return getReasoningOptions(this.plugin.settings);
@@ -3310,9 +3270,9 @@ var NoteActions = class {
   }
   async createNoteFromResponse(response) {
     const title = this.getResponseTitle(response);
-    const path6 = await this.getAvailableNotePath(`${title}.md`);
+    const path5 = await this.getAvailableNotePath(`${title}.md`);
     await this.ensureFolder("Pi");
-    const file = await this.plugin.app.vault.create(path6, response);
+    const file = await this.plugin.app.vault.create(path5, response);
     await this.plugin.app.workspace.getLeaf(false).openFile(file);
   }
   async openCitedNotes(text) {
@@ -3372,8 +3332,8 @@ var NoteActions = class {
   }
   async getAvailableNotePath(name, folder = "Pi") {
     const normalizedFolder = normalizeArchiveFolder(folder);
-    const path6 = `${normalizedFolder}/${name}`;
-    if (!this.plugin.app.vault.getAbstractFileByPath(path6)) return path6;
+    const path5 = `${normalizedFolder}/${name}`;
+    if (!this.plugin.app.vault.getAbstractFileByPath(path5)) return path5;
     const basename = name.replace(/\.md$/i, "");
     for (let index = 2; index < 100; index++) {
       const candidate = `${normalizedFolder}/${basename} ${index}.md`;
@@ -3889,8 +3849,8 @@ function formatToolTarget(toolName, toolArgs) {
   if (toolName === "bash") return "command";
   if (toolName === "grep") {
     const pattern = sanitizeActivityDetail(pickNestedString(toolArgs, ["pattern", "query"]));
-    const path6 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
-    return pattern && path6 ? `"${pattern}" in ${path6}` : pattern ? `"${pattern}"` : path6;
+    const path5 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+    return pattern && path5 ? `"${pattern}" in ${path5}` : pattern ? `"${pattern}"` : path5;
   }
   if (toolName === "find") {
     return sanitizeActivityDetail(pickNestedString(toolArgs, ["glob", "pattern", "query", "path"]));
@@ -3912,8 +3872,8 @@ function formatToolTarget(toolName, toolArgs) {
   );
 }
 function formatPathForActivity(value) {
-  const path6 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
-  return path6 ? path6.split("/").pop() || path6 : "";
+  const path5 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
+  return path5 ? path5.split("/").pop() || path5 : "";
 }
 function sanitizeActivityDetail(value) {
   return value ? String(value).replace(/\s+/g, " ").trim() : "";
@@ -5871,9 +5831,8 @@ var PiAgentPlugin = class extends P.Plugin {
         this.settings.additionalSkillFolders
       )),
       (this.threadHistory = new ThreadStore(t, n, a != null ? a : s)));
-    let l = getEffectiveConfig(this.getVaultBasePath());
-    ((this.settings.effectiveModel = l.effectiveModel || ""),
-      (this.settings.effectiveReasoning = l.effectiveReasoning || ""),
+    ((this.settings.effectiveModel = ""),
+      (this.settings.effectiveReasoning = ""),
       this.syncCurrentThreadState(),
       this.settings.model &&
         isLegacyBareModelId(this.settings.model) &&
@@ -5913,13 +5872,22 @@ var PiAgentPlugin = class extends P.Plugin {
     var t;
     this.catalog || this.rebuildServices();
     try {
-      let n = await ((t = this.catalog) == null ? void 0 : t.getAvailableModels()),
-        s = this.catalog ? this.catalog.getEffectiveConfig(this.getVaultBasePath()) : {};
+      let n = await ((t = this.catalog) == null
+          ? void 0
+          : t.getAvailableModels(this.getVaultBasePath())),
+        s = this.catalog ? this.catalog.getEffectiveConfig() : {};
       if (!n || n.length === 0) {
         e && new P.Notice("Pi returned no models.");
         return;
       }
       ((this.settings.availableModels = n),
+        this.settings.model === "__custom" &&
+          this.settings.customModel &&
+          n.some((model) => model.slug === this.settings.customModel) &&
+          (this.settings.model = this.settings.customModel),
+        this.settings.model &&
+          !n.some((model) => model.slug === this.settings.model) &&
+          ((this.settings.model = ""), (this.settings.reasoningEffort = "")),
         (this.settings.effectiveModel = s.effectiveModel || ""),
         (this.settings.effectiveReasoning = s.effectiveReasoning || ""),
         await this.saveSettings(),
@@ -5967,9 +5935,9 @@ var PiAgentPlugin = class extends P.Plugin {
   }
   countPiSessionChatMessages(e) {
     let t = this.pi?.resolveSessionPath(e);
-    if (!t || !import_node_fs6.default.existsSync(t)) return 0;
+    if (!t || !import_node_fs5.default.existsSync(t)) return 0;
     try {
-      return import_node_fs6.default
+      return import_node_fs5.default
         .readFileSync(t, "utf8")
         .split(/\r?\n/)
         .reduce((t2, n) => {
