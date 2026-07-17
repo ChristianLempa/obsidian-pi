@@ -494,6 +494,10 @@
   padding: 6px 8px;
 }
 
+.pi-agent-prompt-queue-content {
+  min-width: 0;
+}
+
 .pi-agent-prompt-queue-text {
   color: var(--text-normal);
   font-size: var(--font-ui-small);
@@ -515,10 +519,59 @@
   width: 24px;
 }
 
+.pi-agent-prompt-queue-action.is-text {
+  padding: 0 8px;
+  width: auto;
+}
+
 .pi-agent-prompt-queue-action:hover,
 .pi-agent-prompt-queue-action:focus {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
+}
+
+.pi-agent-queue-image-previews,
+.pi-agent-composer-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pi-agent-composer-images.is-empty {
+  display: none;
+}
+
+.pi-agent-queue-image-preview,
+.pi-agent-composer-image img {
+  border-radius: 6px;
+  height: 52px;
+  object-fit: cover;
+  width: 52px;
+}
+
+.pi-agent-composer-image {
+  position: relative;
+}
+
+.pi-agent-composer-image button {
+  background: var(--background-primary-alt);
+  height: 20px;
+  padding: 2px;
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  width: 20px;
+}
+
+.pi-agent-image-input {
+  display: none;
+}
+
+.pi-agent-native-queue {
+  border-top: 1px solid var(--background-modifier-border);
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
 }
 
 .pi-agent-composer textarea {

@@ -13,6 +13,7 @@ When you send a message, the plugin can include:
 - explicit `@note`, `#tag`, and `/search` attachments
 - skill and prompt-template content that Pi expands after applying its resource and project-trust rules
 - local chat thread history for continuity
+- PNG, JPEG, or WebP images that you explicitly select, paste, or drop into the composer
 
 Pi may forward this prompt/context to the model provider configured in your Pi settings.
 
@@ -22,7 +23,7 @@ The plugin itself does not call model-provider APIs directly and does not includ
 
 ## Local storage
 
-The plugin stores settings and trimmed chat history in Obsidian plugin data. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git.
+The plugin stores settings, trimmed chat history, and unsent local follow-up queue items in Obsidian plugin data. Queued image data is stored locally as base64 until the item is sent or removed; once sent, Pi and the configured model provider receive it. After the plugin restarts, saved follow-ups remain paused until you explicitly resume or discard them, preventing stale prompts from replaying automatically. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git.
 
 ## File and shell access
 
