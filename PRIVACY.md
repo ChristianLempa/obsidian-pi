@@ -21,7 +21,9 @@ The plugin itself does not call model-provider APIs directly and does not includ
 
 ## Local storage
 
-The plugin stores settings and trimmed chat history in Obsidian plugin data. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git.
+The plugin stores settings and trimmed chat history in Obsidian plugin data. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git, but may be included by vault-sync tools.
+
+Deleting a chat removes only its Obsidian plugin history by default. When a chat has a local Pi session, the deletion dialog separately offers to delete that session file; local Pi data is removed only after choosing that explicit option. Session information shows the local storage path, and HTML export writes a separate local file at the path reported by Pi.
 
 ## File and shell access
 

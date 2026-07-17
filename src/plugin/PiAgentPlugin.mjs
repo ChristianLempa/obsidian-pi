@@ -274,22 +274,55 @@ export class PiAgentPlugin extends P.Plugin {
     let t = this.threadHistory.startNewThread(e);
     return (this.syncCurrentThreadState(), this.saveThreadHistory(), t);
   }
-  forkCurrentThread() {
-    var t;
-    let e = this.getCurrentThread(),
-      n = e.piSessionId
-        ? (t = this.pi) == null
-          ? void 0
-          : t.createForkSessionFile(e.piSessionId)
-        : void 0,
-      s = this.threadHistory.forkCurrentThread(n);
-    return s ? (this.syncCurrentThreadState(), this.saveThreadHistory(), s) : void 0;
+  async forkCurrentThread() {
+    const current = this.getCurrentThread();
+    if (current.messages.length === 0) return undefined;
+
+    let clonedSession;
+    if (current.piSessionId) {
+      const runner = this.createPiRunner(current.id);
+      try {
+        clonedSession = await runner.cloneSession(current.piSessionId);
+        if (clonedSession) {
+          await runner
+            .setSessionName(clonedSession, `${current.title} (fork)`)
+            .catch((error) => console.warn("Pi Agent: could not name cloned Pi session", error));
+        }
+      } finally {
+        runner.rpcClient?.dispose();
+        this.threadRunners.delete(current.id);
+      }
+      if (!clonedSession) return undefined;
+    }
+
+    const fork = this.threadHistory.forkCurrentThread(clonedSession);
+    return fork ? (this.syncCurrentThreadState(), this.saveThreadHistory(), fork) : undefined;
   }
   getCurrentThread() {
     return this.threadHistory.getCurrentThread();
   }
   listThreads(e) {
     return this.threadHistory.listThreads(e);
+  }
+  async getThreadSessionStats(threadId) {
+    const thread = this.threadHistory.getThread(threadId);
+    if (!thread?.piSessionId) return undefined;
+    return this.createPiRunner(threadId).getSessionStats(thread.piSessionId);
+  }
+  async exportThreadSession(threadId) {
+    const thread = this.threadHistory.getThread(threadId);
+    if (!thread?.piSessionId) return undefined;
+    return this.createPiRunner(threadId).exportSession(thread.piSessionId);
+  }
+  async getThreadSessionTree(threadId) {
+    const thread = this.threadHistory.getThread(threadId);
+    if (!thread?.piSessionId) return undefined;
+    return this.createPiRunner(threadId).getSessionTree(thread.piSessionId);
+  }
+  async getThreadSessionEntries(threadId, since) {
+    const thread = this.threadHistory.getThread(threadId);
+    if (!thread?.piSessionId) return undefined;
+    return this.createPiRunner(threadId).getSessionEntries(thread.piSessionId, since);
   }
   getThreadDisplayMessageCount(e) {
     let t = Array.isArray(e == null ? void 0 : e.messages) ? e.messages.length : 0,
@@ -334,22 +367,63 @@ export class PiAgentPlugin extends P.Plugin {
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
       : !1;
   }
-  deleteThread(e) {
+  deleteThread(e, options = {}) {
+    const thread = this.threadHistory.getThread(e);
+    if (!thread) return false;
+
     const runner = this.threadRunners.get(e);
+    if (runner?.isRunning) return false;
+
+    let sessionPath;
+    if (options.deletePiSession && thread.piSessionId) {
+      const resolver = runner ?? this.pi;
+      sessionPath = resolver?.resolveSessionPath(thread.piSessionId);
+      if (!sessionPath || !fs.existsSync(sessionPath)) return false;
+
+      const sessionIsShared = this.threadHistory
+        .listThreads({ includeArchived: true })
+        .some(
+          (other) =>
+            other.id !== e &&
+            other.piSessionId &&
+            resolver.resolveSessionPath(other.piSessionId) === sessionPath
+        );
+      if (sessionIsShared) return false;
+    }
+
     runner?.rpcClient?.dispose();
     this.threadRunners.delete(e);
+    if (sessionPath) {
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch (error) {
+        console.warn("Pi Agent: could not delete local Pi session", error);
+        return false;
+      }
+    }
+
     return this.threadHistory.deleteThread(e)
-      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
-      : !1;
+      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
+      : false;
   }
   clearArchivedThreads() {
     let e = this.threadHistory.clearArchivedThreads();
     return e === 0 ? 0 : (this.syncCurrentThreadState(), this.saveThreadHistory(), e);
   }
   renameThread(e, t) {
-    return this.threadHistory.renameThread(e, t)
-      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
-      : !1;
+    const thread = this.threadHistory.getThread(e);
+    const renamed = this.threadHistory.renameThread(e, t);
+    if (!renamed) return false;
+
+    this.syncCurrentThreadState();
+    this.saveThreadHistory();
+    if (thread?.piSessionId) {
+      const sessionName = this.threadHistory.getThread(e)?.title ?? t;
+      this.createPiRunner(e)
+        .setSessionName(thread.piSessionId, sessionName)
+        .catch((error) => console.warn("Pi Agent: could not rename Pi session", error));
+    }
+    return true;
   }
   toggleThreadFavorite(e) {
     return this.threadHistory.toggleThreadFavorite(e)
