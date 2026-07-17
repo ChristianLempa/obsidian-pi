@@ -54,7 +54,8 @@ export function renderMessage(e, t) {
         n,
         e.thinking,
         this.completedThinkingExpansion.get(key) === true,
-        (expanded) => this.completedThinkingExpansion.set(key, expanded)
+        (expanded) => this.completedThinkingExpansion.set(key, expanded),
+        false
       );
     }
   }
@@ -67,15 +68,26 @@ export function renderToolErrors(container, errors) {
     container.createDiv({ cls: "pi-agent-tool-error", text: error });
 }
 
-export function renderThinkingDisclosure(container, thinking, expanded, onToggle) {
-  const details = container.createEl("details", { cls: "pi-agent-thinking-disclosure" });
+export function renderThinkingDisclosure(container, thinking, expanded, onToggle, live = false) {
+  const details = container.createEl("details", {
+    cls: `pi-agent-thinking-disclosure${live ? " is-live" : ""}`
+  });
   let knownExpanded = expanded;
   details.toggleAttribute("open", expanded);
   const summary = details.createEl("summary");
-  const icon = summary.createSpan({ cls: "pi-agent-thinking-icon" });
-  (0, f.setIcon)(icon, "brain");
-  summary.createSpan({ text: "Thinking" });
-  const text = details.createEl("pre", { cls: "pi-agent-thinking-content", text: thinking });
+  const chevron = summary.createSpan({ cls: "pi-agent-thinking-chevron" });
+  (0, f.setIcon)(chevron, "chevron-right");
+  summary.createSpan({ cls: "pi-agent-thinking-label", text: "Thinking" });
+  if (live) {
+    const status = summary.createSpan({
+      cls: "pi-agent-thinking-status",
+      attr: { role: "status", "aria-label": "Thinking in progress" }
+    });
+    const spinner = status.createSpan({ cls: "pi-agent-thinking-spinner" });
+    (0, f.setIcon)(spinner, "loader");
+    status.createSpan({ text: "Live" });
+  }
+  const text = details.createDiv({ cls: "pi-agent-thinking-content", text: thinking });
   details.addEventListener("toggle", () => {
     if (details.open === knownExpanded) return;
     knownExpanded = details.open;
@@ -126,7 +138,8 @@ export function renderStreamingAssistantMessage() {
       e,
       this.streamingThinkingContent,
       this.thinkingDisclosureExpanded,
-      (expanded) => this.setLiveThinkingExpanded(expanded)
+      (expanded) => this.setLiveThinkingExpanded(expanded),
+      true
     );
     this.liveThinkingDetailsEl = rendered.details;
     this.liveThinkingTextEl = rendered.text;
@@ -154,7 +167,8 @@ export function renderActivityMessage() {
       e,
       this.streamingThinkingContent,
       this.thinkingDisclosureExpanded,
-      (expanded) => this.setLiveThinkingExpanded(expanded)
+      (expanded) => this.setLiveThinkingExpanded(expanded),
+      true
     );
     this.liveThinkingDetailsEl = rendered.details;
     this.liveThinkingTextEl = rendered.text;
@@ -170,12 +184,19 @@ export function renderRoleLabel(e, t, n, s) {
     });
   if (t === "user") ((0, f.setIcon)(l, "user"), o.createSpan({ text: "You" }));
   else if (
-    (this.renderPiIcon(l), o.createSpan({ text: "Agent" }), !n && this.running && this.activityText)
+    (this.renderPiIcon(l),
+    o.createSpan({ text: "Agent" }),
+    !n &&
+      this.running &&
+      this.activityText &&
+      !(this.streamingThinkingContent && this.activityKind === "thinking"))
   ) {
     let h = o.createSpan({
       cls: `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
       attr: { title: this.activityDetail || this.activityText }
     });
+    const spinner = h.createSpan({ cls: "pi-agent-inline-activity-spinner" });
+    (0, f.setIcon)(spinner, "loader");
     ((this.activityInlineEl = h),
       (this.activityInlineTextEl = h.createSpan({
         cls: "pi-agent-inline-activity-text",

@@ -858,10 +858,15 @@ export class PiAgentView extends f.ItemView {
         new f.Notice("Agent run canceled.");
         return;
       }
+      const createdAt = Date.now();
+      this.completedThinkingExpansion.set(
+        `${t}:${createdAt}`,
+        n.thinkingUserSet ? n.thinkingExpanded : false
+      );
       (this.plugin.addMessageToThread(t, {
         role: "assistant",
         content: `Agent run failed: ${o}`,
-        createdAt: Date.now(),
+        createdAt,
         thinking: n.thinking || undefined,
         toolErrors: n.toolErrors.length > 0 ? n.toolErrors : undefined
       }),
