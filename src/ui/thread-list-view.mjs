@@ -37,6 +37,12 @@ export function renderThreadList() {
       cls: "pi-agent-thread-list-subtitle",
       text: `${t.length} chat${t.length === 1 ? "" : "s"}`
     }));
+  let archiveButton = s.createEl("button", {
+    cls: "clickable-icon pi-agent-header-action",
+    attr: { "aria-label": "Archive all chats", title: "Archive all chats" }
+  });
+  ((0, f.setIcon)(archiveButton, "archive"),
+    archiveButton.addEventListener("click", () => this.archiveAllChats()));
   let d = s.createEl("button", {
     cls: "clickable-icon pi-agent-header-action",
     attr: { "aria-label": "New chat", title: "New chat" }
@@ -45,12 +51,6 @@ export function renderThreadList() {
     d.addEventListener("click", () => {
       (this.plugin.startNewThread(), this.renderChatView());
     }));
-  let menuButton = s.createEl("button", {
-    cls: "clickable-icon pi-agent-header-action",
-    attr: { "aria-label": "Chat history actions", title: "Chat history actions" }
-  });
-  ((0, f.setIcon)(menuButton, "more-vertical"),
-    menuButton.addEventListener("click", (event) => this.showThreadListMenu(event)));
   let h = e.createDiv({ cls: "pi-agent-thread-list" });
   t.length === 0
     ? h.createDiv({ cls: "pi-agent-empty", text: "No chat threads." })
@@ -72,13 +72,6 @@ export function renderThreadListRow(e, t, n) {
       attr: { title: "Agent is running in this chat" }
     });
     (0, f.setIcon)(h, "loader");
-  }
-  if (t.favorite) {
-    let h = o.createSpan({
-      cls: "pi-agent-thread-list-favorite-indicator",
-      attr: { title: "Favorite chat" }
-    });
-    (0, f.setIcon)(h, "star");
   }
   o.createSpan({ text: t.title });
   (s.addEventListener("click", () => {
@@ -114,17 +107,6 @@ export function renderThreadListRow(e, t, n) {
     h.addEventListener("click", (u) => {
       (u.preventDefault(), u.stopPropagation(), this.showThreadRowMenu(u, t, n, o));
     }));
-}
-
-export function showThreadListMenu(event) {
-  const menu = new f.Menu();
-  menu.addItem((item) =>
-    item
-      .setTitle("Archive all chats")
-      .setIcon("archive")
-      .onClick(() => this.archiveAllChats())
-  );
-  menu.showAtMouseEvent(event);
 }
 
 export async function archiveAllChats() {
