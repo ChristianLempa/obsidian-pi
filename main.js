@@ -16627,325 +16627,75 @@ var ConfirmModal = class extends import_obsidian4.Modal {
 var import_obsidian5 = require("obsidian");
 
 // src/ui/model-picker.mjs
-var RECENT_MODEL_LIMIT = 5;
-var recentModelSlugs = [];
-function filterModels(models, query) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return [...models];
-  return models.filter((model) =>
-    [model.displayName, model.provider, model.id, model.slug]
-      .filter(Boolean)
-      .some((value) => value.toLowerCase().includes(normalized))
+var RuntimeCatalogRefreshGate = class {
+  run(task) {
+    if (this.inFlight) return this.inFlight;
+    this.inFlight = Promise.resolve()
+      .then(task)
+      .finally(() => {
+        this.inFlight = void 0;
+      });
+    return this.inFlight;
+  }
+};
+function needsRuntimeCatalogRefresh(settings, refreshedAt, now = Date.now(), maxAge = 3e4) {
+  return (
+    !Array.isArray(settings.availableModels) ||
+    settings.availableModels.length === 0 ||
+    !settings.effectiveModel ||
+    !settings.effectiveReasoning ||
+    !refreshedAt ||
+    now - refreshedAt >= maxAge
   );
 }
-function groupModelsByProvider(models) {
-  const groups = /* @__PURE__ */ new Map();
-  for (const model of models) {
-    const provider = model.provider || model.slug.split("/")[0] || "Other";
-    if (!groups.has(provider)) groups.set(provider, []);
-    groups.get(provider).push(model);
+function createRuntimeCatalogSnapshot(models, effectiveConfig) {
+  if (!Array.isArray(models) || models.length === 0) {
+    throw new Error("Pi returned no models.");
   }
-  return [...groups.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([provider, providerModels]) => ({
-      provider,
-      models: [...providerModels].sort((left, right) =>
-        (left.displayName || left.id).localeCompare(right.displayName || right.id)
-      )
-    }));
+  const effectiveModel = String(effectiveConfig?.effectiveModel || "").trim();
+  const effectiveReasoning = String(effectiveConfig?.effectiveReasoning || "").trim();
+  if (!effectiveModel || !effectiveReasoning) {
+    throw new Error("Pi did not return its effective model and thinking level.");
+  }
+  const effectiveModelInfo = models.find((model) => model.slug === effectiveModel);
+  if (!effectiveModelInfo) {
+    throw new Error(`Pi's effective model (${effectiveModel}) is missing from its model catalog.`);
+  }
+  if (!effectiveModelInfo.supportedReasoningLevels?.includes(effectiveReasoning)) {
+    throw new Error(
+      `Pi's effective thinking level (${effectiveReasoning}) is not supported by ${effectiveModel}.`
+    );
+  }
+  return { availableModels: models, effectiveModel, effectiveReasoning };
 }
-function rememberRecentModel(slug) {
-  if (!slug) return;
-  const existing = recentModelSlugs.indexOf(slug);
-  if (existing >= 0) recentModelSlugs.splice(existing, 1);
-  recentModelSlugs.unshift(slug);
-  recentModelSlugs.splice(RECENT_MODEL_LIMIT);
+function hasSafeRuntimeCatalog(settings) {
+  return Boolean(
+    settings.effectiveModel &&
+    settings.effectiveReasoning &&
+    settings.availableModels?.some((model) => model.slug === settings.effectiveModel)
+  );
 }
-function getRecentModels(models) {
-  const modelsBySlug = new Map(models.map((model) => [model.slug, model]));
-  return recentModelSlugs.map((slug) => modelsBySlug.get(slug)).filter(Boolean);
-}
-
-// src/ui/modals/model-picker-modal.mjs
-var pickerId = 0;
-var ModelPickerModal = class extends import_obsidian5.Modal {
-  constructor(app, settings, onChoose) {
-    super(app);
-    this.settings = settings;
-    this.onChoose = onChoose;
-    this.activeIndex = 0;
-    this.listId = `pi-agent-model-picker-${++pickerId}`;
-  }
-  onOpen() {
-    this.contentEl.empty();
-    this.contentEl.addClass("pi-agent-picker-modal");
-    this.titleEl.setText("Choose model");
-    const label = this.contentEl.createEl("label", {
-      cls: "pi-agent-picker-search-label",
-      text: "Search models"
-    });
-    this.searchEl = label.createEl("input", {
-      cls: "pi-agent-picker-search",
-      attr: {
-        type: "search",
-        placeholder: "Search by model, provider, or slug",
-        autocomplete: "off",
-        role: "combobox",
-        "aria-autocomplete": "list",
-        "aria-controls": this.listId,
-        "aria-expanded": "true"
-      }
-    });
-    this.statusEl = this.contentEl.createDiv({
-      cls: "pi-agent-picker-status",
-      attr: { "aria-live": "polite", "aria-atomic": "true" }
-    });
-    this.listEl = this.contentEl.createDiv({
-      cls: "pi-agent-picker-list",
-      attr: { id: this.listId, role: "listbox", "aria-label": "Available models" }
-    });
-    this.searchEl.addEventListener("input", () => {
-      this.activeIndex = 0;
-      this.renderResults();
-    });
-    this.searchEl.addEventListener("keydown", (event) => this.onKeyDown(event));
-    this.renderResults();
-    this.searchEl.focus();
-  }
-  renderResults() {
-    this.listEl.empty();
-    this.optionEls = [];
-    const models = filterModels(this.settings.availableModels, this.searchEl.value);
-    const showRecent = !this.searchEl.value.trim();
-    const recent = showRecent ? getRecentModels(models) : [];
-    this.addDefaultOption();
-    if (recent.length > 0) this.addGroup("Recent", recent);
-    const recentSlugs = new Set(recent.map((model) => model.slug));
-    const providerModels = models.filter((model) => !recentSlugs.has(model.slug));
-    for (const group of groupModelsByProvider(providerModels)) {
-      this.addGroup(group.provider, group.models);
-    }
-    if (models.length === 0) {
-      this.listEl.createDiv({
-        cls: "pi-agent-picker-empty",
-        text: this.searchEl.value.trim()
-          ? "No catalog models match this search."
-          : "No catalog models are available from Pi.",
-        attr: { role: "presentation" }
-      });
-    }
-    this.activeIndex = Math.min(this.activeIndex, Math.max(0, this.optionEls.length - 1));
-    this.updateActiveOption(false);
-    this.statusEl.setText(`${models.length} model${models.length === 1 ? "" : "s"} found`);
-  }
-  addDefaultOption() {
-    const effective = getEffectiveModelInfo(this.settings);
-    this.addOption({
-      value: "",
-      primary: "Pi configured default",
-      secondary: effective
-        ? `${effective.displayName} \u2014 ${effective.slug}`
-        : this.settings.effectiveModel || "Resolved by Pi at runtime",
-      selected: this.settings.model === ""
-    });
-  }
-  addGroup(provider, models) {
-    const groupEl = this.listEl.createDiv({
-      cls: "pi-agent-picker-group",
-      attr: { role: "group", "aria-label": provider }
-    });
-    groupEl.createDiv({ cls: "pi-agent-picker-group-label", text: provider });
-    for (const model of models) {
-      this.addOption(
-        {
-          value: model.slug,
-          primary: model.displayName || model.id,
-          secondary: model.slug,
-          selected: this.settings.model === model.slug,
-          model
-        },
-        groupEl
-      );
-    }
-  }
-  addOption(option, parent = this.listEl) {
-    const optionEl = parent.createEl("button", {
-      cls: "pi-agent-picker-option",
-      attr: {
-        type: "button",
-        role: "option",
-        tabindex: "-1",
-        "aria-selected": String(option.selected),
-        "aria-label": `${option.primary}, ${option.secondary}${option.model ? `, ${formatCapabilities(option.model).join(", ")}` : ""}${option.selected ? ", selected" : ""}`
-      }
-    });
-    const textEl = optionEl.createDiv({ cls: "pi-agent-picker-option-text" });
-    textEl.createDiv({ cls: "pi-agent-picker-primary", text: option.primary });
-    textEl.createDiv({ cls: "pi-agent-picker-secondary", text: option.secondary });
-    if (option.model) this.addCapabilities(optionEl, option.model);
-    if (option.selected) {
-      const checkEl = optionEl.createSpan({
-        cls: "pi-agent-picker-check",
-        attr: { "aria-hidden": "true" }
-      });
-      (0, import_obsidian5.setIcon)(checkEl, "check");
-    }
-    optionEl.addEventListener("click", () => this.choose(option.value));
-    optionEl.addEventListener("mousemove", () => {
-      this.activeIndex = this.optionEls.indexOf(optionEl);
-      this.updateActiveOption(false);
-    });
-    optionEl.dataset.value = option.value;
-    this.optionEls.push(optionEl);
-  }
-  addCapabilities(optionEl, model) {
-    const capabilities = optionEl.createDiv({
-      cls: "pi-agent-picker-capabilities",
-      attr: { "aria-hidden": "true" }
-    });
-    for (const capability of formatCapabilities(model)) {
-      capabilities.createSpan({ text: capability });
-    }
-  }
-  onKeyDown(event) {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const direction = event.key === "ArrowDown" ? 1 : -1;
-      this.activeIndex =
-        (this.activeIndex + direction + this.optionEls.length) % this.optionEls.length;
-      this.updateActiveOption(true);
-    } else if (event.key === "Home" || event.key === "End") {
-      event.preventDefault();
-      this.activeIndex = event.key === "Home" ? 0 : this.optionEls.length - 1;
-      this.updateActiveOption(true);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      this.optionEls[this.activeIndex]?.click();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      this.close();
-    }
-  }
-  updateActiveOption(scroll) {
-    for (const [index, optionEl] of this.optionEls.entries()) {
-      optionEl.toggleClass("is-active", index === this.activeIndex);
-    }
-    const active = this.optionEls[this.activeIndex];
-    if (active) {
-      if (!active.id) active.id = `pi-agent-model-option-${this.activeIndex}`;
-      this.searchEl.setAttribute("aria-activedescendant", active.id);
-      if (scroll) active.scrollIntoView({ block: "nearest" });
-    }
-  }
-  async choose(value) {
-    if (value) rememberRecentModel(value);
-    await this.onChoose(value);
-    this.close();
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var ThinkingPickerModal = class extends import_obsidian5.Modal {
-  constructor(app, settings, onChoose) {
-    super(app);
-    this.settings = settings;
-    this.onChoose = onChoose;
-  }
-  onOpen() {
-    this.contentEl.empty();
-    this.contentEl.addClass("pi-agent-picker-modal");
-    this.contentEl.addClass("pi-agent-thinking-picker");
-    this.titleEl.setText("Choose thinking level");
-    const options = getReasoningOptions(this.settings);
-    const listEl = this.contentEl.createDiv({
-      cls: "pi-agent-picker-list",
-      attr: { role: "listbox", "aria-label": "Thinking levels" }
-    });
-    this.optionEls = [];
-    for (const [value, label] of Object.entries(options)) {
-      const resolved =
-        value === ""
-          ? formatReasoningLabel(getResolvedReasoning({ ...this.settings, reasoningEffort: "" }))
-          : "";
-      const selected = value === this.settings.reasoningEffort;
-      const optionEl = listEl.createEl("button", {
-        cls: "pi-agent-picker-option",
-        attr: {
-          type: "button",
-          role: "option",
-          tabindex: "-1",
-          "aria-selected": String(selected),
-          "aria-label": `${label}${resolved ? `, resolved as ${resolved}` : ""}${selected ? ", selected" : ""}`
-        }
-      });
-      const textEl = optionEl.createDiv({ cls: "pi-agent-picker-option-text" });
-      textEl.createDiv({ cls: "pi-agent-picker-primary", text: label.split(" \u2014 ")[0] });
-      if (resolved) {
-        textEl.createDiv({
-          cls: "pi-agent-picker-secondary",
-          text: `Resolved default: ${resolved}`
-        });
-      }
-      if (selected) {
-        const checkEl = optionEl.createSpan({
-          cls: "pi-agent-picker-check",
-          attr: { "aria-hidden": "true" }
-        });
-        (0, import_obsidian5.setIcon)(checkEl, "check");
-      }
-      optionEl.addEventListener("click", async () => {
-        await this.onChoose(value);
-        this.close();
-      });
-      optionEl.addEventListener("keydown", (event) => this.onOptionKeyDown(event));
-      this.optionEls.push(optionEl);
-    }
-    const initial =
-      this.optionEls.find((option) => option.getAttribute("aria-selected") === "true") ||
-      this.optionEls[0];
-    this.focusOption(initial);
-  }
-  onOptionKeyDown(event) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      this.close();
-      return;
-    }
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    const current = this.optionEls.indexOf(event.currentTarget);
-    const next =
-      event.key === "Home"
-        ? 0
-        : event.key === "End"
-          ? this.optionEls.length - 1
-          : (current + (event.key === "ArrowDown" ? 1 : -1) + this.optionEls.length) %
-            this.optionEls.length;
-    this.focusOption(this.optionEls[next]);
-  }
-  focusOption(option) {
-    if (!option) return;
-    for (const candidate of this.optionEls) {
-      candidate.setAttribute("tabindex", candidate === option ? "0" : "-1");
-    }
-    option.focus();
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-function formatReasoningLabel(value) {
-  if (!value || value === "pi-default" || value === "cli-default") return "Pi runtime default";
-  return value === "xhigh" ? "XHigh" : value.charAt(0).toUpperCase() + value.slice(1);
-}
-function formatCapabilities(model) {
+function buildModelPickerItems(settings) {
+  const effective = settings.availableModels.find(
+    (model) => model.slug === settings.effectiveModel
+  );
+  if (!effective) return [];
   return [
-    model.reasoning ? "Thinking" : "",
-    model.supportsImages ? "Images" : "",
-    model.contextWindow ? `${formatTokenAmount(model.contextWindow)} context` : "",
-    model.maxOutputTokens ? `${formatTokenAmount(model.maxOutputTokens)} output` : ""
+    { value: "", model: effective, isDefault: true },
+    ...settings.availableModels.map((model) => ({ value: model.slug, model, isDefault: false }))
+  ];
+}
+function getModelPickerPrimary(item) {
+  const friendlyName = item.model.displayName || item.model.id || item.model.slug;
+  return item.isDefault ? `Pi default \u2014 ${friendlyName}` : friendlyName;
+}
+function getModelPickerSecondary(item) {
+  const capabilities = [
+    item.model.reasoning ? "thinking" : "",
+    item.model.supportsImages ? "images" : "",
+    item.model.contextWindow ? `${formatTokenAmount(item.model.contextWindow)} context` : ""
   ].filter(Boolean);
+  return [item.model.slug, ...capabilities].join(" \xB7 ");
 }
 function formatTokenAmount(value) {
   return value >= 1e6
@@ -16953,6 +16703,101 @@ function formatTokenAmount(value) {
     : value >= 1e3
       ? `${Number((value / 1e3).toFixed(1))}K`
       : String(value);
+}
+
+// src/ui/modals/model-picker-modal.mjs
+var ModelPickerModal = class extends import_obsidian5.FuzzySuggestModal {
+  constructor(app, settings, onChoose) {
+    super(app);
+    this.settings = settings;
+    this.onChoose = onChoose;
+    this.limit = 1e3;
+    this.emptyStateText = "No Pi models match this search.";
+    this.setPlaceholder("Search models by name, provider, slug, or capability\u2026");
+    this.setInstructions([
+      { command: "\u2191\u2193", purpose: "navigate" },
+      { command: "\u21B5", purpose: "select" },
+      { command: "esc", purpose: "close" }
+    ]);
+  }
+  getItems() {
+    return buildModelPickerItems(this.settings);
+  }
+  getItemText(item) {
+    return `${getModelPickerPrimary(item)} ${getModelPickerSecondary(item)}`;
+  }
+  renderSuggestion(match, el) {
+    const item = match.item;
+    el.createDiv({ cls: "pi-agent-suggestion-title", text: getModelPickerPrimary(item) });
+    el.createDiv({ cls: "pi-agent-suggestion-detail", text: getModelPickerSecondary(item) });
+    el.setAttribute(
+      "aria-label",
+      `${getModelPickerPrimary(item)}, ${getModelPickerSecondary(item)}${this.settings.model === item.value ? ", selected" : ""}`
+    );
+  }
+  onChooseItem(item) {
+    Promise.resolve(this.onChoose(item.value)).catch((error) => {
+      new import_obsidian5.Notice(error instanceof Error ? error.message : String(error));
+    });
+  }
+};
+var ThinkingPickerModal = class extends import_obsidian5.SuggestModal {
+  constructor(app, settings, onChoose) {
+    super(app);
+    this.settings = settings;
+    this.onChoose = onChoose;
+    this.emptyStateText = "Pi did not resolve thinking levels for this model.";
+    this.setPlaceholder("Choose thinking level\u2026");
+    this.setInstructions([
+      { command: "\u2191\u2193", purpose: "navigate" },
+      { command: "\u21B5", purpose: "select" },
+      { command: "esc", purpose: "close" }
+    ]);
+  }
+  getSuggestions(query) {
+    const normalized = query.trim().toLowerCase();
+    return this.getItems().filter((item) =>
+      `${item.primary} ${item.secondary}`.toLowerCase().includes(normalized)
+    );
+  }
+  getItems() {
+    const options = getReasoningOptions(this.settings);
+    return Object.entries(options).flatMap(([value, label]) => {
+      const resolved = value === "" ? getResolvedReasoning(this.settings) : "";
+      if (value === "" && (resolved === "pi-default" || resolved === "cli-default")) return [];
+      return [
+        {
+          value,
+          primary: value === "" ? `Pi default \u2014 ${formatReasoningLabel(resolved)}` : label,
+          secondary: value === "" ? `Effective for ${formatEffectiveModel(this.settings)}` : ""
+        }
+      ];
+    });
+  }
+  renderSuggestion(item, el) {
+    el.createDiv({ cls: "pi-agent-suggestion-title", text: item.primary });
+    if (item.secondary) {
+      el.createDiv({ cls: "pi-agent-suggestion-detail", text: item.secondary });
+    }
+    el.setAttribute(
+      "aria-label",
+      `${item.primary}${item.secondary ? `, ${item.secondary}` : ""}${this.settings.reasoningEffort === item.value ? ", selected" : ""}`
+    );
+  }
+  onChooseSuggestion(item) {
+    Promise.resolve(this.onChoose(item.value)).catch((error) => {
+      new import_obsidian5.Notice(error instanceof Error ? error.message : String(error));
+    });
+  }
+};
+function formatEffectiveModel(settings) {
+  const slug = settings.model || settings.effectiveModel;
+  const model = settings.availableModels.find((candidate) => candidate.slug === slug);
+  return model?.displayName || slug;
+}
+function formatReasoningLabel(value) {
+  if (value === "xhigh") return "XHigh";
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 // src/plugin/settings-tab.mjs
@@ -16973,13 +16818,24 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
         button
           .setButtonText(this.getModelButtonLabel())
           .setTooltip("Choose model")
-          .onClick(() => {
-            new ModelPickerModal(this.app, this.plugin.settings, async (value) => {
-              this.plugin.settings.model = value;
-              this.plugin.settings.reasoningEffort = "";
-              await this.plugin.saveSettings();
-              this.display();
-            }).open();
+          .onClick(async () => {
+            const label = this.getModelButtonLabel();
+            button.setButtonText("Loading\u2026");
+            button.setDisabled(true);
+            try {
+              await this.plugin.ensureRuntimeModelState();
+              new ModelPickerModal(this.app, this.plugin.settings, async (value) => {
+                this.plugin.settings.model = value;
+                this.plugin.settings.reasoningEffort = "";
+                await this.plugin.saveSettings();
+                this.plugin.refreshOpenModelControls();
+              }).open();
+            } catch (error) {
+              new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+            } finally {
+              button.setButtonText(label);
+              button.setDisabled(false);
+            }
           })
       )
       .addButton((button) =>
@@ -16989,7 +16845,11 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
           .onClick(async () => {
             button.setButtonText("Refreshing...");
             button.setDisabled(true);
-            await this.plugin.refreshModelCatalog(true);
+            try {
+              await this.plugin.refreshModelCatalog(true);
+            } catch (error) {
+              new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+            }
             this.display();
           })
       );
@@ -17002,12 +16862,23 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
         button
           .setButtonText(this.getReasoningButtonLabel())
           .setTooltip("Choose thinking level")
-          .onClick(() => {
-            new ThinkingPickerModal(this.app, this.plugin.settings, async (value) => {
-              this.plugin.settings.reasoningEffort = value;
-              await this.plugin.saveSettings();
-              this.display();
-            }).open();
+          .onClick(async () => {
+            const label = this.getReasoningButtonLabel();
+            button.setButtonText("Loading\u2026");
+            button.setDisabled(true);
+            try {
+              await this.plugin.ensureRuntimeModelState();
+              new ThinkingPickerModal(this.app, this.plugin.settings, async (value) => {
+                this.plugin.settings.reasoningEffort = value;
+                await this.plugin.saveSettings();
+                this.plugin.refreshOpenModelControls();
+              }).open();
+            } catch (error) {
+              new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+            } finally {
+              button.setButtonText(label);
+              button.setDisabled(false);
+            }
           })
       );
     new import_obsidian6.Setting(containerEl)
@@ -17079,7 +16950,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
             this.plugin.settings.model = CUSTOM_MODEL_VALUE;
             this.plugin.settings.reasoningEffort = "";
             await this.plugin.saveSettings();
-            this.display();
+            this.plugin.refreshOpenModelControls();
           });
       });
     new import_obsidian6.Setting(containerEl).setName("Pi CLI").setHeading();
@@ -17166,15 +17037,20 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
     const effective = this.plugin.settings.availableModels.find(
       (model) => model.slug === this.plugin.settings.effectiveModel
     );
-    return effective?.displayName || this.plugin.settings.effectiveModel || "Pi default";
+    return effective
+      ? `Pi default \u2014 ${effective.displayName}`
+      : this.plugin.settings.effectiveModel
+        ? `Pi default \u2014 ${this.plugin.settings.effectiveModel}`
+        : "Loading Pi default\u2026";
   }
   getReasoningButtonLabel() {
     const value = this.getReasoningDropdownValue();
     if (value) return this.getReasoningOptions()[value] || value;
+    if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) return "Pi/model default";
     const resolved = getResolvedReasoning(this.plugin.settings);
     return resolved === "pi-default"
-      ? "Pi/model default"
-      : `Default \u2014 ${resolved === "xhigh" ? "XHigh" : resolved.charAt(0).toUpperCase() + resolved.slice(1)}`;
+      ? "Loading Pi default\u2026"
+      : `Pi default \u2014 ${resolved === "xhigh" ? "XHigh" : resolved.charAt(0).toUpperCase() + resolved.slice(1)}`;
   }
   getReasoningOptions() {
     return getReasoningOptions(this.plugin.settings);
@@ -19035,20 +18911,26 @@ var RunSettingsControls = class {
     this.populate(this.row);
   }
   populate(containerEl) {
-    this.addPickerSetting(containerEl, "Model", "sparkles", this.getModelLabel(), () =>
-      new ModelPickerModal(this.plugin.app, this.plugin.settings, async (value) => {
+    this.addPickerSetting(containerEl, "Model", "sparkles", this.getModelLabel(), async () => {
+      await this.openPicker(ModelPickerModal, async (value) => {
         this.plugin.settings.model = value;
         this.plugin.settings.reasoningEffort = "";
         await this.plugin.saveSettings();
-        this.refresh();
-      }).open()
-    );
-    this.addPickerSetting(containerEl, "Think", "brain", this.formatDefaultReasoningLabel(), () =>
-      new ThinkingPickerModal(this.plugin.app, this.plugin.settings, async (value) => {
-        this.plugin.settings.reasoningEffort = value;
-        await this.plugin.saveSettings();
-        this.refresh();
-      }).open()
+        this.plugin.refreshOpenModelControls();
+      });
+    });
+    this.addPickerSetting(
+      containerEl,
+      "Think",
+      "brain",
+      this.formatDefaultReasoningLabel(),
+      async () => {
+        await this.openPicker(ThinkingPickerModal, async (value) => {
+          this.plugin.settings.reasoningEffort = value;
+          await this.plugin.saveSettings();
+          this.plugin.refreshOpenModelControls();
+        });
+      }
     );
   }
   addPickerSetting(containerEl, name, icon, label, onClick) {
@@ -19057,11 +18939,26 @@ var RunSettingsControls = class {
       attr: { "aria-label": `${name}: ${label}`, title: `${name}: ${label}` }
     });
     (0, import_obsidian13.setIcon)(buttonEl, icon);
-    buttonEl.createSpan({ cls: "pi-agent-control-label", text: label });
-    buttonEl.addEventListener("click", (event) => {
+    const labelEl = buttonEl.createSpan({ cls: "pi-agent-control-label", text: label });
+    buttonEl.addEventListener("click", async (event) => {
       event.preventDefault();
-      onClick();
+      buttonEl.disabled = true;
+      labelEl.setText("Loading\u2026");
+      try {
+        await onClick();
+      } catch (error) {
+        new import_obsidian13.Notice(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (buttonEl.isConnected) {
+          buttonEl.disabled = false;
+          labelEl.setText(label);
+        }
+      }
     });
+  }
+  async openPicker(Picker, onChoose) {
+    await this.plugin.ensureRuntimeModelState();
+    new Picker(this.plugin.app, this.plugin.settings, onChoose).open();
   }
   getModelLabel() {
     if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) {
@@ -19072,21 +18969,24 @@ var RunSettingsControls = class {
     const effective = this.plugin.settings.availableModels.find(
       (candidate) => candidate.slug === this.plugin.settings.effectiveModel
     );
-    return effective?.displayName || this.formatDefaultModelLabel();
-  }
-  formatDefaultModelLabel() {
-    const model = this.plugin.settings.effectiveModel;
-    return model ? model.split("/").pop() || model : "Default";
+    return effective
+      ? `Pi default \u2014 ${effective.displayName}`
+      : this.plugin.settings.effectiveModel
+        ? `Pi default \u2014 ${this.plugin.settings.effectiveModel}`
+        : "Loading Pi default\u2026";
   }
   formatDefaultReasoningLabel() {
-    return this.formatReasoningLabel(getResolvedReasoning(this.plugin.settings));
+    const reasoning = getResolvedReasoning(this.plugin.settings);
+    return this.plugin.settings.reasoningEffort
+      ? this.formatReasoningLabel(reasoning)
+      : this.plugin.settings.model === CUSTOM_MODEL_VALUE
+        ? "Pi/model default"
+        : reasoning === "pi-default"
+          ? "Loading Pi default\u2026"
+          : `Pi default \u2014 ${this.formatReasoningLabel(reasoning)}`;
   }
   formatReasoningLabel(reasoning) {
-    return reasoning === "pi-default" || reasoning === "cli-default"
-      ? "Pi default"
-      : reasoning === "xhigh"
-        ? "XHigh"
-        : reasoning.charAt(0).toUpperCase() + reasoning.slice(1);
+    return reasoning === "xhigh" ? "XHigh" : reasoning.charAt(0).toUpperCase() + reasoning.slice(1);
   }
 };
 
@@ -20758,6 +20658,10 @@ var PiAgentPlugin = class extends P.Plugin {
     this.localPromptSteering = [];
     this.localPromptQueuePaused = false;
     this.promptEnricher = void 0;
+    this.modelCatalogRefreshGate = new RuntimeCatalogRefreshGate();
+    this.modelCatalogRefreshedAt = 0;
+    this.modelCatalogGeneration = 0;
+    this.modelCatalogError = "";
   }
   async onload() {
     await this.loadSettings();
@@ -20773,7 +20677,7 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!this.settings.dryRun) {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
-    this.refreshModelCatalog(false);
+    this.refreshModelCatalog(false).catch(() => {});
     this.refreshCommandCatalog(false);
     this.refreshCurrentContextFile();
     this.registerEvent(
@@ -20867,7 +20771,8 @@ var PiAgentPlugin = class extends P.Plugin {
           );
         })
     });
-    this.addSettingTab(new PiAgentSettingTab(this.app, this));
+    this.settingsTab = new PiAgentSettingTab(this.app, this);
+    this.addSettingTab(this.settingsTab);
   }
   onunload() {
     this.annotationController?.destroy();
@@ -20898,15 +20803,15 @@ var PiAgentPlugin = class extends P.Plugin {
         this.saveAnnotations();
         this.annotationController?.refresh();
       })));
-    ((this.settings.effectiveModel = ""),
-      (this.settings.effectiveReasoning = ""),
-      this.syncCurrentThreadState(),
+    (this.syncCurrentThreadState(),
       this.settings.model &&
         isLegacyBareModelId(this.settings.model) &&
         ((this.settings.customModel = `openai/${this.settings.model}`),
         (this.settings.model = "__custom")));
   }
   async saveSettings() {
+    this.modelCatalogGeneration += 1;
+    this.modelCatalogRefreshedAt = 0;
     await this.savePluginData();
     if (this.hasActivePiRuns()) this.pendingServiceRebuild = true;
     else {
@@ -20939,37 +20844,81 @@ var PiAgentPlugin = class extends P.Plugin {
     showSuccess ? new P.Notice(e.message) : new PiSetupModal(this, e).open();
     return e;
   }
-  async refreshModelCatalog(e) {
-    var t;
-    this.catalog || this.rebuildServices();
-    try {
-      let n = await ((t = this.catalog) == null
-          ? void 0
-          : t.getAvailableModels(this.getVaultBasePath())),
-        s = this.catalog ? this.catalog.getEffectiveConfig() : {};
-      if (!n || n.length === 0) {
-        e && new P.Notice("Pi returned no models.");
-        return;
-      }
-      ((this.settings.availableModels = n),
-        this.settings.model === "__custom" &&
-          this.settings.customModel &&
-          n.some((model) => model.slug === this.settings.customModel) &&
-          (this.settings.model = this.settings.customModel),
-        this.settings.model &&
-          !n.some((model) => model.slug === this.settings.model) &&
-          ((this.settings.model = ""), (this.settings.reasoningEffort = "")),
-        (this.settings.effectiveModel = s.effectiveModel || ""),
-        (this.settings.effectiveReasoning = s.effectiveReasoning || ""),
-        await this.saveSettings(),
-        e &&
-          new P.Notice(
-            `Loaded ${n.length} Pi models${this.settings.effectiveModel ? `; default ${this.settings.effectiveModel}` : ""}.`
-          ));
-    } catch (n) {
-      let s = n instanceof Error ? n.message : String(n);
-      (e && new P.Notice(s), console.warn("Pi Agent: failed to refresh model catalog", n));
+  async refreshModelCatalog(showNotice = false, force = true) {
+    if (!force && !needsRuntimeCatalogRefresh(this.settings, this.modelCatalogRefreshedAt)) {
+      return { ok: true, stale: false };
     }
+    const result = await this.modelCatalogRefreshGate.run(() => this.performModelCatalogRefresh());
+    if (showNotice) {
+      new P.Notice(
+        result.ok
+          ? `Loaded ${this.settings.availableModels.length} Pi models; default ${this.settings.effectiveModel}.`
+          : this.modelCatalogError
+      );
+    }
+    return result;
+  }
+  async performModelCatalogRefresh() {
+    try {
+      while (true) {
+        const generation = this.modelCatalogGeneration;
+        const catalog = this.catalog;
+        if (!catalog) throw new Error("Pi model service is not ready.");
+        let models;
+        let effectiveConfig;
+        try {
+          models = await catalog.getAvailableModels(this.getVaultBasePath());
+          effectiveConfig = catalog.getEffectiveConfig();
+        } catch (error) {
+          if (generation !== this.modelCatalogGeneration) continue;
+          throw error;
+        }
+        if (generation !== this.modelCatalogGeneration) continue;
+        const snapshot = createRuntimeCatalogSnapshot(models, effectiveConfig);
+        this.settings.availableModels = snapshot.availableModels;
+        this.settings.effectiveModel = snapshot.effectiveModel;
+        this.settings.effectiveReasoning = snapshot.effectiveReasoning;
+        if (
+          this.settings.model === "__custom" &&
+          this.settings.customModel &&
+          models.some((model) => model.slug === this.settings.customModel)
+        ) {
+          this.settings.model = this.settings.customModel;
+        }
+        if (
+          this.settings.model &&
+          this.settings.model !== "__custom" &&
+          !models.some((model) => model.slug === this.settings.model)
+        ) {
+          this.settings.model = "";
+          this.settings.reasoningEffort = "";
+        }
+        this.modelCatalogRefreshedAt = Date.now();
+        this.modelCatalogError = "";
+        await this.savePluginData();
+        if (generation !== this.modelCatalogGeneration) continue;
+        this.refreshOpenModelControls();
+        return { ok: true, stale: false };
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.modelCatalogError = `Could not refresh models from Pi. Check the Pi executable and configuration, then try again. ${detail}`;
+      console.warn("Pi Agent: failed to refresh model catalog", error);
+      this.refreshOpenModelControls();
+      if (hasSafeRuntimeCatalog(this.settings)) return { ok: false, stale: true };
+      throw new Error(this.modelCatalogError, { cause: error });
+    }
+  }
+  async ensureRuntimeModelState() {
+    const result = await this.refreshModelCatalog(false, false);
+    if (!result.ok && this.modelCatalogError) new P.Notice(this.modelCatalogError);
+    return result;
+  }
+  refreshOpenModelControls() {
+    for (const leaf of this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE)) {
+      leaf.view?.runSettings?.refresh?.();
+    }
+    this.settingsTab?.display?.();
   }
   async refreshCommandCatalog(showNotice = false) {
     this.commandCatalog || this.rebuildServices();
@@ -21376,6 +21325,8 @@ var PiAgentPlugin = class extends P.Plugin {
     this.threadRunners.clear();
   }
   rebuildServices() {
+    this.modelCatalogGeneration += 1;
+    this.modelCatalogRefreshedAt = 0;
     this.disposeThreadRunners();
     this.piCommands = [];
     this.commandCatalogLoaded = false;
@@ -21435,7 +21386,6 @@ var PiAgentPlugin = class extends P.Plugin {
   savePluginData() {
     let e = {
       ...this.settings,
-      availableModels: [],
       chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON()),
       localPromptQueue: this.localPromptQueue,
       localPromptSteering: this.localPromptSteering,
