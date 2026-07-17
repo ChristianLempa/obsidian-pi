@@ -17945,7 +17945,6 @@ __export(thread_list_view_exports, {
   renderThreadList: () => renderThreadList,
   renderThreadListRow: () => renderThreadListRow,
   showThreadList: () => showThreadList,
-  showThreadListMenu: () => showThreadListMenu,
   showThreadRowMenu: () => showThreadRowMenu,
   startThreadListRename: () => startThreadListRename,
   toggleThreadFavorite: () => toggleThreadFavorite
@@ -18056,6 +18055,12 @@ function renderThreadList() {
       cls: "pi-agent-thread-list-subtitle",
       text: `${t.length} chat${t.length === 1 ? "" : "s"}`
     }));
+  let archiveButton = s.createEl("button", {
+    cls: "clickable-icon pi-agent-header-action",
+    attr: { "aria-label": "Archive all chats", title: "Archive all chats" }
+  });
+  ((0, f2.setIcon)(archiveButton, "archive"),
+    archiveButton.addEventListener("click", () => this.archiveAllChats()));
   let d = s.createEl("button", {
     cls: "clickable-icon pi-agent-header-action",
     attr: { "aria-label": "New chat", title: "New chat" }
@@ -18064,12 +18069,6 @@ function renderThreadList() {
     d.addEventListener("click", () => {
       (this.plugin.startNewThread(), this.renderChatView());
     }));
-  let menuButton = s.createEl("button", {
-    cls: "clickable-icon pi-agent-header-action",
-    attr: { "aria-label": "Chat history actions", title: "Chat history actions" }
-  });
-  ((0, f2.setIcon)(menuButton, "more-vertical"),
-    menuButton.addEventListener("click", (event) => this.showThreadListMenu(event)));
   let h = e.createDiv({ cls: "pi-agent-thread-list" });
   t.length === 0
     ? h.createDiv({ cls: "pi-agent-empty", text: "No chat threads." })
@@ -18090,13 +18089,6 @@ function renderThreadListRow(e, t, n) {
       attr: { title: "Agent is running in this chat" }
     });
     (0, f2.setIcon)(h2, "loader");
-  }
-  if (t.favorite) {
-    let h2 = o.createSpan({
-      cls: "pi-agent-thread-list-favorite-indicator",
-      attr: { title: "Favorite chat" }
-    });
-    (0, f2.setIcon)(h2, "star");
   }
   o.createSpan({ text: t.title });
   (s.addEventListener("click", () => {
@@ -18132,16 +18124,6 @@ function renderThreadListRow(e, t, n) {
     h.addEventListener("click", (u) => {
       (u.preventDefault(), u.stopPropagation(), this.showThreadRowMenu(u, t, n, o));
     }));
-}
-function showThreadListMenu(event) {
-  const menu = new f2.Menu();
-  menu.addItem((item) =>
-    item
-      .setTitle("Archive all chats")
-      .setIcon("archive")
-      .onClick(() => this.archiveAllChats())
-  );
-  menu.showAtMouseEvent(event);
 }
 async function archiveAllChats() {
   const threads = this.plugin.listThreads({ includeArchived: true });
@@ -18491,7 +18473,8 @@ function renderMessage(e, t) {
         n,
         e.thinking,
         this.completedThinkingExpansion.get(key) === true,
-        (expanded) => this.completedThinkingExpansion.set(key, expanded)
+        (expanded) => this.completedThinkingExpansion.set(key, expanded),
+        false
       );
     }
   }
@@ -18502,15 +18485,26 @@ function renderToolErrors(container, errors) {
   for (const error of Array.isArray(errors) ? errors : [])
     container.createDiv({ cls: "pi-agent-tool-error", text: error });
 }
-function renderThinkingDisclosure(container, thinking, expanded, onToggle) {
-  const details = container.createEl("details", { cls: "pi-agent-thinking-disclosure" });
+function renderThinkingDisclosure(container, thinking, expanded, onToggle, live = false) {
+  const details = container.createEl("details", {
+    cls: `pi-agent-thinking-disclosure${live ? " is-live" : ""}`
+  });
   let knownExpanded = expanded;
   details.toggleAttribute("open", expanded);
   const summary = details.createEl("summary");
-  const icon = summary.createSpan({ cls: "pi-agent-thinking-icon" });
-  (0, f4.setIcon)(icon, "brain");
-  summary.createSpan({ text: "Thinking" });
-  const text = details.createEl("pre", { cls: "pi-agent-thinking-content", text: thinking });
+  const chevron = summary.createSpan({ cls: "pi-agent-thinking-chevron" });
+  (0, f4.setIcon)(chevron, "chevron-right");
+  summary.createSpan({ cls: "pi-agent-thinking-label", text: "Thinking" });
+  if (live) {
+    const status = summary.createSpan({
+      cls: "pi-agent-thinking-status",
+      attr: { role: "status", "aria-label": "Thinking in progress" }
+    });
+    const spinner = status.createSpan({ cls: "pi-agent-thinking-spinner" });
+    (0, f4.setIcon)(spinner, "loader");
+    status.createSpan({ text: "Live" });
+  }
+  const text = details.createDiv({ cls: "pi-agent-thinking-content", text: thinking });
   details.addEventListener("toggle", () => {
     if (details.open === knownExpanded) return;
     knownExpanded = details.open;
@@ -18556,7 +18550,8 @@ function renderStreamingAssistantMessage() {
       e,
       this.streamingThinkingContent,
       this.thinkingDisclosureExpanded,
-      (expanded) => this.setLiveThinkingExpanded(expanded)
+      (expanded) => this.setLiveThinkingExpanded(expanded),
+      true
     );
     this.liveThinkingDetailsEl = rendered.details;
     this.liveThinkingTextEl = rendered.text;
@@ -18583,7 +18578,8 @@ function renderActivityMessage() {
       e,
       this.streamingThinkingContent,
       this.thinkingDisclosureExpanded,
-      (expanded) => this.setLiveThinkingExpanded(expanded)
+      (expanded) => this.setLiveThinkingExpanded(expanded),
+      true
     );
     this.liveThinkingDetailsEl = rendered.details;
     this.liveThinkingTextEl = rendered.text;
@@ -18598,12 +18594,19 @@ function renderRoleLabel(e, t, n, s) {
     });
   if (t === "user") ((0, f4.setIcon)(l, "user"), o.createSpan({ text: "You" }));
   else if (
-    (this.renderPiIcon(l), o.createSpan({ text: "Agent" }), !n && this.running && this.activityText)
+    (this.renderPiIcon(l),
+    o.createSpan({ text: "Agent" }),
+    !n &&
+      this.running &&
+      this.activityText &&
+      !(this.streamingThinkingContent && this.activityKind === "thinking"))
   ) {
     let h = o.createSpan({
       cls: `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
       attr: { title: this.activityDetail || this.activityText }
     });
+    const spinner = h.createSpan({ cls: "pi-agent-inline-activity-spinner" });
+    (0, f4.setIcon)(spinner, "loader");
     ((this.activityInlineEl = h),
       (this.activityInlineTextEl = h.createSpan({
         cls: "pi-agent-inline-activity-text",
@@ -20207,10 +20210,15 @@ var PiAgentView = class extends f5.ItemView {
         new f5.Notice("Agent run canceled.");
         return;
       }
+      const createdAt = Date.now();
+      this.completedThinkingExpansion.set(
+        `${t}:${createdAt}`,
+        n.thinkingUserSet ? n.thinkingExpanded : false
+      );
       (this.plugin.addMessageToThread(t, {
         role: "assistant",
         content: `Agent run failed: ${o}`,
-        createdAt: Date.now(),
+        createdAt,
         thinking: n.thinking || void 0,
         toolErrors: n.toolErrors.length > 0 ? n.toolErrors : void 0
       }),
