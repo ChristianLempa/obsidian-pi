@@ -4646,6 +4646,16 @@ var PiAgentView = class extends f5.ItemView {
         let c =
           this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
         this.stickToBottom = c < 40;
+      }),
+      this.messagesEl.addEventListener("click", (event) => {
+        const target = event.target.closest("a.internal-link");
+        if (target) {
+          event.preventDefault();
+          const href = target.getAttribute("data-href") || target.getAttribute("href");
+          if (href) {
+            this.openVaultLink(href, event.metaKey || event.ctrlKey);
+          }
+        }
       }));
     let d = e.createDiv({ cls: "pi-agent-composer" });
     ((this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" })),
