@@ -79,25 +79,12 @@ function buildDecorations(view, controller) {
     const from = Math.min(documentLength, annotation.range.from);
     const to = Math.min(documentLength, annotation.range.to);
     if (to <= from) continue;
-    if (annotation.targetKind === "block") {
-      const startLine = view.state.doc.lineAt(from).number;
-      const endLine = view.state.doc.lineAt(Math.max(from, to - 1)).number;
-      for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
-        ranges.push(
-          Decoration.line({
-            class: `pi-agent-annotation-block pi-agent-annotation-${annotation.intent}`,
-            attributes: { "data-annotation-id": annotation.id }
-          }).range(view.state.doc.line(lineNumber).from)
-        );
-      }
-    } else {
-      ranges.push(
-        Decoration.mark({
-          class: `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`,
-          attributes: { "data-annotation-id": annotation.id }
-        }).range(from, to)
-      );
-    }
+    ranges.push(
+      Decoration.mark({
+        class: `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`,
+        attributes: { "data-annotation-id": annotation.id }
+      }).range(from, to)
+    );
   }
 
   for (const annotation of controller.processingAnnotationsForEditor(view)) {

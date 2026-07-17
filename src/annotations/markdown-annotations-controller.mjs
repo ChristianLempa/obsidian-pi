@@ -4,6 +4,7 @@ import { ANNOTATION_LIMITS, positionToOffset } from "./annotation-model.mjs";
 import { AnnotationDeleteModal, AnnotationModal } from "./annotation-modal.mjs";
 import { resolveMarkdownBlockRange } from "./markdown-block-range.mjs";
 import {
+  mapRenderedChunkCandidatesToSource,
   mapRenderedChunksToSource,
   rangesOverlap,
   renderedPointToSourceOffset,
@@ -153,10 +154,27 @@ export class MarkdownAnnotationsController {
       }
     });
     view.containerEl.addClass("pi-agent-annotations-host");
-    this.leaves.set(leaf, { leaf, view, actionEl, listEl, path: view.file?.path });
+    const state = {
+      leaf,
+      view,
+      actionEl,
+      listEl,
+      path: view.file?.path,
+      cachedRenderedSelection: undefined,
+      captureSelection: undefined
+    };
+    state.captureSelection = () => {
+      if (!this.isReadingState(state)) return;
+      const selection = this.renderedSelectionForState(state);
+      state.cachedRenderedSelection = selection?.invalid ? undefined : selection;
+    };
+    actionEl.addEventListener("pointerdown", state.captureSelection, { capture: true });
+    this.leaves.set(leaf, state);
   }
 
   removeLeaf(state) {
+    if (state.captureSelection)
+      state.actionEl.removeEventListener("pointerdown", state.captureSelection, { capture: true });
     state.actionEl.remove();
     state.listEl.remove();
     state.view.containerEl.removeClass("pi-agent-annotations-host");
@@ -185,8 +203,12 @@ export class MarkdownAnnotationsController {
       return;
     }
     if (this.isReadingState(state)) {
-      const selection = this.renderedSelectionForState(state);
-      if (selection?.invalid) return;
+      const currentSelection = this.renderedSelectionForState(state);
+      const selection = currentSelection?.invalid
+        ? state.cachedRenderedSelection
+        : (currentSelection ?? state.cachedRenderedSelection);
+      state.cachedRenderedSelection = undefined;
+      if (currentSelection?.invalid && !selection) return;
       if (selection) {
         if (!this.activateRenderedPick(state)) return;
         await this.captureRenderedSelection(selection);
@@ -270,6 +292,7 @@ export class MarkdownAnnotationsController {
   }
 
   cancelPick() {
+    for (const leafState of this.leaves.values()) leafState.cachedRenderedSelection = undefined;
     const pick = this.pickState;
     if (!pick) return;
     const state = this.leaves.get(pick.leaf);
@@ -280,9 +303,12 @@ export class MarkdownAnnotationsController {
       if (pick.editorAriaLabel == null) pick.editorView.dom.removeAttribute("aria-label");
       else pick.editorView.dom.setAttribute("aria-label", pick.editorAriaLabel);
       requestAnnotationRefresh(pick.editorView);
+      const cursor = state?.view.editor?.getCursor?.("to");
+      if (cursor) state.view.editor.setCursor?.(cursor);
     } else if (state) {
       state.view.containerEl.removeClass("pi-agent-annotation-reading-pick-mode");
       for (const record of this.recordsForState(state)) this.disableRenderedTarget(record);
+      state.view.containerEl.ownerDocument?.getSelection?.()?.removeAllRanges?.();
     }
     this.pickState = undefined;
   }
@@ -456,8 +482,9 @@ export class MarkdownAnnotationsController {
     const selection =
       state.view.containerEl.ownerDocument?.getSelection?.() ?? globalThis.getSelection?.();
     if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return undefined;
-    const range = selection.getRangeAt?.(0);
-    if (!range) return { invalid: true };
+    const liveRange = selection.getRangeAt?.(0);
+    if (!liveRange) return { invalid: true };
+    const range = liveRange.cloneRange?.() ?? liveRange;
     const startRecord = this.closestRenderedRecord(elementFromNode(range.startContainer), state);
     const endRecord = this.closestRenderedRecord(elementFromNode(range.endContainer), state);
     if (!startRecord || !endRecord) {
@@ -514,21 +541,29 @@ export class MarkdownAnnotationsController {
         range.endOffset,
         "end"
       );
-      const startMappings = mapRenderedChunksToSource(
+      const startCandidates = mapRenderedChunkCandidatesToSource(
         source,
         startRecord.getSectionInfo(),
         renderedTextNodeChunks(startRecord.element)
       );
-      const endMappings =
+      const endCandidates =
         startRecord === endRecord
-          ? startMappings
-          : mapRenderedChunksToSource(
+          ? startCandidates
+          : mapRenderedChunkCandidatesToSource(
               source,
               endRecord.getSectionInfo(),
               renderedTextNodeChunks(endRecord.element)
             );
-      const from = renderedPointToSourceOffset(startMappings, startPoint?.node, startPoint?.offset);
-      const to = renderedPointToSourceOffset(endMappings, endPoint?.node, endPoint?.offset);
+      const resolved = chooseRenderedSelectionRange(
+        startCandidates,
+        endCandidates,
+        startPoint,
+        endPoint,
+        text.length,
+        startRecord === endRecord
+      );
+      const from = resolved?.from;
+      const to = resolved?.to;
       if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from) {
         new Notice("Could not map that rendered selection to exact source characters.");
         return;
@@ -641,9 +676,14 @@ export class MarkdownAnnotationsController {
 
     const heading = state.listEl.createDiv({ cls: "pi-agent-annotations-list-heading" });
     heading.createSpan({ text: `Annotations (${annotations.length})` });
-    this.iconButton(heading, "send", "Send annotations to Pi", () => {
-      void this.plugin.runAnnotationsPrompt(path);
+    const sendButton = heading.createEl("button", {
+      cls: "mod-cta pi-agent-annotations-send",
+      attr: { "aria-label": "Send annotations to Pi", type: "button" }
     });
+    const sendIcon = sendButton.createSpan({ cls: "pi-agent-annotations-send-icon" });
+    setIcon(sendIcon, "send");
+    sendButton.createSpan({ text: "Send to Pi" });
+    sendButton.addEventListener("click", () => void this.plugin.runAnnotationsPrompt(path));
     for (const annotation of annotations) {
       const row = state.listEl.createDiv({
         cls: `pi-agent-annotation-item${annotation.status === "detached" ? " is-detached" : ""}`
@@ -777,6 +817,8 @@ export class MarkdownAnnotationsController {
       this.endProcessing(key);
       return;
     }
+    for (const path of new Set(items.map((annotation) => annotation.path)))
+      this.clearRevealForPath(path);
     this.processingBatches.set(key, {
       threadId: String(threadId || ""),
       annotations: items.map((annotation) => structuredCloneSafe(annotation))
@@ -929,6 +971,38 @@ function renderedPointForBoundary(root, container, offset, bias) {
   if (bias === "end" && offset <= 0) return { node: nodes[0], offset: 0 };
   const node = bias === "start" ? nodes[0] : nodes.at(-1);
   return { node, offset: bias === "start" ? 0 : (node.nodeValue?.length ?? 0) };
+}
+
+function chooseRenderedSelectionRange(
+  startCandidates,
+  endCandidates,
+  startPoint,
+  endPoint,
+  renderedLength,
+  sameRecord
+) {
+  if (!startPoint || !endPoint) return undefined;
+  const pairs = sameRecord
+    ? startCandidates.map((candidate) => [candidate, candidate])
+    : startCandidates.flatMap((start) => endCandidates.map((end) => [start, end]));
+  const ranges = new Map();
+  for (const [startMappings, endMappings] of pairs) {
+    const from = renderedPointToSourceOffset(startMappings, startPoint.node, startPoint.offset);
+    const to = renderedPointToSourceOffset(endMappings, endPoint.node, endPoint.offset);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from) continue;
+    const key = `${from}:${to}`;
+    ranges.set(key, {
+      from,
+      to,
+      score: Math.abs(to - from - Math.max(0, Number(renderedLength) || 0))
+    });
+  }
+  const ranked = [...ranges.values()].sort(
+    (left, right) => left.score - right.score || left.from - right.from || left.to - right.to
+  );
+  if (ranked.length === 0) return undefined;
+  if (ranked[1]?.score === ranked[0].score) return undefined;
+  return ranked[0];
 }
 
 function renderExactRenderedRanges(element, source, sectionInfo, annotations, options) {

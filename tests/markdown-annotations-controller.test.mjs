@@ -61,6 +61,49 @@ describe("MarkdownAnnotationsController", () => {
     expect(controller.cancelPick).toHaveBeenCalledOnce();
   });
 
+  it("clears the native rendered selection when submission exits pick mode", () => {
+    const controller = new MarkdownAnnotationsController({});
+    const leaf = {};
+    const removeAllRanges = vi.fn();
+    const state = {
+      leaf,
+      actionEl: { removeClass: vi.fn(), setAttr: vi.fn() },
+      view: {
+        containerEl: {
+          removeClass: vi.fn(),
+          ownerDocument: { getSelection: () => ({ removeAllRanges }) }
+        }
+      }
+    };
+    controller.leaves.set(leaf, state);
+    controller.pickState = { kind: "rendered", leaf, state };
+
+    controller.cancelPick();
+
+    expect(removeAllRanges).toHaveBeenCalledOnce();
+    expect(controller.pickState).toBeUndefined();
+  });
+
+  it("uses the rendered selection cached before the header button takes focus", async () => {
+    const controller = new MarkdownAnnotationsController({});
+    const leaf = {};
+    const cached = { state: {}, startRecord: {}, endRecord: {}, range: {}, text: "Two blocks" };
+    const state = {
+      leaf,
+      view: { file: { path: "Note.md" }, getMode: () => "preview" },
+      cachedRenderedSelection: cached
+    };
+    controller.leaves.set(leaf, state);
+    controller.renderedSelectionForState = vi.fn(() => undefined);
+    controller.activateRenderedPick = vi.fn(() => true);
+    controller.captureRenderedSelection = vi.fn();
+
+    await controller.handleHeaderAction(leaf);
+
+    expect(controller.captureRenderedSelection).toHaveBeenCalledWith(cached);
+    expect(state.cachedRenderedSelection).toBeUndefined();
+  });
+
   it("enters persistent pick mode when annotating an editor selection", async () => {
     const controller = new MarkdownAnnotationsController({});
     const leaf = {};
@@ -218,6 +261,65 @@ describe("MarkdownAnnotationsController", () => {
           start: { line: 0, ch: 6 },
           end: { line: 2, ch: 6 }
         }
+      }),
+      "selection"
+    );
+  });
+
+  it("opens the dialog for multi-element selections sharing broad section metadata", async () => {
+    const source = "Repeated alpha.\n\nRepeated beta.";
+    const textNode = (value) => ({ nodeType: 3, nodeValue: value });
+    const firstWord = textNode("Repeated");
+    const firstTail = textNode(" alpha.");
+    const secondWord = textNode("Repeated");
+    const secondTail = textNode(" beta.");
+    const element = (...nodes) => ({
+      nodeType: 1,
+      childNodes: nodes,
+      contains: (candidate) => nodes.includes(candidate),
+      isConnected: true
+    });
+    const firstElement = element(firstWord, firstTail);
+    const secondElement = element(secondWord, secondTail);
+    const state = {
+      view: { file: { path: "Note.md" }, getMode: () => "preview" }
+    };
+    const broadInfo = () => ({ text: source, lineStart: 0, lineEnd: 2 });
+    const startRecord = {
+      state,
+      sourcePath: "Note.md",
+      element: firstElement,
+      getSectionInfo: broadInfo
+    };
+    const endRecord = {
+      state,
+      sourcePath: "Note.md",
+      element: secondElement,
+      getSectionInfo: broadInfo
+    };
+    const controller = new MarkdownAnnotationsController({
+      app: { vault: { read: vi.fn().mockResolvedValue(source) } }
+    });
+    controller.openCreateModal = vi.fn();
+
+    await controller.captureRenderedSelection({
+      state,
+      startRecord,
+      endRecord,
+      range: {
+        startContainer: firstWord,
+        startOffset: 0,
+        endContainer: secondWord,
+        endOffset: 8
+      },
+      text: "Repeated alpha.\n\nRepeated"
+    });
+
+    expect(controller.openCreateModal).toHaveBeenCalledWith(
+      "Note.md",
+      expect.objectContaining({
+        quote: "Repeated alpha.\n\nRepeated",
+        range: expect.objectContaining({ from: 0, to: 25 })
       }),
       "selection"
     );

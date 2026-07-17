@@ -1156,21 +1156,9 @@ textarea.pi-agent-extension-input {
 }
 
 .pi-agent-annotation-range {
-  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
   border-bottom: 2px solid var(--interactive-accent);
-}
-
-.pi-agent-annotation-question {
-  border-bottom-style: dotted;
-}
-
-.cm-line.pi-agent-annotation-block {
-  background: color-mix(in srgb, var(--interactive-accent) 9%, transparent);
-  box-shadow: inset 2px 0 0 var(--interactive-accent);
-}
-
-.cm-line.pi-agent-annotation-block.pi-agent-annotation-question {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--interactive-accent) 70%, transparent);
+  border-radius: 2px 2px 0 0;
 }
 
 .pi-agent-annotation-pick-mode {
@@ -1178,17 +1166,13 @@ textarea.pi-agent-extension-input {
 }
 
 .cm-line.pi-agent-annotation-pick-line {
-  box-shadow: inset 3px 0 0 var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 9%, transparent);
-}
-
-.pi-agent-annotation-rendered-block {
-  border-radius: 3px;
-  outline: 2px solid color-mix(in srgb, var(--interactive-accent) 65%, transparent);
-  outline-offset: 3px;
+  border-radius: var(--radius-s);
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -1px;
 }
 
 .pi-agent-annotation-reading-pick-mode .pi-agent-annotation-rendered-target {
+  border-radius: var(--radius-s);
   cursor: crosshair;
 }
 
@@ -1196,8 +1180,9 @@ textarea.pi-agent-extension-input {
 .pi-agent-annotation-reading-pick-mode .pi-agent-annotation-rendered-target:focus,
 .pi-agent-annotation-reading-pick-mode .pi-agent-annotation-rendered-target.is-focused,
 .pi-agent-annotation-navigated {
-  outline: 3px solid var(--interactive-accent);
-  outline-offset: 3px;
+  border-radius: var(--radius-s);
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
 }
 
 .pi-agent-annotation-processing-range {
@@ -1300,6 +1285,24 @@ textarea.pi-agent-extension-input {
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.pi-agent-annotations-send {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--font-ui-smaller);
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 10px;
+}
+
+.pi-agent-annotations-send-icon {
+  display: inline-flex;
+}
+
+.pi-agent-annotations-send-icon svg {
+  height: 15px;
+  width: 15px;
 }
 
 .pi-agent-annotation-item {

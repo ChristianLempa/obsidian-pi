@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  mapRenderedChunkCandidatesToSource,
   mapRenderedChunksToSource,
   rangesOverlap,
   renderedPointToSourceOffset,
@@ -60,6 +61,16 @@ describe("reading mode annotation capture", () => {
     expect(renderedPointToSourceOffset(first, "word", 0)).toBe(8);
     expect(renderedPointToSourceOffset(first, "word", 4)).toBe(12);
     expect(renderedPointToSourceOffset(second, "second", 6)).toBe(28);
+  });
+
+  it("keeps all exact candidates when several rendered blocks share one broad source section", () => {
+    const broadSource = "Repeated alpha.\n\nRepeated beta.";
+    const candidates = mapRenderedChunkCandidatesToSource(broadSource, section(broadSource, 0, 2), [
+      { key: "word", text: "Repeated" }
+    ]);
+
+    expect(candidates).toHaveLength(2);
+    expect(candidates.map((candidate) => candidate[0].from)).toEqual([0, 17]);
   });
 
   it("resolves one changed replacement only between unchanged anchor contexts", () => {

@@ -75,26 +75,37 @@ export function resolveSectionRange(source, sectionInfo) {
 }
 
 export function mapRenderedChunksToSource(source, sectionInfo, chunks) {
+  return mapRenderedChunkCandidatesToSource(source, sectionInfo, chunks)[0] ?? [];
+}
+
+export function mapRenderedChunkCandidatesToSource(source, sectionInfo, chunks) {
   const text = String(source ?? "");
   const section = resolveSectionRange(text, sectionInfo);
-  if (!section) return [];
+  const renderedChunks = (Array.isArray(chunks) ? chunks : [])
+    .map((chunk) => ({ key: chunk?.key, text: String(chunk?.text ?? "") }))
+    .filter((chunk) => chunk.text);
+  if (!section || renderedChunks.length === 0) return [];
   const sectionSource = text.slice(section.from, section.to);
-  let cursor = 0;
-  const mappings = [];
-  for (const chunk of Array.isArray(chunks) ? chunks : []) {
-    const rendered = String(chunk?.text ?? "");
-    if (!rendered) continue;
-    const index = sectionSource.indexOf(rendered, cursor);
-    if (index < 0) continue;
-    mappings.push({
-      key: chunk.key,
-      text: rendered,
-      from: section.from + index,
-      to: section.from + index + rendered.length
-    });
-    cursor = index + rendered.length;
+  const candidates = [];
+  let firstIndex = sectionSource.indexOf(renderedChunks[0].text);
+  while (firstIndex >= 0 && candidates.length < 128) {
+    let cursor = firstIndex;
+    const mappings = [];
+    for (const chunk of renderedChunks) {
+      const index = sectionSource.indexOf(chunk.text, cursor);
+      if (index < 0) break;
+      mappings.push({
+        key: chunk.key,
+        text: chunk.text,
+        from: section.from + index,
+        to: section.from + index + chunk.text.length
+      });
+      cursor = index + chunk.text.length;
+    }
+    if (mappings.length === renderedChunks.length) candidates.push(mappings);
+    firstIndex = sectionSource.indexOf(renderedChunks[0].text, firstIndex + 1);
   }
-  return mappings;
+  return candidates;
 }
 
 export function renderedPointToSourceOffset(mappings, key, offset) {
