@@ -28,7 +28,7 @@ export class PiRunner {
     this.cancelRequested = false;
   }
 
-  async run(prompt, context, sessionId, threadHistory = [], callbacks) {
+  async run(prompt, context, sessionId, _threadHistory = [], callbacks) {
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
     const compactInstructions = getCompactInstructions(prompt);
     if (compactInstructions !== undefined)
@@ -37,11 +37,7 @@ export class PiRunner {
         : this.runPiRpcCompact(sessionId, compactInstructions, callbacks);
 
     const effectivePrompt = context?.userPrompt ?? prompt;
-    const formattedPrompt = this.contextBuilder.formatPrompt(
-      effectivePrompt,
-      context,
-      threadHistory
-    );
+    const formattedPrompt = this.contextBuilder.formatPrompt(effectivePrompt, context);
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
 
     return this.settings.dryRun
@@ -422,6 +418,8 @@ export class PiRunner {
 
   buildPiArgs(sessionId, mode = "rpc") {
     const args = ["--mode", mode, "--session", sessionId];
+    const instructions = this.contextBuilder.getSystemInstructions?.();
+    if (instructions) args.push("--append-system-prompt", instructions);
     const model =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
 

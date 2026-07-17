@@ -22,10 +22,6 @@ export class ContextBuilder {
 
     return {
       ...preAttachedContext,
-      instructions: [this.bundledInstructions, this.settings.customInstructions]
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .join("\n\n"),
       toolCatalog,
       inspection,
       slashCommands,
@@ -61,7 +57,14 @@ export class ContextBuilder {
     return (await this.build(prompt, selection)).inspection;
   }
 
-  formatPrompt(prompt, context, threadHistory = []) {
+  getSystemInstructions() {
+    return [this.bundledInstructions, this.settings.customInstructions]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  formatPrompt(prompt, context) {
     return [
       "Use the following Obsidian vault context as a starting point.",
       "When read/search/list tools are enabled, inspect additional files yourself instead of assuming the pre-attached context is complete.",
@@ -70,9 +73,6 @@ export class ContextBuilder {
       "",
       "## User prompt",
       prompt,
-      "",
-      "## Instructions",
-      context.instructions,
       "",
       "## Obsidian context helpers",
       context.toolCatalog.map((tool) => `- ${tool}`).join("\n"),
@@ -88,9 +88,6 @@ export class ContextBuilder {
         })
         .join("\n"),
       "",
-      "## Local chat thread history",
-      this.formatThreadHistory(threadHistory),
-      "",
       "## Active note",
       JSON.stringify(context.activeNote ?? null, null, 2),
       "",
@@ -103,24 +100,6 @@ export class ContextBuilder {
       "## Explicit prompt attachments",
       JSON.stringify(context.attachments, null, 2)
     ].join("\n");
-  }
-
-  formatThreadHistory(threadHistory) {
-    let remainingBudget = 6_000;
-    const messages = [];
-
-    for (const message of threadHistory.slice(-8).reverse()) {
-      if (remainingBudget <= 0) break;
-
-      const content = truncateThreadHistoryContent(
-        message.content,
-        Math.min(1200, remainingBudget)
-      );
-      remainingBudget -= content.length;
-      messages.unshift({ role: message.role, content });
-    }
-
-    return messages.length === 0 ? "[]" : JSON.stringify(messages, null, 2);
   }
 
   async resolveAttachments(references, activeNote) {
@@ -328,12 +307,4 @@ export class ContextBuilder {
       ? this.settings.customModel.trim() || "custom"
       : this.settings.model.trim() || "default";
   }
-}
-
-export function truncateThreadHistoryContent(content, maxLength) {
-  const text = String(content ?? "");
-
-  return text.length <= maxLength
-    ? text
-    : `${text.slice(0, Math.max(0, maxLength - 34))}\n[...truncated for context budget...]`;
 }
