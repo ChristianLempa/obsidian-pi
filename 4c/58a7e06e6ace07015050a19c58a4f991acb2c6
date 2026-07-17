@@ -1,0 +1,35 @@
+CHANGELOG.md
+  s_f72892f98dcdd3::t_0a89951587f789 5
+src/plugin/settings-tab.mjs
+  s_f72892f98dcdd3::t_e0a7b3b936a734 5-6,11,28-38,58-67,115-146,227-247
+src/plugin/settings.mjs
+  s_f72892f98dcdd3::t_17533e0816c579 76,78-82,98-101,115-120
+src/ui/modals/model-picker-modal.mjs
+  s_f72892f98dcdd3::t_560160540070e8 1-328
+src/ui/model-picker.mjs
+  s_f72892f98dcdd3::t_9c4e2627892693 1-42
+src/ui/run-settings.mjs
+  s_f72892f98dcdd3::t_c70d9986c10463 1,5,9,29-30,35,38-39,42-43,77-89,144-155,162
+styles.css
+  s_f72892f98dcdd3::t_d1a6b5c9fc502a 994-1132
+tests/model-picker.test.mjs
+  s_f72892f98dcdd3::t_4cc06b2ac69212 1-60
+tests/settings.test.mjs
+  s_f72892f98dcdd3::t_aba8e4bb8ceda5 47-48,62-74,85-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "4c58a7e06e6ace07015050a19c58a4f991acb2c6",
+  "prompts": {},
+  "sessions": {
+    "s_f72892f98dcdd3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7010-17b0-738c-8bf7-476562995acc",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
