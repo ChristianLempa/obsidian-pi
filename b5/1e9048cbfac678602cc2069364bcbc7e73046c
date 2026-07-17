@@ -1,0 +1,75 @@
+CHANGELOG.md
+  s_b3d65b86d2af53::t_db3de325c85c5b 6
+src/plugin/PiAgentPlugin.mjs
+  s_b3d65b86d2af53::t_4c154a0e8f3da8 853,855-856,968-982
+  s_bb40239319a157::t_10d6369749edb0 983
+src/annotations/markdown-annotation-extension.mjs
+  s_b3d65b86d2af53::t_827817dcd27aad 115-126
+styles.css
+  s_b3d65b86d2af53::t_dca0bbbf988a1d 1252-1269,1436-1441
+  s_b3d65b86d2af53::t_3c96b08cd1e4cb 1292-1293,1295,1298,1300-1302
+  s_b3d65b86d2af53::t_7a8570a4aace64 1203,1223,1232,1432
+src/annotations/reading-mode-capture.mjs
+  s_b3d65b86d2af53::t_2ab7b94b3f7050 77-128,132-141
+src/context/context-builder.mjs
+  s_b3d65b86d2af53::t_bfec2c6e7447b4 124
+tests/reading-mode-capture.test.mjs
+  s_b3d65b86d2af53::t_49b91fc90d1090 3,5-6,44-61,63-81
+  s_b3d65b86d2af53::t_d01b09eff69734 62
+  s_b3d65b86d2af53::t_f120978ae605d2 82
+src/annotations/markdown-annotations-controller.mjs
+  s_b3d65b86d2af53::t_7407d18dd7f93f 431,588-598
+  s_b3d65b86d2af53::t_9b32721793f182 934,962-969,980,982-984
+  s_b3d65b86d2af53::t_8304793647fdab 7,9-10,192,369-370,459-464,472,485-546
+  s_b3d65b86d2af53::t_dfadc45bdd01d0 44-46,93-96,760-764,828-829,831,835-869
+  s_b3d65b86d2af53::t_ab9d83aa3207db 644-646
+  s_b3d65b86d2af53::t_3bcb5df6bb8842 924-929,931
+  s_b3d65b86d2af53::t_9e139090778806 432
+  s_b3d65b86d2af53::t_982b73ea88a8f2 547-548,870,888-923,930,932-933,935-961,970-979,981,985-1005
+  s_b3d65b86d2af53::t_e44d9a6940c79f 549
+  s_b3d65b86d2af53::t_0be77e031ecc27 871
+src/ui/PiAgentView.mjs
+  s_b3d65b86d2af53::t_2c034cf9d5cbaf 807
+  s_b3d65b86d2af53::t_0a18c02b4e27d0 806,808,816-817,821-825
+  s_b3d65b86d2af53::t_e3fa8b00c74709 914
+tests/annotation-processing.test.mjs
+  s_b3d65b86d2af53::t_2c034cf9d5cbaf 55
+  s_b3d65b86d2af53::t_e1b152aece1738 23
+  s_b3d65b86d2af53::t_104a49e6e36a9a 8-11,46-54
+  s_b3d65b86d2af53::t_5266a77da53a56 40-45,56-57
+  s_b3d65b86d2af53::t_8393ecc4a3c456 22
+tests/markdown-annotations-controller.test.mjs
+  s_b3d65b86d2af53::t_e41395d18d22d2 252
+  s_b3d65b86d2af53::t_897102618d7f85 122,124-131,140,147-158
+  s_b3d65b86d2af53::t_71191c32a55526 166-223
+  s_b3d65b86d2af53::t_927b92034a1732 164,326-350
+  s_b3d65b86d2af53::t_0f81cf12c5711c 165
+TESTING.md
+  s_b3d65b86d2af53::t_07bf049eecaa5b 129-131
+tests/context-builder.test.mjs
+  s_b3d65b86d2af53::t_4afee5afe37bfb 89-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "b51e9048cbfac678602cc2069364bcbc7e73046c",
+  "prompts": {},
+  "sessions": {
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_bb40239319a157": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7067-cf1a-7ac9-881e-df562056a5f1",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
