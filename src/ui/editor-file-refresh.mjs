@@ -8,7 +8,8 @@ export async function refreshOpenMarkdownViews(app, file) {
     if (view?.file?.path !== file.path || typeof view.setViewData !== "function") continue;
 
     const current = view.editor?.getValue?.() ?? view.getViewData?.();
-    if (current === content) continue;
+    if (current === content && view.data === content) continue;
+    view.data = content;
     view.setViewData(content, false);
     refreshed += 1;
   }

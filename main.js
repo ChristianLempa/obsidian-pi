@@ -7072,7 +7072,8 @@ async function refreshOpenMarkdownViews(app, file) {
     const view = leaf.view;
     if (view?.file?.path !== file.path || typeof view.setViewData !== "function") continue;
     const current = view.editor?.getValue?.() ?? view.getViewData?.();
-    if (current === content) continue;
+    if (current === content && view.data === content) continue;
+    view.data = content;
     view.setViewData(content, false);
     refreshed += 1;
   }
@@ -7110,7 +7111,6 @@ var PiAgentView = class extends f4.ItemView {
     this.messageRenderComponents = [];
     this.activeRuns = /* @__PURE__ */ new Map();
     this.activeEditorScrollSnapshot = void 0;
-    this.agentFileRefreshUntil = 0;
     this.stickToBottom = true;
   }
   getViewType() {
@@ -7945,7 +7945,8 @@ var PiAgentView = class extends f4.ItemView {
       thinking: "",
       thinkingExpanded: false,
       thinkingUserSet: false,
-      toolErrors: []
+      toolErrors: [],
+      contextFilePath: delivery.promptContext?.activeNote?.path
     };
     let skipQueueDrain = false;
     const addUserMessage = () => {
@@ -8101,10 +8102,9 @@ var PiAgentView = class extends f4.ItemView {
         (this.activityDetail = ""),
         (this.currentRunContextUsage = void 0),
         this.isCurrentThread(t) && (this.nativePiQueue = void 0),
-        (this.agentFileRefreshUntil = Date.now() + 2e3),
+        n.contextFilePath && this.refreshOpenMarkdownPath(n.contextFilePath),
         this.activeEditorScrollSnapshot &&
-          (this.refreshOpenMarkdownPath(this.activeEditorScrollSnapshot.path),
-          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path)),
+          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
         (this.activeEditorScrollSnapshot = void 0),
         this.renderPromptQueue(),
         (this.runningThreadId = void 0),
@@ -8128,12 +8128,7 @@ var PiAgentView = class extends f4.ItemView {
     }
   }
   handleVaultFileModify(e) {
-    if (
-      !(e instanceof f4.TFile) ||
-      e.extension !== "md" ||
-      (this.activeRuns.size === 0 && Date.now() > this.agentFileRefreshUntil)
-    )
-      return;
+    if (!(e instanceof f4.TFile) || e.extension !== "md" || this.activeRuns.size === 0) return;
     this.scheduleEditorScrollRestore(e.path);
     this.refreshOpenMarkdownPath(e.path, e);
   }

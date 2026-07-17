@@ -64,7 +64,6 @@ export class PiAgentView extends f.ItemView {
     this.messageRenderComponents = [];
     this.activeRuns = new Map();
     this.activeEditorScrollSnapshot = void 0;
-    this.agentFileRefreshUntil = 0;
     this.stickToBottom = !0;
   }
   getViewType() {
@@ -898,7 +897,8 @@ export class PiAgentView extends f.ItemView {
       thinking: "",
       thinkingExpanded: false,
       thinkingUserSet: false,
-      toolErrors: []
+      toolErrors: [],
+      contextFilePath: delivery.promptContext?.activeNote?.path
     };
     let skipQueueDrain = false;
     const addUserMessage = () => {
@@ -1054,10 +1054,9 @@ export class PiAgentView extends f.ItemView {
         (this.activityDetail = ""),
         (this.currentRunContextUsage = void 0),
         this.isCurrentThread(t) && (this.nativePiQueue = void 0),
-        (this.agentFileRefreshUntil = Date.now() + 2_000),
+        n.contextFilePath && this.refreshOpenMarkdownPath(n.contextFilePath),
         this.activeEditorScrollSnapshot &&
-          (this.refreshOpenMarkdownPath(this.activeEditorScrollSnapshot.path),
-          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path)),
+          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
         (this.activeEditorScrollSnapshot = void 0),
         this.renderPromptQueue(),
         (this.runningThreadId = void 0),
@@ -1081,12 +1080,7 @@ export class PiAgentView extends f.ItemView {
     }
   }
   handleVaultFileModify(e) {
-    if (
-      !(e instanceof f.TFile) ||
-      e.extension !== "md" ||
-      (this.activeRuns.size === 0 && Date.now() > this.agentFileRefreshUntil)
-    )
-      return;
+    if (!(e instanceof f.TFile) || e.extension !== "md" || this.activeRuns.size === 0) return;
     this.scheduleEditorScrollRestore(e.path);
     this.refreshOpenMarkdownPath(e.path, e);
   }

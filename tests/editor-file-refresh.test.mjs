@@ -5,6 +5,7 @@ function leaf(path, content) {
   return {
     view: {
       file: { path },
+      data: content,
       editor: { getValue: () => content },
       setViewData: vi.fn()
     }
@@ -24,6 +25,8 @@ describe("agent file refresh", () => {
     await expect(refreshOpenMarkdownViews(app, { path: "Note.md", extension: "md" })).resolves.toBe(
       2
     );
+    expect(first.view.data).toBe("new");
+    expect(second.view.data).toBe("new");
     expect(first.view.setViewData).toHaveBeenCalledWith("new", false);
     expect(second.view.setViewData).toHaveBeenCalledWith("new", false);
     expect(other.view.setViewData).not.toHaveBeenCalled();
