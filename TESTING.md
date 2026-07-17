@@ -18,7 +18,7 @@ npm run ci
 npm run test:pi -- /Users/xcad/Obsidian/ObsidianTesting
 ```
 
-`test:pi` is opt-in. It starts Pi RPC with `--offline --no-tools --no-session`, disables discovered extensions, skills, prompt templates, themes, context files, and project approval, then reads state/models/commands. It sends no model prompt or provider request and therefore incurs no model-provider charge.
+`test:pi` is opt-in. It starts Pi RPC with `--offline --no-tools --no-session`, keeps normal extension discovery enabled for compatibility coverage, disables skills, prompt templates, themes, context files, and project approval, then reads state/models/commands. It sends no model prompt or provider request and therefore incurs no model-provider charge.
 
 ## Install the development build
 

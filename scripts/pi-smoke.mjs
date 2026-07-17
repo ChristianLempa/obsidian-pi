@@ -16,7 +16,6 @@ const client = new PiRpcClient({
     "rpc",
     "--no-session",
     "--no-tools",
-    "--no-extensions",
     "--no-skills",
     "--no-prompt-templates",
     "--no-themes",

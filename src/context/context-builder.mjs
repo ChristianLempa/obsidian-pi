@@ -169,7 +169,6 @@ export class ContextBuilder {
     }
     return formatted;
   }
-  }
 
   async resolveAttachments(references, activeNote) {
     const attachments = [];
