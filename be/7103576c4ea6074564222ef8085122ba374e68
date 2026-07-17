@@ -1,0 +1,37 @@
+CHANGELOG.md
+  s_5802409db8226a::t_4a6eb934789883 7
+src/plugin/PiAgentPlugin.mjs
+  s_5802409db8226a::t_91ecf0b06025ff 36-41,132-135,155,250-251,282,289-292,327-341,343-364,366-403,405,820-821
+src/plugin/settings-tab.mjs
+  s_5802409db8226a::t_3d8cec3aa59d9a 1,32-49,59-63,77-93,169,262-266,272,275-276
+src/plugin/settings.mjs
+  s_5802409db8226a::t_83971617ceaffd 68-70
+src/ui/modals/model-picker-modal.mjs
+  s_5802409db8226a::t_8c48a762425cf6 1-2,4-6,9,14-21,24-25,28-29,32-41,44-46,51,56-62,65-69,72-84,87-90,92-97,100-103,107-110,113-115
+src/ui/model-picker.mjs
+  s_5802409db8226a::t_1f47caa770730f 1-25,29-41,43-91
+src/ui/run-settings.mjs
+  s_5802409db8226a::t_d0e79ab87f7b7e 1,26-27,31-33,35-46,56-57,59-70,74-78,88-92,96-103,107
+styles.css
+  s_5802409db8226a::t_35b1ce91a2f1e1 1063,1069
+tests/model-picker.test.mjs
+  s_5802409db8226a::t_084d7d4a7673c3 1,3-9,12-44,47-55,58-100,102-105
+tests/settings.test.mjs
+  s_5802409db8226a::t_70acad3aa272e1 25,33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "be7103576c4ea6074564222ef8085122ba374e68",
+  "prompts": {},
+  "sessions": {
+    "s_5802409db8226a": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7039-7ad9-7ceb-a098-74022133a76c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
