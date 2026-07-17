@@ -1,0 +1,37 @@
+CHANGELOG.md
+  s_f72892f98dcdd3::t_5e66edd0a81fb6 11
+PRIVACY.md
+  s_f72892f98dcdd3::t_24b7cfa18533cd 26-28
+src/pi/runner.mjs
+  s_f72892f98dcdd3::t_6b3556ce706705 540,542-546,548-565,567-584
+src/plugin/PiAgentPlugin.mjs
+  s_f72892f98dcdd3::t_a672b68e3dd1db 338-360,368-387,431-434,436-454,457-465,467-468,475-487
+src/ui/modals/delete-thread-modal.mjs
+  s_f72892f98dcdd3::t_6f04519f20b074 1-53
+src/ui/thread-actions.mjs
+  s_f72892f98dcdd3::t_16f0d79c8bc37d 17-28
+src/ui/thread-list-view.mjs
+  s_f72892f98dcdd3::t_6907c90a45d158 2,124-159,203-208,219-226
+tests/delete-thread-modal.test.mjs
+  s_f72892f98dcdd3::t_4d6da3bb00ede9 1-23
+tests/runner.test.mjs
+  s_f72892f98dcdd3::t_5c0fb83788a1ed 377,379-391,396-397,399-428,430-440,443-455
+tests/thread-store.test.mjs
+  s_f72892f98dcdd3::t_d7ab33daab08de 64-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "2ab74cf7ce80f66404e5dba4e5261ba7e78d5d62",
+  "prompts": {},
+  "sessions": {
+    "s_f72892f98dcdd3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7010-17b0-738c-8bf7-476562995acc",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
