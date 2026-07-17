@@ -793,8 +793,17 @@ function createMarkdownAnnotationExtension(controller) {
           if (controller.isPicking(view)) controller.hoverPickTarget(view, void 0);
           return false;
         },
+        mouseup(_event, view) {
+          if (!controller.isPicking(view) || view.state.selection.main.empty) return false;
+          globalThis.queueMicrotask?.(() => controller.chooseEditorSelection(view));
+          return false;
+        },
         click(event, view) {
           if (!controller.isPicking(view)) return false;
+          if (controller.chooseEditorSelection(view)) {
+            event.preventDefault();
+            return true;
+          }
           const line = event.target?.closest?.(".cm-line") ?? null;
           if (!line) return false;
           event.preventDefault();
@@ -810,7 +819,8 @@ function createMarkdownAnnotationExtension(controller) {
           }
           if (event.key !== "Enter") return false;
           event.preventDefault();
-          controller.choosePickTarget(view, view.state.selection.main.head);
+          if (!controller.chooseEditorSelection(view))
+            controller.choosePickTarget(view, view.state.selection.main.head);
           return true;
         }
       }
@@ -857,7 +867,7 @@ function buildDecorations(view, controller) {
       }).range(from, to)
     );
   }
-  const candidate = controller.pickRangeForEditor(view);
+  const candidate = view.state.selection.main.empty ? controller.pickRangeForEditor(view) : void 0;
   if (candidate && candidate.to > candidate.from) {
     const startLine = view.state.doc.lineAt(Math.min(documentLength, candidate.from)).number;
     const endOffset = Math.min(documentLength, Math.max(candidate.from, candidate.to - 1));
@@ -898,6 +908,7 @@ var MarkdownAnnotationsController = class {
     this.revealRanges = /* @__PURE__ */ new Map();
     this.revealTimers = /* @__PURE__ */ new Map();
     this.revealVersions = /* @__PURE__ */ new Map();
+    this.selectionPicks = /* @__PURE__ */ new WeakMap();
     this.destroyed = false;
   }
   start() {
@@ -1169,6 +1180,29 @@ var MarkdownAnnotationsController = class {
     const offset = this.pickState.hoverOffset ?? view.state.selection.main.head;
     return resolveMarkdownBlockRange(view.state.doc.toString(), offset);
   }
+  chooseEditorSelection(view) {
+    if (!this.isPicking(view)) return false;
+    const selection = view.state.selection.main;
+    if (selection.empty || selection.to <= selection.from) return false;
+    const state = this.stateForEditor(view);
+    const path4 = state?.view.file?.path;
+    if (!path4) return false;
+    const signature = `${selection.from}:${selection.to}`;
+    const previous = this.selectionPicks.get(view);
+    const now = Date.now();
+    if (previous?.signature === signature && now - previous.at < 100) return true;
+    if (selection.to - selection.from > ANNOTATION_LIMITS.quote) {
+      new import_obsidian2.Notice("The selected Markdown text is too large to annotate.");
+      return true;
+    }
+    this.selectionPicks.set(view, { signature, at: now });
+    this.openCreateModal(
+      path4,
+      captureAnchor(view.state.doc.toString(), selection.from, selection.to),
+      "selection"
+    );
+    return true;
+  }
   choosePickTarget(view, offset) {
     if (!this.isPicking(view)) return;
     const state = this.leaves.get(this.pickState.leaf);
@@ -1221,10 +1255,23 @@ var MarkdownAnnotationsController = class {
     }
   }
   addRenderedListeners(record) {
+    const onMouseUp = (event) => {
+      if (this.pickState?.kind !== "rendered" || this.pickState.state !== record.state) return;
+      const selection = this.renderedSelectionForState(record.state);
+      if (!selection || selection.invalid) return;
+      event.stopPropagation();
+      record.state.renderedSelectionPending = true;
+      void this.captureRenderedSelection(selection).finally(() => {
+        globalThis.setTimeout?.(() => {
+          record.state.renderedSelectionPending = false;
+        }, 100);
+      });
+    };
     const onClick = (event) => {
       if (this.pickState?.kind !== "rendered" || this.pickState.state !== record.state) return;
       event.preventDefault();
       event.stopPropagation();
+      if (record.state.renderedSelectionPending) return;
       const selection = this.renderedSelectionForState(record.state);
       if (selection?.invalid) return;
       if (selection) void this.captureRenderedSelection(selection);
@@ -1246,6 +1293,7 @@ var MarkdownAnnotationsController = class {
       void this.captureRendered(record, "");
     };
     for (const [type, listener] of [
+      ["mouseup", onMouseUp],
       ["click", onClick],
       ["focus", onFocus],
       ["keydown", onKeyDown]
@@ -1479,9 +1527,21 @@ var MarkdownAnnotationsController = class {
           status: "attached",
           ...anchor
         });
+        this.clearNativeSelection(path4);
         this.refresh();
       }
     }).open();
+  }
+  clearNativeSelection(path4) {
+    for (const state of this.leaves.values()) {
+      if (state.view.file?.path !== path4) continue;
+      if (this.isReadingState(state)) {
+        state.view.containerEl.ownerDocument?.getSelection?.()?.removeAllRanges?.();
+        continue;
+      }
+      const cursor = state.view.editor?.getCursor?.("to");
+      if (cursor) state.view.editor.setCursor?.(cursor);
+    }
   }
   openEditModal(state, annotation) {
     new AnnotationModal(this.plugin.app, {
