@@ -100,6 +100,7 @@ export class PiAgentPlugin extends P.Plugin {
     this.messages = [];
     this.threadHistory = new ThreadStore();
     this.dataSaveChain = Promise.resolve();
+    this.threadRunners = new Map();
   }
   async onload() {
     await this.loadSettings();
@@ -189,6 +190,7 @@ export class PiAgentPlugin extends P.Plugin {
   }
   onunload() {
     this.cancelPiRun();
+    this.disposeThreadRunners();
   }
   async loadSettings() {
     let e = await this.loadData(),
@@ -208,7 +210,18 @@ export class PiAgentPlugin extends P.Plugin {
         (this.settings.model = "__custom")));
   }
   async saveSettings() {
-    (await this.savePluginData(), this.rebuildServices());
+    await this.savePluginData();
+    if (this.hasActivePiRuns()) this.pendingServiceRebuild = true;
+    else this.rebuildServices();
+  }
+  hasActivePiRuns() {
+    return [...this.threadRunners.values()].some((runner) => runner.isRunning);
+  }
+  rebuildServicesIfPending() {
+    if (this.pendingServiceRebuild && !this.hasActivePiRuns()) {
+      this.pendingServiceRebuild = false;
+      this.rebuildServices();
+    }
   }
   showPiSetupIfNeeded() {
     if (this.settings.dismissedPiSetup) return;
@@ -322,6 +335,9 @@ export class PiAgentPlugin extends P.Plugin {
       : !1;
   }
   deleteThread(e) {
+    const runner = this.threadRunners.get(e);
+    runner?.rpcClient?.dispose();
+    this.threadRunners.delete(e);
     return this.threadHistory.deleteThread(e)
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
       : !1;
@@ -433,17 +449,26 @@ export class PiAgentPlugin extends P.Plugin {
     var t;
     (e != null ? e : (t = this.pi) != null ? t : void 0)?.cancelCurrentRun();
   }
-  createPiRunner() {
+  createPiRunner(threadId = this.getCurrentThread().id) {
     (!this.graph || !this.contextBuilder) && this.rebuildServices();
     if (!this.contextBuilder) throw new Error("Pi context builder is not available.");
-    return new PiRunner(
+    const existing = this.threadRunners.get(threadId);
+    if (existing) return existing;
+    const runner = new PiRunner(
       this.settings,
       this.contextBuilder,
       this.getVaultBasePath(),
       this.getPluginDirectory()
     );
+    this.threadRunners.set(threadId, runner);
+    return runner;
+  }
+  disposeThreadRunners() {
+    for (const runner of this.threadRunners.values()) runner.rpcClient?.dispose();
+    this.threadRunners.clear();
   }
   rebuildServices() {
+    this.disposeThreadRunners();
     ((this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile())),
       (this.contextBuilder = new ContextBuilder(
         this.graph,

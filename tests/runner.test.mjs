@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../src/plugin/settings.mjs";
 import { PiRunner } from "../src/pi/runner.mjs";
 
@@ -39,7 +39,7 @@ describe("PiRunner", () => {
       }).buildPiArgs("session.jsonl")
     ).toEqual([
       "--mode",
-      "json",
+      "rpc",
       "--session",
       "session.jsonl",
       "--model",
@@ -90,6 +90,108 @@ describe("PiRunner", () => {
       sessionId: "session-id"
     });
     expect(result).not.toHaveProperty("changeStats");
+  });
+
+  it("reuses an injected RPC client and streams run events", async () => {
+    const tempDir = createTempDir();
+    const listeners = new Set();
+    const requests = [];
+    const rpcClient = {
+      start: vi.fn(async () => {}),
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      async request(type, payload) {
+        requests.push({ type, payload });
+        for (const listener of listeners) {
+          listener({
+            type: "message_update",
+            message: { role: "assistant", content: [] },
+            assistantMessageEvent: { type: "text_delta", delta: `echo:${payload.message}` }
+          });
+          listener({ type: "agent_settled" });
+        }
+      }
+    };
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      tempDir,
+      rpcClient
+    );
+
+    const first = await runner.runPiRpc("one", undefined);
+    const second = await runner.runPiRpc("two", first.sessionId);
+
+    expect(first.finalResponse).toBe("echo:one");
+    expect(second.finalResponse).toBe("echo:two");
+    expect(requests).toEqual([
+      { type: "prompt", payload: { message: "one" } },
+      { type: "prompt", payload: { message: "two" } }
+    ]);
+    expect(rpcClient.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels persistent runs through RPC abort", () => {
+    const abort = vi.fn();
+    const runner = createRunner();
+    runner.rpcClient = { abort };
+
+    runner.cancelCurrentRun();
+
+    expect(abort).toHaveBeenCalledOnce();
+  });
+
+  it("does not send a prompt when cancellation happens during RPC startup", async () => {
+    let finishStart;
+    const rpcClient = {
+      start: () => new Promise((resolve) => (finishStart = resolve)),
+      abort: vi.fn(),
+      request: vi.fn(),
+      subscribe: vi.fn()
+    };
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      createTempDir(),
+      rpcClient
+    );
+
+    const run = runner.runPiRpc("hello", undefined);
+    await vi.waitFor(() => expect(runner.isRunning).toBe(true));
+    runner.cancelCurrentRun();
+    finishStart();
+
+    await expect(run).rejects.toThrow("Pi run canceled.");
+    expect(rpcClient.request).not.toHaveBeenCalled();
+    expect(runner.isRunning).toBe(false);
+  });
+
+  it("tracks native compaction as an active RPC run", async () => {
+    let finishCompact;
+    const rpcClient = {
+      start: vi.fn(async () => {}),
+      subscribe: () => () => {},
+      request: () => new Promise((resolve) => (finishCompact = resolve))
+    };
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      createTempDir(),
+      rpcClient
+    );
+
+    const compact = runner.runPiRpcCompact(undefined);
+    await vi.waitFor(() => expect(finishCompact).toBeTypeOf("function"));
+    expect(runner.isRunning).toBe(true);
+    finishCompact({ summary: "short" });
+
+    await expect(compact).resolves.toMatchObject({ contextCompacted: true });
+    expect(runner.isRunning).toBe(false);
   });
 
   it("uses Pi-returned provider and model to resolve the matching context window", () => {

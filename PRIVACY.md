@@ -1,6 +1,6 @@
 # Privacy
 
-Pi Agent is a desktop-only Obsidian plugin that shells out to the separately installed Pi CLI.
+Pi Agent is a desktop-only Obsidian plugin that maintains local RPC subprocesses with the separately installed Pi CLI.
 
 ## Data sent to Pi
 

@@ -7,6 +7,7 @@ import { createContextUsage } from "./token-usage.mjs";
 import { createPiCliError, formatPiCliFailure } from "./diagnostics.mjs";
 import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
 import { handlePiJsonEventLine } from "./events.mjs";
+import { PiRpcClient } from "./rpc-client.mjs";
 
 export function isPiCliCommandPrompt(prompt) {
   return /^\/(compact)(?:\s|$)/i.test(prompt.trim());
@@ -18,11 +19,12 @@ export function getCompactInstructions(prompt) {
 }
 
 export class PiRunner {
-  constructor(settings, contextBuilder, workingDirectory, pluginDirectory) {
+  constructor(settings, contextBuilder, workingDirectory, pluginDirectory, rpcClient) {
     this.settings = settings;
     this.contextBuilder = contextBuilder;
     this.workingDirectory = workingDirectory;
     this.pluginDirectory = pluginDirectory;
+    this.rpcClient = rpcClient;
     this.cancelRequested = false;
   }
 
@@ -49,11 +51,15 @@ export class PiRunner {
           threadId: sessionId,
           events: []
         }
-      : this.runPiCli(formattedPrompt, sessionId, callbacks);
+      : this.runPiRpc(formattedPrompt, sessionId, callbacks);
   }
 
   cancelCurrentRun() {
     this.cancelRequested = true;
+    if (this.rpcClient) {
+      this.rpcClient.abort();
+      return;
+    }
     if (!this.activeChild) return;
 
     this.terminateActiveChild("SIGTERM");
@@ -83,6 +89,97 @@ export class PiRunner {
       } catch {
         // Ignore process termination races.
       }
+    }
+  }
+
+  async getOrCreateRpcClient(sessionReference) {
+    if (this.rpcClient) {
+      this.rpcSession ??= this.resolveOrCreateSession(sessionReference);
+      await this.rpcClient.start();
+      return { client: this.rpcClient, session: this.rpcSession };
+    }
+
+    const session = this.resolveOrCreateSession(sessionReference);
+    const client = new PiRpcClient({
+      piExecutablePath: this.settings.piExecutablePath,
+      cwd: this.workingDirectory ?? this.pluginDirectory,
+      args: this.buildPiArgs(session.path, "rpc")
+    });
+    this.rpcClient = client;
+    this.rpcSession = session;
+    await client.start();
+    return { client, session };
+  }
+
+  async runPiRpc(prompt, sessionId, callbacks) {
+    if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
+    if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+
+    this.cancelRequested = false;
+    this.isRunning = true;
+    let unsubscribe = () => {};
+    try {
+      const { client, session } = await this.getOrCreateRpcClient(sessionId);
+      if (this.cancelRequested || callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+
+      const events = [];
+      let finalResponse = "";
+      let runState;
+      let settled = false;
+      let settleRun;
+      let rejectRun;
+      const completion = new Promise((resolve, reject) => {
+        settleRun = resolve;
+        rejectRun = reject;
+      });
+      const updateRunState = (nextRunState) => {
+        if (nextRunState) runState = { ...runState, ...nextRunState };
+      };
+      unsubscribe = client.subscribe((event) => {
+        if (event.type === "rpc_exit") {
+          if (!settled) rejectRun(new Error(event.error || "Pi RPC process stopped."));
+          return;
+        }
+        handlePiJsonEventLine(
+          JSON.stringify(event),
+          callbacks,
+          events,
+          (delta) => {
+            finalResponse += delta;
+          },
+          updateRunState
+        );
+        if (event.type === "agent_settled" && !settled) {
+          settled = true;
+          settleRun();
+        }
+      });
+
+      callbacks?.onEvent?.({
+        type: "pi_start",
+        raw: { mode: "rpc", cwd: this.workingDirectory ?? this.pluginDirectory }
+      });
+
+      await Promise.all([client.request("prompt", { message: prompt }), completion]);
+      if (this.cancelRequested || callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+      if (runState?.errorMessage) throw new Error(runState.errorMessage);
+      return {
+        finalResponse: this.getFinalResponse(finalResponse, runState?.fallbackText, events),
+        sessionId: session.reference,
+        threadId: session.reference,
+        events,
+        contextUsage: this.getRunContextUsage(runState?.tokenUsage, events),
+        contextCompacted: this.didCompactContext(events),
+        tokenUsage: runState?.tokenUsage ?? undefined
+      };
+    } catch (error) {
+      if (this.cancelRequested || callbacks?.isCanceled?.())
+        throw new Error("Pi run canceled.", { cause: error });
+      throw error;
+    } finally {
+      this.cancelRequested = false;
+      this.isRunning = false;
+      unsubscribe();
     }
   }
 
@@ -210,112 +307,54 @@ export class PiRunner {
     });
   }
 
-  runPiRpcCompact(sessionId, customInstructions = "", callbacks) {
+  async runPiRpcCompact(sessionId, customInstructions = "", callbacks) {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
 
-    const session = this.resolveOrCreateSession(sessionId);
-    const args = this.buildPiArgs(session.path, "rpc");
+    this.cancelRequested = false;
+    this.isRunning = true;
+    let unsubscribe = () => {};
+    try {
+      const { client, session } = await this.getOrCreateRpcClient(sessionId);
+      if (this.cancelRequested || callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
 
-    return new Promise((resolve, reject) => {
-      this.cancelRequested = false;
-      const piExecutable = findPiExecutable(this.settings.piExecutablePath);
-      const invocation = buildPiProcessInvocation(piExecutable, args, {
-        cwd: this.workingDirectory ?? this.pluginDirectory,
-        detached: process.platform !== "win32"
-      });
-      const child = spawn(invocation.command, invocation.args, invocation.options);
-      this.activeChild = child;
-      callbacks?.onEvent?.({
-        type: "pi_start",
-        raw: { args: args.slice(1), cwd: this.workingDirectory ?? this.pluginDirectory }
-      });
-
-      let stdoutBuffer = "";
-      let stderr = "";
-      let settled = false;
       const events = [];
-      const requestId = `compact-${Date.now()}`;
-      const failOnce = (error) => {
-        if (!settled) {
-          settled = true;
-          reject(error);
-        }
-      };
-      const finishOnce = (response) => {
-        if (settled) return;
-        settled = true;
-        this.terminateActiveChild("SIGTERM");
-        const result = response.data;
-        resolve({
-          finalResponse: response.success
-            ? "Context compacted."
-            : `Context compaction failed: ${response.error ?? "Unknown error"}`,
-          sessionId: session.reference,
-          threadId: session.reference,
-          events,
-          contextUsage: undefined,
-          contextCompacted: response.success === true,
-          tokenUsage: undefined,
-          compactionResult: result
-        });
-      };
-      const handleLine = (line) => {
-        if (!line.trim()) return;
-        let event;
-        try {
-          event = JSON.parse(line);
-        } catch {
-          return;
-        }
-        if (event.type === "response" && event.id === requestId && event.command === "compact") {
-          finishOnce(event);
-          return;
-        }
+      unsubscribe = client.subscribe((event) => {
         handlePiJsonEventLine(
-          line,
+          JSON.stringify(event),
           callbacks,
           events,
           () => {},
           () => {}
         );
-      };
-
-      child.stdout.on("data", (chunk) => {
-        stdoutBuffer += chunk.toString("utf8");
-        const lines = stdoutBuffer.split(/\r?\n/);
-        stdoutBuffer = lines.pop() ?? "";
-        for (const line of lines) handleLine(line);
       });
-      child.stderr.on("data", (chunk) => {
-        stderr += chunk.toString("utf8");
-      });
-      child.once("error", (error) => {
-        failOnce(createPiCliError({ error }));
-      });
-      child.once("close", (exitCode) => {
-        if (this.activeChild === child) this.activeChild = undefined;
-        if (settled) return;
-        if (this.cancelRequested) {
-          this.cancelRequested = false;
-          failOnce(new Error("Pi run canceled."));
-          return;
-        }
-        if (stdoutBuffer.trim()) handleLine(stdoutBuffer.trim());
-        if (settled) return;
-        failOnce(
-          new Error(formatPiCliFailure({ context: "Pi RPC compact failed", stderr, exitCode }))
-        );
-      });
-
-      child.stdin.write(
-        `${JSON.stringify({
-          id: requestId,
-          type: "compact",
+      const result = await client.request(
+        "compact",
+        {
           ...(customInstructions ? { customInstructions } : {})
-        })}\n`
+        },
+        { timeoutMs: 0 }
       );
-    });
+      if (this.cancelRequested || callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+      return {
+        finalResponse: "Context compacted.",
+        sessionId: session.reference,
+        threadId: session.reference,
+        events,
+        contextUsage: undefined,
+        contextCompacted: true,
+        tokenUsage: undefined,
+        compactionResult: result
+      };
+    } catch (error) {
+      if (this.cancelRequested || callbacks?.isCanceled?.())
+        throw new Error("Pi run canceled.", { cause: error });
+      throw error;
+    } finally {
+      this.cancelRequested = false;
+      this.isRunning = false;
+      unsubscribe();
+    }
   }
 
   getFinalResponse(finalResponse, fallbackText, events, isCommandPrompt = false) {
@@ -381,7 +420,7 @@ export class PiRunner {
       : undefined;
   }
 
-  buildPiArgs(sessionId, mode = "json") {
+  buildPiArgs(sessionId, mode = "rpc") {
     const args = ["--mode", mode, "--session", sessionId];
     const model =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;

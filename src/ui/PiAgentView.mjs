@@ -501,7 +501,7 @@ export class PiAgentView extends f.ItemView {
       this.enqueuePrompt(e, t);
       return;
     }
-    let n = { canceling: !1, runner: this.plugin.createPiRunner() };
+    let n = { canceling: !1, runner: this.plugin.createPiRunner(t) };
     (this.activeRuns.set(t, n),
       this.syncCurrentRunFlags(),
       (this.runningThreadId = t),
@@ -592,6 +592,7 @@ export class PiAgentView extends f.ItemView {
         this.setRunningState(this.running),
         this.isCurrentThread(t) && (this.renderMessages(), this.renderToolBadges()),
         this.renderThreadListIfVisible(),
+        this.plugin.rebuildServicesIfPending(),
         this.runNextQueuedPrompt());
     }
   }
