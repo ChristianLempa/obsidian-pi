@@ -1,0 +1,69 @@
+versions.json
+  s_b3d65b86d2af53::t_ae97971358c7d0 9-10
+CHANGELOG.md
+  s_b3d65b86d2af53::t_668ef958bfc934 7
+  s_b3d65b86d2af53::t_cc4be5e5e4ae0f 8
+  s_b3d65b86d2af53::t_a50584fee9bdda 5-6
+src/ui/run-settings.mjs
+  s_b3d65b86d2af53::t_b03d2ddf5bf2d5 8,27-32,37-40,62-63,96-102,107,112
+  s_b3d65b86d2af53::t_bb72aea22ddc9d 103-106,108-111,113
+  s_b3d65b86d2af53::t_b9ff58b8858ee0 33-36,118
+src/pi/health.mjs
+  s_b3d65b86d2af53::t_7b719e45f658bc 7
+styles.css
+  s_b3d65b86d2af53::t_105c86240d50fd 163-187,1154-1163
+  s_b3d65b86d2af53::t_f25492e7237542 1164
+package.json
+  s_b3d65b86d2af53::t_ae97971358c7d0 3
+  s_b3d65b86d2af53::t_1afb516d549a38 33
+src/ui/model-picker.mjs
+  s_b3d65b86d2af53::t_a895963a4973cc 73
+src/ui/view/run-metadata.mjs
+  s_b3d65b86d2af53::t_fb034bb20a4c3e 6,25-27
+tests/model-picker.test.mjs
+  s_b3d65b86d2af53::t_b9ff58b8858ee0 53-55
+  s_b3d65b86d2af53::t_8217e58d8e4420 30,34
+src/plugin/settings.mjs
+  s_b3d65b86d2af53::t_b9ff58b8858ee0 82
+  s_b3d65b86d2af53::t_18ebec45d97a39 69,79,83,85,87,100
+TESTING.md
+  s_b3d65b86d2af53::t_6e81425f214c17 34,154
+  s_b3d65b86d2af53::t_aaa7c46b67b607 42-43,71
+tests/health.test.mjs
+  s_b3d65b86d2af53::t_8cae95fd31655b 19
+README.md
+  s_b3d65b86d2af53::t_5814f81e27bb46 9
+src/ui/provider-icons.mjs
+  s_b3d65b86d2af53::t_ff4b4dea96a4c7 1-4,25
+  s_b3d65b86d2af53::t_34baad08d7fcf3 5-22,32-34
+  s_b3d65b86d2af53::t_72144e8439fc7d 23-24,26-31,35-76
+tests/provider-icons.test.mjs
+  s_b3d65b86d2af53::t_9410a3ad0970b8 1-5,7-26
+  s_b3d65b86d2af53::t_9bdaed93152cee 6
+manifest.json
+  s_b3d65b86d2af53::t_ae97971358c7d0 4
+src/plugin/settings-tab.mjs
+  s_b3d65b86d2af53::t_08227fafece8e1 262,270-273
+src/ui/modals/model-picker-modal.mjs
+  s_b3d65b86d2af53::t_e77fc9ccce8df5 8,35-39,84
+tests/settings.test.mjs
+  s_b3d65b86d2af53::t_86d752e29c13ef 33,46,57,70
+package-lock.json
+  s_b3d65b86d2af53::t_7d0a760e2b78fc 3,9,14,48-50,55,60-62,71-73,82-84,99-101,116-118,133-135,150-152,167-169,184-186,201-203,218-220,235-237,252-254,269-271,286-288,303-305,320-322,337-339,354-356,371-373,388-390,405-407,422-424,439-441,456-458,473-475,490-492,507-509,733-735,740,752-754,762-764,779-781,796-798,813-815,830-832,847-849,867-869,887-889,907-909,927-929,947-949,967-969,984-986,994-996,1003-1005,1020-1022,1037-1039,1051-1053,1304-1306,1399-1401,1412-1437,2171-2173,2307-2309,2320-2322,2340,2385-2387,2391-2392,2401-2415,2498-2500,2577-2579,2584-2587,2603
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "47b58f2a266e7a7a17e1be9dcff7a0c9b1a9d61b",
+  "prompts": {},
+  "sessions": {
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
