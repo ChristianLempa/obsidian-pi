@@ -110,6 +110,10 @@
   color: var(--text-normal);
 }
 
+.pi-agent-header-favorite.is-favorite {
+  color: var(--text-accent);
+}
+
 .pi-agent-run-settings {
   align-items: center;
   display: flex;
@@ -570,6 +574,19 @@
   opacity: 1;
 }
 
+.pi-agent-view button.pi-agent-send-button.is-queue {
+  background: var(--interactive-accent);
+}
+
+.pi-agent-view button.pi-agent-send-button.is-cancel {
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+}
+
+.pi-agent-view button.pi-agent-send-button.is-canceling svg {
+  animation: pi-agent-thread-running-spin 1s linear infinite;
+}
+
 .pi-agent-suggest {
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
@@ -708,21 +725,55 @@
   }
 }
 
-.pi-agent-activity-details {
-  border-left: 1px solid var(--background-modifier-border);
+.pi-agent-thinking-disclosure {
+  border-left: 2px solid var(--background-modifier-border);
   color: var(--text-muted);
-  display: grid;
   font-size: var(--font-ui-smaller);
-  gap: 3px;
-  margin: 2px 0 0 30px;
-  padding-left: 10px;
+  margin: 4px 0 8px;
+  padding-left: 8px;
 }
 
-.pi-agent-activity-detail {
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.pi-agent-thinking-disclosure summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 5px;
+  list-style: none;
+  min-height: 24px;
+  user-select: none;
+}
+
+.pi-agent-thinking-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.pi-agent-thinking-icon {
+  display: inline-flex;
+}
+
+.pi-agent-thinking-icon svg {
+  height: 14px;
+  width: 14px;
+}
+
+.pi-agent-thinking-content {
+  color: var(--text-muted);
+  font-family: var(--font-interface);
+  line-height: 1.45;
+  margin: 2px 0 4px;
+  max-height: 240px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pi-agent-tool-error {
+  background: color-mix(in srgb, var(--background-modifier-error) 12%, transparent);
+  border-left: 2px solid var(--text-error);
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+  margin: 4px 0 8px;
+  padding: 6px 8px;
 }
 
 .pi-agent-approval {

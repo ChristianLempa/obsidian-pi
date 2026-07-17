@@ -17,6 +17,8 @@ import { RunSettingsControls } from "./run-settings.mjs";
 import { ComposerSuggestions } from "./suggestions.mjs";
 import { ThreadActions } from "./thread-actions.mjs";
 import { getCurrentRunMetadata } from "./view/run-metadata.mjs";
+import { formatToolError, getThinkingDelta } from "./activity.mjs";
+import { getSendActionState } from "./send-state.mjs";
 
 export class PiAgentView extends f.ItemView {
   constructor(e, t) {
@@ -33,10 +35,13 @@ export class PiAgentView extends f.ItemView {
     this.pendingActivityTimer = void 0;
     this.isRenderingMessages = !1;
     this.activeToolCalls = new Map();
-    this.recentActions = [];
     this.currentRunContextUsage = void 0;
     this.invalidatedContextThreadIds = new Set();
     this.streamingAssistantContent = "";
+    this.streamingThinkingContent = "";
+    this.thinkingDisclosureExpanded = false;
+    this.thinkingDisclosureUserSet = false;
+    this.completedThinkingExpansion = new Map();
     this.promptQueue = [];
     this.messageRenderComponents = [];
     this.activeRuns = new Map();
@@ -150,11 +155,18 @@ export class PiAgentView extends f.ItemView {
       }),
       this.renderThreadTitle());
     let a = t.createDiv({ cls: "pi-agent-header-actions" }),
+      favoriteButton = a.createEl("button", {
+        cls: "clickable-icon pi-agent-header-action pi-agent-header-favorite"
+      }),
       o = a.createEl("button", {
         cls: "clickable-icon pi-agent-header-action",
         attr: { "aria-label": "New chat", title: "New chat" }
       });
-    ((0, f.setIcon)(o, "plus"),
+    ((this.threadFavoriteEl = favoriteButton),
+      (0, f.setIcon)(favoriteButton, "star"),
+      this.renderThreadFavorite(),
+      favoriteButton.addEventListener("click", () => this.toggleCurrentThreadFavorite()),
+      (0, f.setIcon)(o, "plus"),
       o.addEventListener("click", (c) => {
         var p;
         (c.preventDefault(), (p = this.threadMenu) == null || p.startNewChat());
@@ -257,6 +269,7 @@ export class PiAgentView extends f.ItemView {
       (this.runSettings = void 0),
       (this.toolBadgesEl = void 0),
       (this.threadTitleEl = void 0),
+      (this.threadFavoriteEl = void 0),
       this.cleanupComposerBarObserver(),
       this.clearPendingActivityTimer(),
       this.unloadMessageRenderComponents(),
@@ -323,6 +336,24 @@ export class PiAgentView extends f.ItemView {
     if (!this.threadTitleEl) return;
     let e = this.plugin.getCurrentThread();
     (this.threadTitleEl.empty(), this.threadTitleEl.createSpan({ text: e.title }));
+    this.renderThreadFavorite();
+  }
+  renderThreadFavorite() {
+    if (!this.threadFavoriteEl) return;
+    const favorite = this.plugin.getCurrentThread().favorite === true;
+    this.threadFavoriteEl.toggleClass("is-favorite", favorite);
+    this.threadFavoriteEl.setAttr("aria-pressed", String(favorite));
+    this.threadFavoriteEl.setAttr("aria-label", favorite ? "Remove favorite" : "Mark as favorite");
+    this.threadFavoriteEl.setAttr("title", favorite ? "Remove favorite" : "Mark as favorite");
+  }
+  toggleCurrentThreadFavorite() {
+    const thread = this.plugin.getCurrentThread();
+    if (!this.plugin.toggleThreadFavorite(thread.id)) {
+      new f.Notice("Chat thread was not found.");
+      return;
+    }
+    this.renderThreadFavorite();
+    this.renderThreadListIfVisible();
   }
   startThreadTitleRename() {
     var a;
@@ -393,6 +424,9 @@ export class PiAgentView extends f.ItemView {
     ((this.running = !1),
       (this.canceling = !1),
       (this.streamingAssistantContent = ""),
+      (this.streamingThinkingContent = ""),
+      (this.thinkingDisclosureExpanded = false),
+      (this.thinkingDisclosureUserSet = false),
       (this.streamingItemEl = void 0),
       (this.streamingTextEl = void 0),
       (this.activityText = ""),
@@ -487,9 +521,11 @@ export class PiAgentView extends f.ItemView {
       (this.pendingActivity = void 0),
       this.clearPendingActivityTimer(),
       this.activeToolCalls.clear(),
-      (this.recentActions = []),
       (this.currentRunContextUsage = void 0),
       (this.streamingAssistantContent = ""),
+      (this.streamingThinkingContent = ""),
+      (this.thinkingDisclosureExpanded = false),
+      (this.thinkingDisclosureUserSet = false),
       (this.streamingItemEl = void 0),
       (this.streamingTextEl = void 0));
   }
@@ -501,7 +537,14 @@ export class PiAgentView extends f.ItemView {
       this.enqueuePrompt(e, t);
       return;
     }
-    let n = { canceling: !1, runner: this.plugin.createPiRunner(t) };
+    let n = {
+      canceling: !1,
+      runner: this.plugin.createPiRunner(t),
+      thinking: "",
+      thinkingExpanded: false,
+      thinkingUserSet: false,
+      toolErrors: []
+    };
     (this.activeRuns.set(t, n),
       this.syncCurrentRunFlags(),
       (this.runningThreadId = t),
@@ -515,9 +558,11 @@ export class PiAgentView extends f.ItemView {
       (this.pendingActivity = void 0),
       this.clearPendingActivityTimer(),
       this.activeToolCalls.clear(),
-      (this.recentActions = []),
       (this.currentRunContextUsage = void 0),
       (this.streamingAssistantContent = ""),
+      (this.streamingThinkingContent = ""),
+      (this.thinkingDisclosureExpanded = false),
+      (this.thinkingDisclosureUserSet = false),
       (this.activeEditorScrollSnapshot = this.isCurrentThread(t)
         ? this.getActiveEditorScrollSnapshot()
         : this.activeEditorScrollSnapshot),
@@ -536,22 +581,52 @@ export class PiAgentView extends f.ItemView {
         e,
         {
           isCanceled: () => n.canceling,
-          onEvent: (o) => this.isCurrentThread(t) && this.handleRunEvent(o),
-          onTextDelta: (o) => this.isCurrentThread(t) && this.appendStreamingDelta(o)
+          onEvent: (o) => {
+            const thinkingDelta = getThinkingDelta(o);
+            if (thinkingDelta) {
+              n.thinking += thinkingDelta;
+              if (!n.thinkingUserSet) n.thinkingExpanded = true;
+            }
+            const toolError = formatToolError(o);
+            if (toolError && n.toolErrors[n.toolErrors.length - 1] !== toolError)
+              n.toolErrors.push(toolError);
+            if (!this.isCurrentThread(t)) return;
+            this.streamingThinkingContent = n.thinking;
+            this.thinkingDisclosureExpanded = n.thinkingExpanded;
+            this.thinkingDisclosureUserSet = n.thinkingUserSet;
+            this.handleRunEvent(o);
+            if (thinkingDelta) this.appendStreamingThinkingDelta(thinkingDelta);
+          },
+          onTextDelta: (o) => {
+            if (!n.thinkingUserSet) n.thinkingExpanded = false;
+            if (!this.isCurrentThread(t)) return;
+            this.thinkingDisclosureExpanded = n.thinkingExpanded;
+            this.liveThinkingSetExpanded?.(n.thinkingExpanded);
+            this.appendStreamingDelta(o);
+          }
         },
         t,
         n.runner
       );
+      const createdAt = Date.now();
+      const thinkingKey = `${t}:${createdAt}`;
+      this.completedThinkingExpansion.set(
+        thinkingKey,
+        n.thinkingUserSet ? n.thinkingExpanded : false
+      );
       ((this.streamingAssistantContent = ""),
+        (this.streamingThinkingContent = ""),
         (this.streamingItemEl = void 0),
         (this.streamingTextEl = void 0),
         this.plugin.addMessageToThread(t, {
           role: "assistant",
           content: a.finalResponse,
-          createdAt: Date.now(),
+          createdAt,
           contextUsage: a.contextUsage,
           tokenUsage: a.tokenUsage,
-          runMetadata: s
+          runMetadata: s,
+          thinking: n.thinking || undefined,
+          toolErrors: n.toolErrors.length > 0 ? n.toolErrors : undefined
         }),
         a.contextUsage && !a.contextCompacted && this.invalidatedContextThreadIds.delete(t),
         a.contextCompacted && this.invalidatedContextThreadIds.add(t),
@@ -566,7 +641,9 @@ export class PiAgentView extends f.ItemView {
       (this.plugin.addMessageToThread(t, {
         role: "assistant",
         content: `Agent run failed: ${o}`,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        thinking: n.thinking || undefined,
+        toolErrors: n.toolErrors.length > 0 ? n.toolErrors : undefined
       }),
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()),
@@ -577,6 +654,9 @@ export class PiAgentView extends f.ItemView {
         (this.running = this.isThreadRunning(this.plugin.getCurrentThread().id)),
         (this.canceling = this.getCurrentThreadRun()?.canceling === !0),
         (this.streamingAssistantContent = ""),
+        (this.streamingThinkingContent = ""),
+        (this.thinkingDisclosureExpanded = false),
+        (this.thinkingDisclosureUserSet = false),
         (this.activityStickyUntil = 0),
         (this.pendingActivity = void 0),
         this.clearPendingActivityTimer(),
@@ -632,6 +712,25 @@ export class PiAgentView extends f.ItemView {
       console.warn("Pi Agent: failed to restore editor scroll after external file change", a);
     }
   }
+  appendStreamingThinkingDelta(e) {
+    if (!e) return;
+    if (!this.liveThinkingTextEl || !this.liveThinkingTextEl.isConnected) {
+      this.renderMessages();
+      return;
+    }
+    this.liveThinkingTextEl.appendText(e);
+    if (this.messagesEl && this.stickToBottom)
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+  }
+  setLiveThinkingExpanded(expanded) {
+    const run = this.getCurrentThreadRun();
+    this.thinkingDisclosureExpanded = expanded;
+    this.thinkingDisclosureUserSet = true;
+    if (run) {
+      run.thinkingExpanded = expanded;
+      run.thinkingUserSet = true;
+    }
+  }
   appendStreamingDelta(e) {
     if (e) {
       if (
@@ -653,33 +752,25 @@ export class PiAgentView extends f.ItemView {
     }
   }
   setRunningState(e) {
-    var n;
-    let s = !!((n = this.inputEl) != null && n.value.trim()),
-      a = e && !this.canceling && s,
-      o = e ? (this.canceling ? "loader" : a ? "send" : "x") : "send",
-      l = e ? (this.canceling ? "Canceling" : a ? "Queue" : "Cancel") : "Send",
-      d = e
-        ? this.canceling
-          ? "Canceling agent run"
-          : a
-            ? "Queue message"
-            : "Cancel agent run"
-        : "Send message";
-    this.sendButtonEl &&
-      (this.sendButtonEl.empty(),
-      (0, f.setIcon)(this.sendButtonEl, o),
-      this.sendButtonEl.createSpan({
-        cls: "pi-agent-control-label",
-        text: l
-      }),
-      this.sendButtonEl.toggleAttribute("disabled", e && this.canceling),
-      this.sendButtonEl.setAttr("aria-label", d),
-      this.sendButtonEl.setAttr(
-        "title",
-        this.promptQueue.length > 0 && !this.canceling
-          ? `${d}. ${this.promptQueue.length} queued.`
-          : d
-      ));
+    const hasInput = !!this.inputEl?.value.trim();
+    const action = getSendActionState({
+      running: e,
+      canceling: this.canceling,
+      hasInput,
+      queuedCount: this.promptQueue.length
+    });
+    if (!this.sendButtonEl) return;
+    this.sendButtonEl.empty();
+    (0, f.setIcon)(this.sendButtonEl, action.icon);
+    this.sendButtonEl.createSpan({ cls: "pi-agent-control-label", text: action.label });
+    this.sendButtonEl.toggleAttribute("disabled", action.disabled);
+    this.sendButtonEl.setAttr("aria-label", action.ariaLabel);
+    this.sendButtonEl.setAttr(
+      "title",
+      action.titleSuffix ? `${action.ariaLabel}. ${action.titleSuffix}` : action.ariaLabel
+    );
+    for (const state of ["send", "queue", "cancel", "canceling"])
+      this.sendButtonEl.toggleClass(`is-${state}`, action.state === state);
   }
   renderPiIcon(e) {
     (0, f.setIcon)(e, I);

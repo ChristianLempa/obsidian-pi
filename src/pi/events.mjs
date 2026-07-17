@@ -43,7 +43,11 @@ export function handlePiJsonEventLine(line, callbacks, events, appendText, updat
       toolName: String(event.toolName ?? "tool"),
       toolCallId: String(event.toolCallId ?? ""),
       toolArgs: event.args ?? {},
-      isError: event.isError === true
+      isError: event.isError === true,
+      errorMessage:
+        event.isError === true
+          ? String(event.errorMessage ?? event.error ?? event.result?.error ?? "")
+          : undefined
     });
     return;
   }
@@ -64,6 +68,8 @@ export function handlePiJsonEventLine(line, callbacks, events, appendText, updat
       type: assistantEvent.type,
       raw: event,
       assistantEvent,
+      thinkingDelta:
+        assistantEvent.type === "thinking_delta" ? String(assistantEvent.delta ?? "") : undefined,
       toolName: toolCall?.name ?? undefined,
       toolArgs: toolCall?.arguments ?? undefined,
       toolCallId: toolCall?.id ?? undefined

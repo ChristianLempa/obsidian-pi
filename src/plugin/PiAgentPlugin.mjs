@@ -334,6 +334,13 @@ export class PiAgentPlugin extends P.Plugin {
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
       : !1;
   }
+  archiveThreads(e) {
+    let t = this.threadHistory.archiveThreads(e);
+    return (
+      t.length > 0 && (this.syncCurrentThreadState(), this.saveThreadHistory()),
+      { archivedIds: t, archivedCount: t.length }
+    );
+  }
   deleteThread(e) {
     const runner = this.threadRunners.get(e);
     runner?.rpcClient?.dispose();

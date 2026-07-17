@@ -80,6 +80,21 @@ export class ThreadStore {
     });
   }
 
+  archiveThreads(threadIds) {
+    const requested = new Set(threadIds);
+    const archivedIds = [];
+    const now = Date.now();
+
+    for (const thread of this.history.threads) {
+      if (!requested.has(thread.id) || thread.archived) continue;
+      thread.archived = true;
+      thread.updatedAt = now;
+      archivedIds.push(thread.id);
+    }
+
+    return archivedIds;
+  }
+
   deleteThread(threadId) {
     const threads = this.history.threads.filter((thread) => thread.id !== threadId);
     if (threads.length === this.history.threads.length) return false;
@@ -295,7 +310,11 @@ function cloneMessage(message) {
     createdAt: message.createdAt,
     contextUsage: message.contextUsage ? { ...message.contextUsage } : undefined,
     tokenUsage: message.tokenUsage ? { ...message.tokenUsage } : undefined,
-    runMetadata: message.runMetadata ? { ...message.runMetadata } : undefined
+    runMetadata: message.runMetadata ? { ...message.runMetadata } : undefined,
+    thinking: typeof message.thinking === "string" ? message.thinking : undefined,
+    toolErrors: Array.isArray(message.toolErrors)
+      ? message.toolErrors.map((error) => String(error)).filter(Boolean)
+      : undefined
   };
 }
 

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   formatRetryDetail,
+  formatToolError,
   formatToolStatus,
+  getThinkingDelta,
   getToolEventKey,
   getToolKind,
   isStickyActivityKind,
@@ -40,5 +42,20 @@ describe("activity helpers", () => {
     expect(formatRetryDetail({ attempt: 2, maxAttempts: 3, errorMessage: "temporary" })).toBe(
       "attempt 2/3 — temporary"
     );
+  });
+
+  it("extracts thinking deltas and concise visible tool errors", () => {
+    expect(
+      getThinkingDelta({ type: "thinking_delta", assistantEvent: { delta: "considering" } })
+    ).toBe("considering");
+    expect(getThinkingDelta({ type: "text_delta", assistantEvent: { delta: "answer" } })).toBe("");
+    expect(
+      formatToolError({
+        type: "tool_end",
+        toolName: "read",
+        isError: true,
+        errorMessage: "File not found"
+      })
+    ).toBe("read: File not found");
   });
 });

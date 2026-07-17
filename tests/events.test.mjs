@@ -72,6 +72,25 @@ describe("Pi event helpers", () => {
     expect(events[0]).toMatchObject({ type: "text_delta", textDelta: "hi" });
   });
 
+  it("emits thinking deltas without treating them as answer text", () => {
+    const events = [];
+    const appendText = vi.fn();
+
+    handlePiJsonEventLine(
+      JSON.stringify({
+        type: "message_update",
+        assistantMessageEvent: { type: "thinking_delta", delta: "reasoning" }
+      }),
+      undefined,
+      events,
+      appendText,
+      vi.fn()
+    );
+
+    expect(appendText).not.toHaveBeenCalled();
+    expect(events[0]).toMatchObject({ type: "thinking_delta", thinkingDelta: "reasoning" });
+  });
+
   it("emits tool execution events", () => {
     const events = [];
 
