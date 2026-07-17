@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import * as P from "obsidian";
+import { AnnotationStore } from "../annotations/annotation-store.mjs";
+import { MarkdownAnnotationsController } from "../annotations/markdown-annotations-controller.mjs";
 import { ContextBuilder } from "../context/context-builder.mjs";
 import { formatContextShowResponse, isContextShowPrompt } from "../context/context-show.mjs";
 import { normalizeSkillFolderList } from "../context/skills.mjs";
@@ -99,6 +101,7 @@ export class PiAgentPlugin extends P.Plugin {
     this.settings = H;
     this.messages = [];
     this.threadHistory = new ThreadStore();
+    this.annotationStore = new AnnotationStore();
     this.dataSaveChain = Promise.resolve();
   }
   async onload() {
@@ -111,6 +114,8 @@ export class PiAgentPlugin extends P.Plugin {
 
     (0, P.addIcon)(I, O);
     this.rebuildServices();
+    this.annotationController = new MarkdownAnnotationsController(this);
+    this.annotationController.start();
 
     if (!this.settings.dryRun) {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
@@ -129,6 +134,23 @@ export class PiAgentPlugin extends P.Plugin {
         this.refreshCurrentContextFile();
       })
     );
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (
+          file.extension === "md" &&
+          this.annotationStore.list(oldPath).length > 0 &&
+          !this.annotationStore.renamePath(oldPath, file.path)
+        )
+          new P.Notice(
+            "Annotations could not follow the renamed note; their original records were kept."
+          );
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("delete", (file) => {
+        if (file.extension === "md") this.annotationStore.deletePath(file.path);
+      })
+    );
     this.registerView(T, (e) => new PiAgentView(e, this));
     this.addRibbonIcon(I, "Open Pi Agent", () => {
       this.activateView();
@@ -139,6 +161,14 @@ export class PiAgentPlugin extends P.Plugin {
       callback: () => {
         this.activateView();
       }
+    });
+    this.addCommand({
+      id: "toggle-annotations",
+      name: "Add or toggle annotation for active note",
+      checkCallback: (checking) =>
+        this.runWithActiveMarkdownNote(checking, () => {
+          this.annotationController?.handleActiveMarkdownNote();
+        })
     });
     this.addCommand({
       id: "check-pi-installation",
@@ -188,16 +218,28 @@ export class PiAgentPlugin extends P.Plugin {
     this.addSettingTab(new PiAgentSettingTab(this.app, this));
   }
   onunload() {
+    this.annotationController?.destroy();
     this.cancelPiRun();
   }
   async loadSettings() {
     let e = await this.loadData(),
-      { chatHistory: t, messages: n, threadId: s, sessionId: a, ...o } = e != null ? e : {};
+      {
+        chatHistory: t,
+        messages: n,
+        threadId: s,
+        sessionId: a,
+        annotationData: annotationData,
+        ...o
+      } = e != null ? e : {};
     ((this.settings = normalizeSettings(o)),
       (this.settings.additionalSkillFolders = normalizeSkillFolderList(
         this.settings.additionalSkillFolders
       )),
-      (this.threadHistory = new ThreadStore(t, n, a != null ? a : s)));
+      (this.threadHistory = new ThreadStore(t, n, a != null ? a : s)),
+      (this.annotationStore = new AnnotationStore(annotationData, () => {
+        this.saveAnnotations();
+        this.annotationController?.refresh();
+      })));
     let l = getEffectiveConfig(this.getVaultBasePath());
     ((this.settings.effectiveModel = l.effectiveModel || ""),
       (this.settings.effectiveReasoning = l.effectiveReasoning || ""),
@@ -449,7 +491,8 @@ export class PiAgentPlugin extends P.Plugin {
         this.graph,
         this.settings,
         be,
-        this.getVaultBasePath()
+        this.getVaultBasePath(),
+        (path) => this.getAnnotationsForContext(path)
       )),
       (this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings)),
       (this.pi = new PiRunner(
@@ -459,6 +502,24 @@ export class PiAgentPlugin extends P.Plugin {
         this.getPluginDirectory()
       )));
   }
+  async getAnnotationsForContext(path) {
+    const annotations = this.annotationStore.list(path);
+    if (annotations.length === 0) return annotations;
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof P.TFile) || file.extension !== "md") return annotations;
+    // Resolve against the exact current file at prompt time. Prefer an open
+    // editor because vault reads can lag behind an unsaved CodeMirror change.
+    const activeEditor = this.app.workspace.activeEditor;
+    let content = activeEditor?.file?.path === path ? activeEditor.editor?.getValue?.() : undefined;
+    if (typeof content !== "string") {
+      const openLeaf = this.app.workspace
+        .getLeavesOfType("markdown")
+        .find((leaf) => leaf.view?.file?.path === path && leaf.view?.editor?.getValue);
+      content = openLeaf?.view?.editor?.getValue?.();
+    }
+    if (typeof content !== "string") content = await this.app.vault.read(file);
+    return this.annotationStore.reanchorPath(path, content);
+  }
   syncCurrentThreadState() {
     this.messages = this.threadHistory.getCurrentMessages();
   }
@@ -467,11 +528,17 @@ export class PiAgentPlugin extends P.Plugin {
       console.warn("Pi Agent: failed to save thread history", e);
     });
   }
+  saveAnnotations() {
+    this.savePluginData().catch(() => {
+      new P.Notice("Could not save annotations to plugin data.");
+    });
+  }
   savePluginData() {
     let e = {
       ...this.settings,
       availableModels: [],
-      chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON())
+      chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON()),
+      annotationData: this.annotationStore.toJSON()
     };
     return (
       (this.dataSaveChain = this.dataSaveChain.catch(() => {}).then(() => this.saveData(e))),

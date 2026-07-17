@@ -12,16 +12,19 @@ When you send a message, the plugin can include:
 - explicit ranked search-result excerpts when you use search attachments or commands
 - explicit `@note`, `#tag`, `/search`, and `/skill:name` attachments
 - local chat thread history for continuity
+- annotations for the active note, including quoted/source text, rendered-selection text, intent, and the context you wrote
 
 Pi may forward this prompt/context to the model provider configured in your Pi settings.
 
 ## Network use
 
-The plugin itself does not call model-provider APIs directly and does not include telemetry. Network use happens through the Pi CLI and depends on your Pi provider/model configuration.
+The plugin itself does not call model-provider APIs directly and does not include telemetry. Network use happens through the Pi CLI and depends on your Pi provider/model configuration. When annotations are attached to a prompt, the configured provider can receive their plaintext content along with the rest of the prompt; consult that provider's privacy and retention terms.
 
 ## Local storage
 
-The plugin stores settings and trimmed chat history in Obsidian plugin data. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git.
+The plugin stores settings, trimmed chat history, and annotations in Obsidian plugin data. Annotation records are plaintext JSON: they include note paths, quoted/source text, optional rendered-selection text, and your annotation context. They are not encrypted by this plugin.
+
+Obsidian Sync, third-party sync tools, backups, or copying the vault may sync or copy the plugin data and therefore the annotations. Their retention and security policies apply. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git.
 
 ## File and shell access
 

@@ -40,6 +40,11 @@ Privacy reminder: prompts, selected text, note content, search excerpts, attachm
 - Enable default Pi skills and add trusted custom skill folders.
 - Use `/` autocomplete for Obsidian context commands and `/skill:name` commands.
 - Copy responses, create notes from answers, and open cited vault notes.
+- Attach change requests or questions to Markdown selections and source-backed blocks.
+
+### Annotations
+
+Open a Markdown note and select text, then choose the **Annotations** header action to add a change request or question. With no selection, the action toggles block-pick mode; it works in both editing and reading views when Obsidian can map the rendered block to Markdown source. The command palette action **Pi Agent: Add or toggle annotation for active note** is the keyboard/fallback entry point. Annotations appear on the note, can be navigated, edited, or individually deleted, and are included with the active note in subsequent Pi prompts; detached anchors remain listed until edited or deleted.
 
 > Tool modes control which Pi CLI tools are enabled. They are not an operating-system sandbox.
 

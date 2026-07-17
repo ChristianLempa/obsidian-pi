@@ -914,3 +914,241 @@
   gap: 8px;
   justify-content: flex-end;
 }
+
+.pi-agent-annotations-host {
+  position: relative;
+}
+
+.pi-agent-annotations-action.is-active {
+  color: var(--interactive-accent);
+}
+
+.pi-agent-annotations-action:focus-visible,
+.pi-agent-annotation-item-action:focus-visible,
+.pi-agent-annotation-intent:has(input:focus-visible) {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.pi-agent-annotation-range {
+  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+  border-bottom: 2px solid var(--interactive-accent);
+}
+
+.pi-agent-annotation-question {
+  border-bottom-style: dotted;
+}
+
+.cm-line.pi-agent-annotation-block {
+  background: color-mix(in srgb, var(--interactive-accent) 9%, transparent);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+
+.cm-line.pi-agent-annotation-block.pi-agent-annotation-question {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--interactive-accent) 70%, transparent);
+}
+
+.pi-agent-annotation-pick-mode {
+  cursor: crosshair;
+}
+
+.cm-line.pi-agent-annotation-pick-line {
+  box-shadow: inset 3px 0 0 var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 9%, transparent);
+}
+
+.pi-agent-annotation-rendered-block {
+  border-radius: 3px;
+  outline: 2px solid color-mix(in srgb, var(--interactive-accent) 65%, transparent);
+  outline-offset: 3px;
+}
+
+.pi-agent-annotation-reading-pick-mode .pi-agent-annotation-rendered-target {
+  cursor: crosshair;
+}
+
+.pi-agent-annotation-reading-pick-mode .pi-agent-annotation-rendered-target:hover,
+.pi-agent-annotation-reading-pick-mode .pi-agent-annotation-rendered-target:focus,
+.pi-agent-annotation-reading-pick-mode .pi-agent-annotation-rendered-target.is-focused,
+.pi-agent-annotation-navigated {
+  outline: 3px solid var(--interactive-accent);
+  outline-offset: 3px;
+}
+
+.pi-agent-annotations-list {
+  background: color-mix(in srgb, var(--background-primary) 94%, transparent);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  bottom: 12px;
+  box-shadow: var(--shadow-s);
+  display: grid;
+  gap: 3px;
+  max-height: min(38vh, 320px);
+  overflow: auto;
+  padding: 6px;
+  position: absolute;
+  right: 12px;
+  width: min(310px, calc(100% - 24px));
+  z-index: 15;
+}
+
+.pi-agent-annotations-list.is-empty {
+  display: none;
+}
+
+.pi-agent-annotations-list-heading {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  padding: 2px 4px 4px;
+}
+
+.pi-agent-annotation-item {
+  align-items: center;
+  border-radius: 6px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 5px 4px;
+}
+
+.pi-agent-annotation-item:hover,
+.pi-agent-annotation-item:focus-within {
+  background: var(--background-modifier-hover);
+}
+
+.pi-agent-annotation-item.is-detached {
+  opacity: 0.72;
+}
+
+.pi-agent-annotation-copy {
+  min-width: 0;
+}
+
+.pi-agent-annotation-quote,
+.pi-agent-annotation-context-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-agent-annotation-quote {
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-medium);
+}
+
+.pi-agent-annotation-context-preview,
+.pi-agent-annotation-meta {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.pi-agent-annotation-meta {
+  display: flex;
+  gap: 8px;
+}
+
+.pi-agent-annotation-item-actions {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.pi-agent-annotation-item-action {
+  background: transparent;
+  color: var(--text-muted);
+  height: 25px;
+  width: 25px;
+}
+
+.pi-agent-annotation-modal label,
+.pi-agent-annotation-modal legend {
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+}
+
+.pi-agent-annotation-modal-quote {
+  color: var(--text-muted);
+  margin: 0 0 6px;
+  max-height: 7em;
+  overflow: auto;
+}
+
+.pi-agent-annotation-anchor-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-bottom: 14px;
+}
+
+.pi-agent-annotation-context {
+  display: block;
+  margin: 6px 0 14px;
+  resize: vertical;
+  width: 100%;
+}
+
+.pi-agent-annotation-intents {
+  border: 0;
+  display: flex;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.pi-agent-annotation-intents legend {
+  margin-bottom: 6px;
+}
+
+.pi-agent-annotation-intent {
+  align-items: center;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 5px;
+  padding: 5px 9px;
+}
+
+.pi-agent-annotation-intent:has(input:checked) {
+  border-color: var(--interactive-accent);
+  color: var(--text-accent);
+}
+
+.pi-agent-annotation-error {
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+  min-height: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pi-agent-annotation-rendered-target,
+  .pi-agent-annotation-navigated,
+  .pi-agent-annotation-range {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
+
+@media (max-width: 500px) {
+  .pi-agent-annotations-list {
+    bottom: 6px;
+    max-height: 28vh;
+    right: 6px;
+    width: calc(100% - 12px);
+  }
+
+  .pi-agent-annotation-context-preview {
+    display: none;
+  }
+
+  .pi-agent-annotation-item {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pi-agent-annotation-item-actions {
+    justify-content: flex-end;
+  }
+}
