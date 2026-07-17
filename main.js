@@ -5560,6 +5560,12 @@ var PiAgentPlugin = class extends P.Plugin {
       new P.Notice("Pi Agent is desktop-only.");
       return;
     }
+    if (
+      typeof window.Notification !== "undefined" &&
+      window.Notification.permission === "default"
+    ) {
+      window.Notification.requestPermission();
+    }
     (0, P.addIcon)(PI_AGENT_ICON_ID, PI_AGENT_ICON_SVG);
     this.rebuildServices();
     if (!this.settings.dryRun) {

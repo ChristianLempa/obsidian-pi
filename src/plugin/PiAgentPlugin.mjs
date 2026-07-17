@@ -109,6 +109,13 @@ export class PiAgentPlugin extends P.Plugin {
       return;
     }
 
+    if (
+      typeof window.Notification !== "undefined" &&
+      window.Notification.permission === "default"
+    ) {
+      window.Notification.requestPermission();
+    }
+
     (0, P.addIcon)(I, O);
     this.rebuildServices();
 
