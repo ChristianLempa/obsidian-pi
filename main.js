@@ -2138,6 +2138,103 @@ function findLatestAssistantMessage(messages) {
   return void 0;
 }
 
+// src/ui/prompt-payload.mjs
+var SUPPORTED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
+var MAX_PROMPT_IMAGE_BYTES = 20 * 1024 * 1024;
+function createQueuedPrompt({ prompt = "", images = [], threadId, id, createdAt } = {}) {
+  const normalizedPrompt = String(prompt).trim();
+  const normalizedImages = normalizePromptImages(images);
+  if (!normalizedPrompt && normalizedImages.length === 0) return void 0;
+  return {
+    id: id || createId(),
+    prompt: normalizedPrompt,
+    images: normalizedImages,
+    threadId: String(threadId || ""),
+    createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+    state: "pending"
+  };
+}
+function normalizePromptImages(images) {
+  if (!Array.isArray(images)) return [];
+  return images
+    .filter(
+      (image) =>
+        image &&
+        SUPPORTED_IMAGE_MIME_TYPES.includes(image.mimeType) &&
+        typeof image.data === "string" &&
+        image.data.length > 0 &&
+        (Number.isFinite(image.size)
+          ? image.size <= MAX_PROMPT_IMAGE_BYTES
+          : estimateBase64Bytes(stripDataUrlPrefix(image.data)) <= MAX_PROMPT_IMAGE_BYTES)
+    )
+    .map((image) => ({
+      id: String(image.id || createId()),
+      fileName: String(image.fileName || "image"),
+      mimeType: image.mimeType,
+      data: stripDataUrlPrefix(image.data),
+      size: Number.isFinite(image.size) ? image.size : void 0
+    }));
+}
+function toRpcImages(images) {
+  return normalizePromptImages(images).map(({ data, mimeType }) => ({
+    type: "image",
+    data,
+    mimeType
+  }));
+}
+function imagePreviewUrl(image) {
+  return `data:${image.mimeType};base64,${stripDataUrlPrefix(image.data)}`;
+}
+async function fileToPromptImage(file) {
+  if (!file || !SUPPORTED_IMAGE_MIME_TYPES.includes(file.type)) {
+    throw new Error("Choose a PNG, JPEG, or WebP image.");
+  }
+  if (file.size > MAX_PROMPT_IMAGE_BYTES) {
+    throw new Error("Images must be 20 MB or smaller.");
+  }
+  const dataUrl = await readFileAsDataUrl(file);
+  return {
+    id: createId(),
+    fileName: file.name || "image",
+    mimeType: file.type,
+    data: stripDataUrlPrefix(dataUrl),
+    size: file.size
+  };
+}
+function modelSupportsImages(model) {
+  return model?.supportsImages === true;
+}
+async function applyPromptEnricher(delivery, callback, context) {
+  if (typeof callback !== "function") return delivery;
+  const enriched = await callback(
+    { prompt: delivery.prompt, images: delivery.images || [] },
+    context
+  );
+  return {
+    ...delivery,
+    ...(enriched && typeof enriched === "object" ? enriched : {})
+  };
+}
+function stripDataUrlPrefix(data) {
+  const comma = data.indexOf(",");
+  return data.startsWith("data:") && comma >= 0 ? data.slice(comma + 1) : data;
+}
+function estimateBase64Bytes(data) {
+  const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((data.length * 3) / 4) - padding);
+}
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new globalThis.FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Could not read image."));
+    reader.readAsDataURL(file);
+  });
+}
+function createId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 // src/pi/runner.mjs
 function isPiCliCommandPrompt(prompt) {
   return /^\/(compact)(?:\s|$)/i.test(prompt.trim());
@@ -2155,7 +2252,7 @@ var PiRunner = class {
     this.rpcClient = rpcClient;
     this.cancelRequested = false;
   }
-  async run(prompt, context, sessionId, threadHistory = [], callbacks) {
+  async run(prompt, context, sessionId, threadHistory = [], callbacks, images = []) {
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
     const compactInstructions = getCompactInstructions(prompt);
     if (compactInstructions !== void 0)
@@ -2176,7 +2273,7 @@ var PiRunner = class {
           threadId: sessionId,
           events: []
         }
-      : this.runPiRpc(formattedPrompt, sessionId, callbacks);
+      : this.runPiRpc(formattedPrompt, sessionId, callbacks, images);
   }
   cancelCurrentRun() {
     this.cancelRequested = true;
@@ -2253,7 +2350,7 @@ var PiRunner = class {
     this.rpcConfigured = true;
     this.rpcConfiguredProcess = client.child;
   }
-  async runPiRpc(prompt, sessionId, callbacks) {
+  async runPiRpc(prompt, sessionId, callbacks, images = []) {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
     this.cancelRequested = false;
@@ -2298,7 +2395,14 @@ var PiRunner = class {
         type: "pi_start",
         raw: { mode: "rpc", cwd: this.workingDirectory ?? this.pluginDirectory }
       });
-      await Promise.all([client.request("prompt", { message: prompt }), completion]);
+      const rpcImages = toRpcImages(images);
+      const promptRequest = client.request("prompt", {
+        message: prompt,
+        ...(rpcImages.length > 0 ? { images: rpcImages } : {})
+      });
+      await promptRequest;
+      callbacks?.onPromptAccepted?.();
+      await completion;
       if (this.cancelRequested || callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
       if (runState?.errorMessage) throw new Error(runState.errorMessage);
       return {
@@ -2319,6 +2423,14 @@ var PiRunner = class {
       this.isRunning = false;
       unsubscribe();
     }
+  }
+  async steer(prompt, images = []) {
+    if (!this.isRunning || !this.rpcClient) throw new Error("This agent run has already settled.");
+    const rpcImages = toRpcImages(images);
+    await this.rpcClient.request("steer", {
+      message: String(prompt || ""),
+      ...(rpcImages.length > 0 ? { images: rpcImages } : {})
+    });
   }
   runPiCli(prompt, sessionId, callbacks) {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
@@ -3350,88 +3462,263 @@ function normalizeArchiveFolder(folder) {
 var prompt_queue_exports = {};
 __export(prompt_queue_exports, {
   enqueuePrompt: () => enqueuePrompt,
-  prioritizeQueuedPrompt: () => prioritizeQueuedPrompt,
   removeQueuedPrompt: () => removeQueuedPrompt,
   renderPromptQueue: () => renderPromptQueue,
-  runNextQueuedPrompt: () => runNextQueuedPrompt
+  retrieveQueuedPrompt: () => retrieveQueuedPrompt,
+  runNextQueuedPrompt: () => runNextQueuedPrompt,
+  steerQueuedPrompt: () => steerQueuedPrompt
 });
 var f = __toESM(require("obsidian"), 1);
-function enqueuePrompt(e, t = this.plugin.getCurrentThread().id) {
-  let n = e.trim();
-  if (!n) return;
-  (this.promptQueue.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    prompt: n,
-    threadId: t
-  }),
-    this.renderPromptQueue(),
-    this.syncCurrentRunFlags(),
-    this.setRunningState(this.running),
-    new f.Notice(
-      this.promptQueue.length === 1
-        ? "Message queued. It will send after the current run finishes."
-        : `${this.promptQueue.length} messages queued.`
-    ));
+
+// src/ui/local-prompt-queue.mjs
+function restorePersistedLocalPromptQueue(queue, steering) {
+  return normalizeLocalPromptQueue([
+    ...(Array.isArray(queue) ? queue : []),
+    ...(Array.isArray(steering) ? steering : [])
+  ])
+    .filter((item, index, items) => items.findIndex((other) => other.id === item.id) === index)
+    .sort((left, right) => left.createdAt - right.createdAt);
+}
+function normalizeLocalPromptQueue(value, options = {}) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const normalized = createQueuedPrompt(item);
+      if (!normalized) return void 0;
+      return {
+        ...normalized,
+        state:
+          options.preserveState && ["pending", "steering", "delivering"].includes(item.state)
+            ? item.state
+            : "pending"
+      };
+    })
+    .filter(Boolean);
+}
+function enqueueLocalPrompt(queue, item) {
+  const normalized = createQueuedPrompt(item);
+  return normalized ? [...queue, normalized] : queue;
+}
+function updateLocalPrompt(queue, id, patch) {
+  return queue.map((item) =>
+    item.id === id && item.state === "pending"
+      ? createQueuedPrompt({ ...item, ...patch, id: item.id, createdAt: item.createdAt }) || item
+      : item
+  );
+}
+function removeLocalPrompt(queue, id) {
+  return queue.filter((item) => item.id !== id);
+}
+function takeLocalPrompt(queue, id) {
+  const index = queue.findIndex((item) => item.id === id && item.state === "pending");
+  if (index < 0) return { queue, item: void 0, index: -1 };
+  return {
+    queue: [...queue.slice(0, index), ...queue.slice(index + 1)],
+    item: queue[index],
+    index
+  };
+}
+function restoreLocalPrompt(queue, item, index) {
+  if (!item || queue.some((candidate) => candidate.id === item.id)) return queue;
+  const restored = { ...item, state: "pending" };
+  const insertionIndex = Math.max(
+    0,
+    Math.min(Number.isInteger(index) ? index : queue.length, queue.length)
+  );
+  return [...queue.slice(0, insertionIndex), restored, ...queue.slice(insertionIndex)];
+}
+function claimLocalPrompt(queue, id, state = "steering") {
+  let claimed;
+  const next = queue.map((item) => {
+    if (item.id !== id || item.state !== "pending") return item;
+    claimed = { ...item, state };
+    return claimed;
+  });
+  return { queue: next, item: claimed };
+}
+function nextDeliverablePrompt(queue, isThreadRunning) {
+  const next = queue[0];
+  return next?.state === "pending" && !isThreadRunning(next.threadId) ? next : void 0;
+}
+
+// src/ui/prompt-queue.mjs
+function enqueuePrompt(prompt, threadId = this.plugin.getCurrentThread().id, images = []) {
+  const item = this.plugin.enqueueLocalPrompt({ prompt, images, threadId });
+  if (!item) return;
+  this.promptQueue = this.plugin.getLocalPromptQueue();
+  this.renderPromptQueue();
+  this.syncCurrentRunFlags();
+  this.setRunningState(this.running);
+  new f.Notice(
+    this.promptQueue.length === 1
+      ? "Message queued. It will send after the current run finishes."
+      : `${this.promptQueue.length} messages queued.`
+  );
 }
 function runNextQueuedPrompt() {
-  if (this.canceling || this.promptQueue.length === 0) return;
-  let t = this.promptQueue.findIndex((n) => !this.isThreadRunning(n.threadId));
-  if (t < 0) return;
-  let [e] = this.promptQueue.splice(t, 1);
-  (this.renderPromptQueue(),
-    this.syncCurrentRunFlags(),
-    this.setRunningState(this.running),
-    e && this.runPrompt(e.prompt, e.threadId));
+  if (this.canceling || this.plugin.isLocalPromptQueuePaused() || this.steeringPromptIds.size > 0)
+    return;
+  const item = nextDeliverablePrompt(this.promptQueue, (threadId) =>
+    this.isThreadRunning(threadId)
+  );
+  if (!item) return;
+  const claimed = claimLocalPrompt(this.promptQueue, item.id, "delivering");
+  this.promptQueue = claimed.queue;
+  this.plugin.replaceLocalPromptQueue(this.promptQueue);
+  this.renderPromptQueue();
+  this.runPrompt(item.prompt, item.threadId, item.images, item.id);
 }
-function removeQueuedPrompt(e) {
-  let t = this.promptQueue.length;
-  ((this.promptQueue = this.promptQueue.filter((n) => n.id !== e)),
-    this.promptQueue.length !== t &&
-      (this.renderPromptQueue(), this.syncCurrentRunFlags(), this.setRunningState(this.running)));
+function removeQueuedPrompt(id) {
+  const item = this.promptQueue.find((candidate) => candidate.id === id);
+  if (!item || item.state !== "pending") return;
+  this.promptQueue = removeLocalPrompt(this.promptQueue, id);
+  this.plugin.replaceLocalPromptQueue(this.promptQueue);
+  this.renderPromptQueue();
+  this.setRunningState(this.running);
 }
-function prioritizeQueuedPrompt(e) {
-  let t = this.promptQueue.findIndex((n2) => n2.id === e);
-  if (t <= 0) return;
-  let [n] = this.promptQueue.splice(t, 1);
-  (this.promptQueue.unshift(n),
-    this.renderPromptQueue(),
-    this.syncCurrentRunFlags(),
-    this.setRunningState(this.running));
+function retrieveQueuedPrompt(id) {
+  const item = this.promptQueue.find((candidate) => candidate.id === id);
+  if (!item || item.state !== "pending" || !this.isCurrentThread(item.threadId)) return;
+  if (this.inputEl) this.inputEl.value = item.prompt;
+  this.composerImages = item.images.map((image) => ({ ...image }));
+  this.removeQueuedPrompt(id);
+  this.renderComposerImages();
+  this.resizeInput();
+  this.inputEl?.focus();
+}
+async function steerQueuedPrompt(id) {
+  const taken = takeLocalPrompt(this.promptQueue, id);
+  if (!taken.item) return;
+  this.promptQueue = taken.queue;
+  this.steeringPromptIds.add(id);
+  this.plugin.beginLocalPromptSteering(taken.item);
+  this.plugin.replaceLocalPromptQueue(this.promptQueue);
+  this.renderPromptQueue();
+  try {
+    const run = this.activeRuns.get(taken.item.threadId);
+    if (!run) throw new Error("This run already settled; the message will run normally.");
+    const delivery = await this.plugin.enrichPromptDelivery(taken.item, {
+      mode: "steer",
+      threadId: taken.item.threadId
+    });
+    if (delivery.images?.length > 0) await this.plugin.ensureModelCatalogLoaded();
+    if (delivery.images?.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo()))
+      throw new Error("The selected Pi model does not support image input.");
+    await run.runner.steer(delivery.prompt, delivery.images);
+    new f.Notice("Steering message sent to Pi.");
+  } catch (error) {
+    this.promptQueue = restoreLocalPrompt(this.promptQueue, taken.item, taken.index);
+    this.plugin.replaceLocalPromptQueue(this.promptQueue);
+    new f.Notice(error instanceof Error ? error.message : String(error));
+  } finally {
+    this.steeringPromptIds.delete(id);
+    this.plugin.finishLocalPromptSteering(id);
+  }
+  this.renderPromptQueue();
+  this.runNextQueuedPrompt();
 }
 function renderPromptQueue() {
   if (!this.promptQueueEl) return;
-  let e = this.promptQueueEl;
-  if (
-    (e.empty(),
-    e.toggleClass("is-empty", this.promptQueue.length === 0),
-    this.promptQueue.length === 0)
-  )
-    return;
-  let t = e.createDiv({ cls: "pi-agent-prompt-queue-heading" });
-  (t.createSpan({
-    text: `${this.promptQueue.length} queued message${this.promptQueue.length === 1 ? "" : "s"}`
-  }),
-    t.createSpan({
-      cls: "pi-agent-prompt-queue-hint",
-      text: "Runs after the current response."
-    }));
-  for (let [n, s] of this.promptQueue.entries()) {
-    let a = e.createDiv({ cls: "pi-agent-prompt-queue-item" });
-    a.createDiv({ cls: "pi-agent-prompt-queue-text", text: s.prompt });
-    let o = a.createDiv({ cls: "pi-agent-prompt-queue-actions" });
-    if (n > 0) {
-      let l = o.createEl("button", {
-        cls: "clickable-icon pi-agent-prompt-queue-action",
-        attr: { "aria-label": "Run this queued message next", title: "Run next" }
-      });
-      ((0, f.setIcon)(l, "corner-up-left"),
-        l.addEventListener("click", () => this.prioritizeQueuedPrompt(s.id)));
-    }
-    let d = o.createEl("button", {
-      cls: "clickable-icon pi-agent-prompt-queue-action",
-      attr: { "aria-label": "Remove queued message", title: "Remove" }
+  const root = this.promptQueueEl;
+  root.empty();
+  root.toggleClass("is-empty", this.promptQueue.length === 0 && !this.nativePiQueue);
+  if (this.promptQueue.length > 0) {
+    const heading = root.createDiv({ cls: "pi-agent-prompt-queue-heading" });
+    heading.createSpan({
+      text: `${this.promptQueue.length} local follow-up${this.promptQueue.length === 1 ? "" : "s"}`
     });
-    ((0, f.setIcon)(d, "x"), d.addEventListener("click", () => this.removeQueuedPrompt(s.id)));
+    heading.createSpan({
+      cls: "pi-agent-prompt-queue-hint",
+      text: this.plugin.isLocalPromptQueuePaused()
+        ? "Saved from the previous plugin session. Review before sending."
+        : "Runs in order after settlement."
+    });
+    if (this.plugin.isLocalPromptQueuePaused()) {
+      const controls = root.createDiv({ cls: "pi-agent-prompt-queue-actions" });
+      addTextAction(controls, "Resume saved follow-ups", "Resume", () => {
+        this.plugin.resumeLocalPromptQueue();
+        this.renderPromptQueue();
+        this.runNextQueuedPrompt();
+      });
+      addTextAction(controls, "Discard all saved follow-ups", "Discard", () => {
+        this.promptQueue = [];
+        this.plugin.resumeLocalPromptQueue();
+        this.plugin.replaceLocalPromptQueue([]);
+        this.renderPromptQueue();
+        this.setRunningState(this.running);
+      });
+    }
+  }
+  for (const item of this.promptQueue) {
+    const row = root.createDiv({ cls: "pi-agent-prompt-queue-item" });
+    row.setAttr("aria-label", `Queued follow-up: ${item.prompt || `${item.images.length} images`}`);
+    const content = row.createDiv({ cls: "pi-agent-prompt-queue-content" });
+    content.createDiv({
+      cls: "pi-agent-prompt-queue-text",
+      text:
+        item.prompt || `${item.images.length} attached image${item.images.length === 1 ? "" : "s"}`
+    });
+    renderQueueImages(content, item.images);
+    const actions = row.createDiv({ cls: "pi-agent-prompt-queue-actions" });
+    addAction(
+      actions,
+      "corner-up-right",
+      "Steer now",
+      () => this.steerQueuedPrompt(item.id),
+      item.state !== "pending"
+    );
+    if (this.isCurrentThread(item.threadId))
+      addAction(
+        actions,
+        "pencil",
+        "Edit queued message",
+        () => this.retrieveQueuedPrompt(item.id),
+        item.state !== "pending"
+      );
+    addAction(
+      actions,
+      "x",
+      "Remove queued message",
+      () => this.removeQueuedPrompt(item.id),
+      item.state !== "pending"
+    );
+  }
+  if (this.nativePiQueue?.steering?.length || this.nativePiQueue?.followUp?.length) {
+    const native = root.createDiv({ cls: "pi-agent-native-queue", attr: { role: "status" } });
+    native.createDiv({ cls: "pi-agent-prompt-queue-heading", text: "Already handed to Pi" });
+    const handedToPi = [
+      ...(this.nativePiQueue.steering || []),
+      ...(this.nativePiQueue.followUp || [])
+    ];
+    for (const text of handedToPi)
+      native.createDiv({ cls: "pi-agent-prompt-queue-text", text: String(text) });
+  }
+}
+function addTextAction(parent, label, text, callback) {
+  const button = parent.createEl("button", {
+    cls: "pi-agent-prompt-queue-action is-text",
+    text,
+    attr: { "aria-label": label, title: label }
+  });
+  button.addEventListener("click", callback);
+}
+function addAction(parent, icon, label, callback, disabled) {
+  const button = parent.createEl("button", {
+    cls: "clickable-icon pi-agent-prompt-queue-action",
+    attr: { "aria-label": label, title: label }
+  });
+  f.setIcon(button, icon);
+  button.toggleAttribute("disabled", disabled);
+  button.addEventListener("click", callback);
+}
+function renderQueueImages(parent, images) {
+  if (!images?.length) return;
+  const previews = parent.createDiv({ cls: "pi-agent-queue-image-previews" });
+  for (const image of images) {
+    previews.createEl("img", {
+      cls: "pi-agent-queue-image-preview",
+      attr: { src: imagePreviewUrl(image), alt: image.fileName || "Queued image" }
+    });
   }
 }
 
@@ -4161,6 +4448,14 @@ function getContextUsageForTokens(e) {
 function handleRunEvent(e) {
   let t = this.normalizeRunEventType(e.type);
   this.captureContextUsage(e);
+  if (t === "queue_update") {
+    this.nativePiQueue = {
+      steering: Array.isArray(e.raw?.steering) ? e.raw.steering : [],
+      followUp: Array.isArray(e.raw?.followUp) ? e.raw.followUp : []
+    };
+    this.renderPromptQueue();
+    return;
+  }
   if (t === "context_ready") {
     this.setActivity("Starting Pi", "context");
     return;
@@ -4702,7 +4997,10 @@ var PiAgentView = class extends f5.ItemView {
     this.currentRunContextUsage = void 0;
     this.invalidatedContextThreadIds = /* @__PURE__ */ new Set();
     this.streamingAssistantContent = "";
-    this.promptQueue = [];
+    this.promptQueue = this.plugin.getLocalPromptQueue();
+    this.composerImages = [];
+    this.nativePiQueue = void 0;
+    this.steeringPromptIds = /* @__PURE__ */ new Set();
     this.messageRenderComponents = [];
     this.activeRuns = /* @__PURE__ */ new Map();
     this.activeEditorScrollSnapshot = void 0;
@@ -4858,8 +5156,11 @@ var PiAgentView = class extends f5.ItemView {
     let d = e.createDiv({ cls: "pi-agent-composer" });
     ((this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" })),
       this.renderToolBadges(),
+      (this.promptQueue = this.plugin.getLocalPromptQueue()),
       (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
       this.renderPromptQueue(),
+      (this.composerImagesEl = d.createDiv({ cls: "pi-agent-composer-images" })),
+      this.renderComposerImages(),
       (this.inputEl = d.createEl("textarea", {
         placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
       })),
@@ -4874,6 +5175,11 @@ var PiAgentView = class extends f5.ItemView {
             (this.syncCurrentRunFlags(), this.running) &&
             (c.preventDefault(), this.cancelCurrentRun()));
       }),
+      this.inputEl.addEventListener("paste", (event) => this.handleImagePaste(event)),
+      this.inputEl.addEventListener("dragover", (event) => {
+        if ((event.dataTransfer?.files?.length || 0) > 0) event.preventDefault();
+      }),
+      this.inputEl.addEventListener("drop", (event) => this.handleImageDrop(event)),
       this.inputEl.addEventListener("input", () => {
         var c;
         (this.syncCurrentRunFlags(),
@@ -4895,9 +5201,18 @@ var PiAgentView = class extends f5.ItemView {
         this.resizeInput()
       )),
       this.resizeInput());
+    this.imageInputEl = d.createEl("input", {
+      cls: "pi-agent-image-input",
+      attr: { type: "file", accept: SUPPORTED_IMAGE_MIME_TYPES.join(","), multiple: "" }
+    });
+    this.imageInputEl.addEventListener("change", () => {
+      this.addImageFiles(this.imageInputEl?.files);
+      if (this.imageInputEl) this.imageInputEl.value = "";
+    });
     let h = d.createDiv({ cls: "pi-agent-composer-bar" });
     ((this.composerBarEl = h),
       (this.runSettings = new RunSettingsControls(this.plugin)),
+      this.renderImagePicker(h),
       this.runSettings.render(h));
     let m = h.createEl("button", {
       cls: "clickable-icon pi-agent-send-button",
@@ -4916,6 +5231,8 @@ var PiAgentView = class extends f5.ItemView {
     ((this.messagesEl = void 0),
       (this.inputEl = void 0),
       (this.promptQueueEl = void 0),
+      (this.composerImagesEl = void 0),
+      (this.imageInputEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
       (this.composerBarExpandEl = void 0),
@@ -5022,21 +5339,35 @@ var PiAgentView = class extends f5.ItemView {
       t.focus(),
       t.select());
   }
-  submitInput() {
+  async submitInput() {
     var t, n;
     let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
-    if (!e) return;
+    let images = this.composerImages.map((image) => ({ ...image }));
+    if (!e && images.length === 0) return;
+    if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
+    if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      new f5.Notice("The selected Pi model does not support image input.");
+      return;
+    }
     (this.inputEl && (this.inputEl.value = ""),
+      (this.composerImages = []),
+      this.renderComposerImages(),
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
-      this.running ? this.enqueuePrompt(e) : this.runPrompt(e),
+      this.running
+        ? this.enqueuePrompt(e, this.plugin.getCurrentThread().id, images)
+        : this.runPrompt(e, void 0, images),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
     var t;
     this.syncCurrentRunFlags();
-    if (this.running && !((t = this.inputEl) != null && t.value.trim())) {
+    if (
+      this.running &&
+      !((t = this.inputEl) != null && t.value.trim()) &&
+      this.composerImages.length === 0
+    ) {
       this.cancelCurrentRun();
       return;
     }
@@ -5122,6 +5453,66 @@ var PiAgentView = class extends f5.ItemView {
       t.setAttr("title", n ? "Collapse run options" : "Expand run options"),
       (0, f5.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
   }
+  renderImagePicker(parent) {
+    const button = parent.createEl("button", {
+      cls: "clickable-icon pi-agent-image-button",
+      attr: { "aria-label": "Attach images", title: "Attach PNG, JPEG, or WebP images" }
+    });
+    f5.setIcon(button, "image-plus");
+    button.addEventListener("click", () => this.imageInputEl?.click());
+  }
+  getImageFiles(files) {
+    return [...(files || [])].filter((file) => SUPPORTED_IMAGE_MIME_TYPES.includes(file.type));
+  }
+  async addImageFiles(files) {
+    const imageFiles = [...(files || [])];
+    if (imageFiles.length === 0) return;
+    await this.plugin.ensureModelCatalogLoaded();
+    if (!modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      new f5.Notice("The selected Pi model does not support image input.");
+      return;
+    }
+    try {
+      const images = await Promise.all(imageFiles.map(fileToPromptImage));
+      this.composerImages.push(...images);
+      this.renderComposerImages();
+      this.setRunningState(this.running);
+    } catch (error) {
+      new f5.Notice(error instanceof Error ? error.message : String(error));
+    }
+  }
+  handleImagePaste(event) {
+    const files = this.getImageFiles(event.clipboardData?.files);
+    if (files.length === 0) return;
+    event.preventDefault();
+    this.addImageFiles(files);
+  }
+  handleImageDrop(event) {
+    const files = [...(event.dataTransfer?.files || [])];
+    if (files.length === 0) return;
+    event.preventDefault();
+    this.addImageFiles(files);
+  }
+  renderComposerImages() {
+    if (!this.composerImagesEl) return;
+    this.composerImagesEl.empty();
+    this.composerImagesEl.toggleClass("is-empty", this.composerImages.length === 0);
+    for (const image of this.composerImages) {
+      const preview = this.composerImagesEl.createDiv({ cls: "pi-agent-composer-image" });
+      preview.createEl("img", {
+        attr: { src: imagePreviewUrl(image), alt: image.fileName || "Attached image" }
+      });
+      const remove = preview.createEl("button", {
+        cls: "clickable-icon",
+        attr: { "aria-label": `Remove ${image.fileName || "image"}`, title: "Remove image" }
+      });
+      f5.setIcon(remove, "x");
+      remove.addEventListener("click", () => {
+        this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
+        this.renderComposerImages();
+      });
+    }
+  }
   resizeInput() {
     this.inputEl &&
       ((this.inputEl.style.height = "auto"),
@@ -5162,12 +5553,96 @@ var PiAgentView = class extends f5.ItemView {
   renderThreadListIfVisible() {
     this.showingThreadList && this.renderThreadList();
   }
-  async runPrompt(e, t = this.plugin.getCurrentThread().id) {
+  async runPrompt(e, t = this.plugin.getCurrentThread().id, images = [], queuedId) {
     if (this.isThreadRunning(t)) {
-      this.enqueuePrompt(e, t);
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      } else {
+        this.enqueuePrompt(e, t, images);
+      }
       return;
     }
-    let n = { canceling: false, runner: this.plugin.createPiRunner(t) };
+    let delivery;
+    try {
+      delivery = await this.plugin.enrichPromptDelivery(
+        { prompt: e, images },
+        { mode: "prompt", threadId: t }
+      );
+    } catch (error) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      }
+      new f5.Notice(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    e = String(delivery.prompt || "").trim();
+    images = delivery.images || [];
+    if (!e && images.length === 0) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+        new f5.Notice("The queued message became empty and was not sent.");
+      }
+      return;
+    }
+    if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
+    if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      }
+      new f5.Notice("The selected Pi model does not support image input.");
+      return;
+    }
+    if (this.isThreadRunning(t)) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      } else {
+        this.enqueuePrompt(e, t, images);
+      }
+      return;
+    }
+    let n = { canceling: false, runner: this.plugin.createPiRunner(t), accepted: false };
+    let skipQueueDrain = false;
+    const addUserMessage = () => {
+      if (n.userMessageAdded) return;
+      n.userMessageAdded = true;
+      this.plugin.addMessageToThread(t, {
+        role: "user",
+        content: e || `[${images.length} attached image${images.length === 1 ? "" : "s"}]`,
+        createdAt: Date.now()
+      });
+      if (this.isCurrentThread(t)) {
+        this.renderThreadTitle();
+        this.renderMessages();
+      }
+    };
+    const acknowledgeQueuedDelivery = () => {
+      addUserMessage();
+      if (!queuedId || n.accepted) return;
+      n.accepted = true;
+      this.promptQueue = this.promptQueue.filter((item) => item.id !== queuedId);
+      this.plugin.replaceLocalPromptQueue(this.promptQueue);
+      this.renderPromptQueue();
+    };
     (this.activeRuns.set(t, n),
       this.syncCurrentRunFlags(),
       (this.runningThreadId = t),
@@ -5189,12 +5664,7 @@ var PiAgentView = class extends f5.ItemView {
         : this.activeEditorScrollSnapshot),
       (this.stickToBottom = true),
       this.setRunningState(this.running),
-      this.plugin.addMessageToThread(t, {
-        role: "user",
-        content: e,
-        createdAt: Date.now()
-      }),
-      this.isCurrentThread(t) && (this.renderThreadTitle(), this.renderMessages()));
+      !queuedId && addUserMessage());
     this.renderThreadListIfVisible();
     let s = getCurrentRunMetadata(this.plugin.settings);
     try {
@@ -5203,12 +5673,15 @@ var PiAgentView = class extends f5.ItemView {
         {
           isCanceled: () => n.canceling,
           onEvent: (o) => this.isCurrentThread(t) && this.handleRunEvent(o),
-          onTextDelta: (o) => this.isCurrentThread(t) && this.appendStreamingDelta(o)
+          onTextDelta: (o) => this.isCurrentThread(t) && this.appendStreamingDelta(o),
+          onPromptAccepted: acknowledgeQueuedDelivery
         },
         t,
-        n.runner
+        n.runner,
+        images
       );
-      ((this.streamingAssistantContent = ""),
+      (acknowledgeQueuedDelivery(),
+        (this.streamingAssistantContent = ""),
         (this.streamingItemEl = void 0),
         (this.streamingTextEl = void 0),
         this.plugin.addMessageToThread(t, {
@@ -5225,6 +5698,13 @@ var PiAgentView = class extends f5.ItemView {
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
+      if (queuedId && !n.accepted) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        skipQueueDrain = true;
+      }
       if (o === "Pi run canceled.") {
         new f5.Notice("Agent run canceled.");
         return;
@@ -5250,6 +5730,7 @@ var PiAgentView = class extends f5.ItemView {
         (this.activityText = ""),
         (this.activityDetail = ""),
         (this.currentRunContextUsage = void 0),
+        this.isCurrentThread(t) && (this.nativePiQueue = void 0),
         this.activeEditorScrollSnapshot &&
           this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
         (this.activeEditorScrollSnapshot = void 0),
@@ -5259,7 +5740,7 @@ var PiAgentView = class extends f5.ItemView {
         this.isCurrentThread(t) && (this.renderMessages(), this.renderToolBadges()),
         this.renderThreadListIfVisible(),
         this.plugin.rebuildServicesIfPending(),
-        this.runNextQueuedPrompt());
+        !skipQueueDrain && this.runNextQueuedPrompt());
     }
   }
   getActiveEditorScrollSnapshot() {
@@ -5320,7 +5801,7 @@ var PiAgentView = class extends f5.ItemView {
   }
   setRunningState(e) {
     var n;
-    let s = !!((n = this.inputEl) != null && n.value.trim()),
+    let s = !!((n = this.inputEl) != null && n.value.trim()) || this.composerImages.length > 0,
       a = e && !this.canceling && s,
       o = e ? (this.canceling ? "loader" : a ? "send" : "x") : "send",
       l = e ? (this.canceling ? "Canceling" : a ? "Queue" : "Cancel") : "Send",
@@ -5737,6 +6218,10 @@ var PiAgentPlugin = class extends P.Plugin {
     this.threadHistory = new ThreadStore();
     this.dataSaveChain = Promise.resolve();
     this.threadRunners = /* @__PURE__ */ new Map();
+    this.localPromptQueue = [];
+    this.localPromptSteering = [];
+    this.localPromptQueuePaused = false;
+    this.promptEnricher = void 0;
   }
   async onload() {
     await this.loadSettings();
@@ -5825,8 +6310,19 @@ var PiAgentPlugin = class extends P.Plugin {
   }
   async loadSettings() {
     let e = await this.loadData(),
-      { chatHistory: t, messages: n, threadId: s, sessionId: a, ...o } = e != null ? e : {};
+      {
+        chatHistory: t,
+        messages: n,
+        threadId: s,
+        sessionId: a,
+        localPromptQueue: q,
+        localPromptSteering: steering,
+        ...o
+      } = e != null ? e : {};
     ((this.settings = normalizeSettings(o)),
+      (this.localPromptQueue = restorePersistedLocalPromptQueue(q, steering)),
+      (this.localPromptSteering = []),
+      (this.localPromptQueuePaused = this.localPromptQueue.length > 0),
       (this.settings.additionalSkillFolders = normalizeSkillFolderList(
         this.settings.additionalSkillFolders
       )),
@@ -6005,7 +6501,7 @@ var PiAgentPlugin = class extends P.Plugin {
     }
     this.app.workspace.revealLeaf(t);
   }
-  async runPiPrompt(e, t, n, i = this.pi) {
+  async runPiPrompt(e, t, n, i = this.pi, images = []) {
     var p;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     if (
@@ -6044,7 +6540,7 @@ var PiAgentPlugin = class extends P.Plugin {
           }
         }));
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
-    let h = await i.run(e, a, o.piSessionId, l, t);
+    let h = await i.run(e, a, o.piSessionId, l, t, images);
     return (
       h.sessionId &&
         (this.threadHistory.setThreadPiSessionId(o.id, h.sessionId),
@@ -6052,6 +6548,50 @@ var PiAgentPlugin = class extends P.Plugin {
         this.saveThreadHistory()),
       h
     );
+  }
+  setPromptEnricher(callback) {
+    this.promptEnricher = typeof callback === "function" ? callback : void 0;
+  }
+  async enrichPromptDelivery(delivery, context) {
+    return applyPromptEnricher(delivery, this.promptEnricher, context);
+  }
+  getLocalPromptQueue() {
+    return this.localPromptQueue.map((item) => ({
+      ...item,
+      images: item.images.map((image) => ({ ...image }))
+    }));
+  }
+  isLocalPromptQueuePaused() {
+    return this.localPromptQueuePaused;
+  }
+  resumeLocalPromptQueue() {
+    this.localPromptQueuePaused = false;
+  }
+  beginLocalPromptSteering(item) {
+    if (!this.localPromptSteering.some((candidate) => candidate.id === item.id))
+      this.localPromptSteering.push(item);
+    this.saveThreadHistory();
+  }
+  finishLocalPromptSteering(id) {
+    this.localPromptSteering = this.localPromptSteering.filter((item) => item.id !== id);
+    this.saveThreadHistory();
+  }
+  replaceLocalPromptQueue(queue) {
+    this.localPromptQueue = normalizeLocalPromptQueue(queue, { preserveState: true });
+    this.saveThreadHistory();
+  }
+  enqueueLocalPrompt(item) {
+    this.localPromptQueue = enqueueLocalPrompt(this.localPromptQueue, item);
+    this.saveThreadHistory();
+    return this.localPromptQueue.at(-1);
+  }
+  updateLocalPrompt(id, patch) {
+    this.localPromptQueue = updateLocalPrompt(this.localPromptQueue, id, patch);
+    this.saveThreadHistory();
+  }
+  removeLocalPrompt(id) {
+    this.localPromptQueue = removeLocalPrompt(this.localPromptQueue, id);
+    this.saveThreadHistory();
   }
   async ensureModelCatalogLoaded() {
     this.settings.availableModels.length === 0 && (await this.refreshModelCatalog(false));
@@ -6134,7 +6674,9 @@ var PiAgentPlugin = class extends P.Plugin {
     let e = {
       ...this.settings,
       availableModels: [],
-      chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON())
+      chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON()),
+      localPromptQueue: this.localPromptQueue,
+      localPromptSteering: this.localPromptSteering
     };
     return (
       (this.dataSaveChain = this.dataSaveChain.catch(() => {}).then(() => this.saveData(e))),
