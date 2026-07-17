@@ -1,0 +1,28 @@
+TESTING.md
+  s_b3d65b86d2af53::t_a9c8d02b6b015d 129
+CHANGELOG.md
+  s_b3d65b86d2af53::t_459a31ae9a376e 6
+src/annotations/markdown-annotation-extension.mjs
+  s_b3d65b86d2af53::t_e315e62ff0a2a9 107-112
+styles.css
+  s_b3d65b86d2af53::t_1ff62697b416db 1224,1230,1234-1240
+tests/annotation-processing.test.mjs
+  s_b3d65b86d2af53::t_ce790c29db6bda 13,15,17,28-30
+  s_b3d65b86d2af53::t_369815a4d502ab 31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0f03fa23411fd2d45ca823d3470bb8661ec7ef59",
+  "prompts": {},
+  "sessions": {
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
