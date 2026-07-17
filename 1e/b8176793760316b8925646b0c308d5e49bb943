@@ -1,0 +1,42 @@
+PRIVACY.md
+  s_f72892f98dcdd3::t_d9db37b29a0eae 25
+CHANGELOG.md
+  s_f72892f98dcdd3::t_d9db37b29a0eae 5
+src/pi/rpc-client.mjs
+  s_f72892f98dcdd3::t_d9db37b29a0eae 6,9-24
+  s_f72892f98dcdd3::t_d025b9fa5a292d 149-163
+TESTING.md
+  s_f72892f98dcdd3::t_d9db37b29a0eae 1-132
+README.md
+  s_f72892f98dcdd3::t_c3ae8bbb81ceb0 9,16-17,100-101,104,106
+main.js
+  s_f72892f98dcdd3::t_cfa3b536828d54 1175,1225-1235,1238-1240,1243-1280,1345-1358,1473-1486
+package.json
+  s_f72892f98dcdd3::t_dbc83dd3d80b72 13
+scripts/pi-smoke.mjs
+  s_f72892f98dcdd3::t_61558bd2fe6672 1-47
+src/pi/health.mjs
+  s_f72892f98dcdd3::t_5f21103e9e57f3 5-8,58-69,72-92,94-115
+tests/fixtures/fake-pi-rpc.mjs
+  s_f72892f98dcdd3::t_c472e6d06557d7 30-39,59-62
+tests/health.test.mjs
+  s_f72892f98dcdd3::t_2de070b7bf5d72 1-67
+tests/rpc-integration.test.mjs
+  s_f72892f98dcdd3::t_26bffc8147e694 44-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "1eb8176793760316b8925646b0c308d5e49bb943",
+  "prompts": {},
+  "sessions": {
+    "s_f72892f98dcdd3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7010-17b0-738c-8bf7-476562995acc",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
