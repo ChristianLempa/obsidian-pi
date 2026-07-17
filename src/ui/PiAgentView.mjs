@@ -557,38 +557,14 @@ export class PiAgentView extends f.ItemView {
         a.contextCompacted && this.invalidatedContextThreadIds.add(t),
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
-      if (
-        typeof window.Notification !== "undefined" &&
-        typeof document !== "undefined" &&
-        !document.hasFocus()
-      ) {
-        const notif = new window.Notification("Pi Agent", {
-          body: "Response completed! Click to open Obsidian.",
-          silent: false
-        });
-        notif.onclick = () => {
-          window.focus();
-        };
-      }
+      this.sendNotification("Response completed! Click to open Obsidian.");
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
       if (o === "Pi run canceled.") {
         new f.Notice("Agent run canceled.");
         return;
       }
-      if (
-        typeof window.Notification !== "undefined" &&
-        typeof document !== "undefined" &&
-        !document.hasFocus()
-      ) {
-        const notif = new window.Notification("Pi Agent", {
-          body: `Agent run failed: ${o}`,
-          silent: false
-        });
-        notif.onclick = () => {
-          window.focus();
-        };
-      }
+      this.sendNotification(`Agent run failed: ${o}`);
       (this.plugin.addMessageToThread(t, {
         role: "assistant",
         content: `Agent run failed: ${o}`,
@@ -705,6 +681,21 @@ export class PiAgentView extends f.ItemView {
           ? `${d}. ${this.promptQueue.length} queued.`
           : d
       ));
+  }
+  sendNotification(body) {
+    if (
+      typeof window.Notification !== "undefined" &&
+      typeof document !== "undefined" &&
+      !document.hasFocus()
+    ) {
+      const notif = new window.Notification("Pi Agent", {
+        body,
+        silent: false
+      });
+      notif.onclick = () => {
+        window.focus();
+      };
+    }
   }
   renderPiIcon(e) {
     (0, f.setIcon)(e, I);
