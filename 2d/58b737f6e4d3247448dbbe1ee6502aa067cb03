@@ -1,0 +1,229 @@
+src/annotations/reading-mode-capture.mjs
+  s_04a3839e821a57::t_fd98c04d4daed3 42
+  s_0e0d9183888ced::t_11d5e7df15992c 12,70-71
+  s_bfcd469a184325::t_a30d1b45edb76b 1-11,13-17,32,37-41,45-69,72-79
+  s_bfcd469a184325::t_989ed59236bca5 18-31,33-36
+  s_04a3839e821a57::t_9afd255b69ed4f 43-44
+src/annotations/markdown-annotation-extension.mjs
+  s_3b34162390acd9::t_9b7b883ed20298 54-60
+  s_dc58d7742381ed::t_5e3b22d23c8c20 37,47
+  s_3b34162390acd9::t_9571f8594ca21a 82-100
+  s_3b34162390acd9::t_adf20523c3554f 16-19,21-24
+  s_3b34162390acd9::t_07f3dcc0144bfa 1-15,20,25-36,38-46,48-53,61-81,101-114
+tests/markdown-block-range.test.mjs
+  s_dc58d7742381ed::t_b3848691f3f08b 30-33
+  s_3b34162390acd9::t_779fb2cb3916c6 1-29,34-37
+tests/annotation-model.test.mjs
+  s_67689b4e3d650a::t_adbc3439f8c13b 1-53,56-63
+  s_67689b4e3d650a::t_b43c83b97e1b5a 54-55
+src/annotations/markdown-block-range.mjs
+  s_3b34162390acd9::t_177ad0e6ecb581 1-13,15-45
+  s_dc58d7742381ed::t_75d66448ab1dcf 14
+scripts/build.mjs
+  s_dc58d7742381ed::t_93675209877a9d 27,33-37
+  s_0e0d9183888ced::t_a60be0a5700f51 38
+README.md
+  s_04a3839e821a57::t_da859e0ee3fd46 43-47
+TESTING.md
+  s_04a3839e821a57::t_3f69c1140c9d0d 1-18
+tests/annotation-anchors.test.mjs
+  s_67689b4e3d650a::t_cf9a2d5853b6e3 1-40,51-63
+  s_e1c56646b39e79::t_be6237a65a9cba 41-50
+tests/context-builder.test.mjs
+  s_0e0d9183888ced::t_a9e0e2012c5fe6 138-148
+  s_e1c56646b39e79::t_081baa3459ba26 159-160
+  s_e1c56646b39e79::t_76809ba2f7bee1 85,88-109
+  s_04a3839e821a57::t_bffd8788aaba1d 132
+  s_04a3839e821a57::t_0c4584a454add7 2,110-131,133-136
+  s_67689b4e3d650a::t_3301cb7b48624e 39-58,78
+  s_67689b4e3d650a::t_f51b760212387b 83-84,86-87
+  s_b3d65b86d2af53::t_add1c6cce122f6 137
+tests/annotation-store.test.mjs
+  s_04a3839e821a57::t_9f027334e75a8e 3,75-91,93-94
+  s_67689b4e3d650a::t_0c3887aef0b2ad 1-2,4-48,97-104
+  s_0010a201584639::t_da9491e10f97d3 49-61
+  s_e1c56646b39e79::t_f90ba018c994ea 92
+  s_67689b4e3d650a::t_e39e4923d62584 62-74,95-96
+src/annotations/annotation-model.mjs
+  s_bfcd469a184325::t_df1ab88a3091cd 15-17,82-83
+  s_67689b4e3d650a::t_c166bb0aa3266b 186-188
+  s_04a3839e821a57::t_9f103cc9c1b5fe 198-203
+  s_67689b4e3d650a::t_413687469d58d0 1-4,10-14,18-26,31-37,39-41,49-50,53-81,84-90,95-120,128-142,148-152,157-185,204-208
+  s_04a3839e821a57::t_7fca3b73dfe9a7 28-30
+  s_04a3839e821a57::t_080a3d66d6848a 38,45-46,52
+  s_04a3839e821a57::t_a26022508a5dd6 8
+  s_67689b4e3d650a::t_5b58e97e133714 153-156
+  s_04a3839e821a57::t_99f42aeecd2251 5-7,9,27,42-44,47-48,51,189-195
+  s_e1c56646b39e79::t_d192a02b0878a5 196-197
+  s_67689b4e3d650a::t_05f11d8f6a44cf 91-94
+  s_67689b4e3d650a::t_3395d20d38b6fe 121-127,143-147
+tests/markdown-annotations-controller.test.mjs
+  s_04a3839e821a57::t_8de33ea894c518 161-163
+  s_0e0d9183888ced::t_9bf29d431245fc 75-158
+  s_3b34162390acd9::t_38032a3e855f8c 1-3,9,11-35,179-208
+  s_3b34162390acd9::t_e8ae01d10d901b 10
+  s_bfcd469a184325::t_46c8b765f3784a 49-74
+  s_04a3839e821a57::t_165ce39a3371d1 159-160,164-178
+  s_bfcd469a184325::t_217ed82aa441a9 4-8
+  s_e1c56646b39e79::t_001a4f4169cb64 36-48
+tests/reading-mode-capture.test.mjs
+  s_bfcd469a184325::t_0d48e4913131c9 1-7,9-15,19-24,26,28-45
+  s_0e0d9183888ced::t_d0dc9d339f68bd 27
+  s_0e0d9183888ced::t_ad6e3af645a982 8
+  s_0e0d9183888ced::t_11d5e7df15992c 16-18,25
+src/annotations/annotation-store.mjs
+  s_0010a201584639::t_92b30c933c45c4 97-102,104-106
+  s_67689b4e3d650a::t_bea3575d4befc2 1,125-152
+  s_67689b4e3d650a::t_9497555f4fa6c7 34-37,41-42,157-158
+  s_0010a201584639::t_2dad94a785d5f8 189
+  s_67689b4e3d650a::t_47ac28c8103533 2-3,5-33,38,43,48-70,73-96,115-124,153-156,167-168,181-188
+  s_04a3839e821a57::t_352958cfe5f65f 109-113
+  s_04a3839e821a57::t_428e372e6b5436 4,39-40,44-47,71-72,103,107-108,114,169-180
+  s_04a3839e821a57::t_e7678be56ea7cb 159-166
+src/context/context-builder.mjs
+  s_bfcd469a184325::t_d63ac96907b7ad 54,56,60-72
+  s_04a3839e821a57::t_4013933104ed2b 129,160
+  s_67689b4e3d650a::t_1362ab87ee41f6 9,14,112,114-115,127,308-311
+  s_04a3839e821a57::t_e7fc0f1f58ef0d 145-147
+  s_e1c56646b39e79::t_a3720f59d1aca0 113
+  s_04a3839e821a57::t_c1e09c5e27aad4 1,128,130-144,148-159,161-164
+  s_e1c56646b39e79::t_4c5b22f52aae50 305-307
+src/plugin/PiAgentPlugin.mjs
+  s_67689b4e3d650a::t_d0bef654a4d786 3,104,137-138,147-153,226-233,238,494,531-532,541
+  s_04a3839e821a57::t_ee1804fe3ed947 166-172,535
+  s_04a3839e821a57::t_0ea9d190694f40 144-146
+  s_04a3839e821a57::t_77f3e439db8ce8 139-143
+  s_04a3839e821a57::t_43680f5abe35a5 533-534
+  s_3b34162390acd9::t_458ae93367d064 4,117-118,221,239-242
+  s_67689b4e3d650a::t_591a6b37701686 495,505-508,522
+  s_e1c56646b39e79::t_5e4511c20c41e7 510-521
+  s_67689b4e3d650a::t_1529ca5cb34ccb 509
+  s_e1c56646b39e79::t_bbed6a0a6acac8 165,540
+src/annotations/annotation-modal.mjs
+  s_3b34162390acd9::t_63df504566a704 1
+  s_3b34162390acd9::t_09e39f409b4c30 3,32-43,45-46,48-49,56,60-61,68-69,74-81,83-96,102-110,113-118,131-144
+  s_bfcd469a184325::t_c6ae685c57258e 44,47,50-55
+  s_dc58d7742381ed::t_5f4f6ec7ceea01 2,65
+  s_04a3839e821a57::t_336114d3addc64 4-31
+  s_3b34162390acd9::t_e611433c048c20 59
+  s_dc58d7742381ed::t_36be2cd7738dbc 62-64,66-67,70-73,97-101,111-112,119-130
+  s_3b34162390acd9::t_2ad33bcc146f1e 57-58,82
+PRIVACY.md
+  s_04a3839e821a57::t_9f739d68ca79b4 15,21,25-27
+CHANGELOG.md
+  s_04a3839e821a57::t_597fe3b238d221 5-6
+src/annotations/annotation-anchors.mjs
+  s_67689b4e3d650a::t_ceef9356ab5f07 5-10,12
+  s_e1c56646b39e79::t_057c6ff2eff9db 27,39,53,56-66
+  s_67689b4e3d650a::t_7e174d898079f4 40
+  s_67689b4e3d650a::t_d0bdcf0d142dd3 1-4,11,13-26,28-38,41-52,54-55,67
+src/annotations/markdown-annotations-controller.mjs
+  s_0e0d9183888ced::t_7a7c33b013659f 98,102-103,106-110,337-342,344
+  s_0e0d9183888ced::t_11d5e7df15992c 7-11,392-393,415-416,486-487
+  s_3b34162390acd9::t_7d83e829aeafdb 213
+  s_bfcd469a184325::t_3a619642dc3ed6 251-254
+  s_04a3839e821a57::t_307c763ca829b7 4,40,44,52,57-69,74-75,84,123-124,128-132,148-158,464,472,556,561-564,595-599,648,651-652
+  s_3b34162390acd9::t_72bb8d3aa8eb0d 96-97,99,111-113,135,185,285,497-498,503
+  s_bfcd469a184325::t_824a708d1021cc 100-101,104-105
+  s_04a3839e821a57::t_37fdcefe54a548 358,360-361,363,376-378,380
+  s_bfcd469a184325::t_1ad42964ea4f51 435
+  s_e1c56646b39e79::t_6df3f1f96068a7 3,181-184,277-280
+  s_3b34162390acd9::t_ccbcceacf15445 2,5-6,12-15,31-35,38-39,41-43,45,47-49,51,53-56,70-73,76,78-83,85-95,115-122,125-127,133-134,136-142,146-147,160-161,170-180,186-187,189-190,193-198,206-212,214,230-237,247-250,255-276,281-284,491-492,499-502,504-540,545-550,552-555,557-560,565-584,607-646,649-650,653-656,661-669
+  s_dc58d7742381ed::t_b264ee61cfd18f 199,201-205
+  s_bfcd469a184325::t_e2335bafe99ce2 1,16-30,36-37,46,77,114,143-145,159,162-163,165-169,188,191-192,200,215-229,238-246,286-328,330-336,343,345-357,359,362,364-375,379,381-391,394-414,417-423,425-426,432-434,436-463,465-471,473-479,482-485,488-490,493-496,541-544,551,585,587-594,600-606,647,657-660
+  s_bfcd469a184325::t_42e876be2e24d9 480-481,586
+  s_dc93e0ab64026b::t_862fe2407d055c 50,164,329,424,427-431
+styles.css
+  s_3b34162390acd9::t_cfa43c247b36a3 917-925,933-941,951-959,978-1072,1074-1075,1082-1122,1132-1143,1153-1154
+  s_3b34162390acd9::t_c5b1e334cf4596 942-950
+  s_bfcd469a184325::t_cb22bb734ddc94 960-977,1073,1076-1081
+  s_04a3839e821a57::t_2fec96054b3acb 926-932,1123-1131,1144-1152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "2d58b737f6e4d3247448dbbe1ee6502aa067cb03",
+  "prompts": {},
+  "sessions": {
+    "s_0010a201584639": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fe4-945d-7e6c-a0dd-16a567f99f85",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_04a3839e821a57": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6ffe-1c7f-7218-9f40-8eb248bca544",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_0e0d9183888ced": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6ffa-6549-7e91-a2cb-46ff67a6ff19",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_3b34162390acd9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fe7-9cbc-79da-8a51-6b3528297642",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_67689b4e3d650a": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fde-ccef-75ea-9c61-7e19a75e61b4",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_bfcd469a184325": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6ff4-149a-7df3-8f63-7356049d0e09",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_dc58d7742381ed": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fee-4321-7efb-8cf8-a25f6c9782f4",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_dc93e0ab64026b": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7004-08aa-78f5-9c15-ab523f797160",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_e1c56646b39e79": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7005-b33c-7ee4-ad02-2b39f28eec36",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
