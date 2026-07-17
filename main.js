@@ -2636,36 +2636,44 @@ var PiRunner = class {
       reference: this.createSessionReference(sessionPath) ?? sessionPath
     };
   }
-  createForkSessionFile(sessionReference) {
+  async getExistingSessionRpcClient(sessionReference) {
     const sessionPath = this.resolveSessionPath(sessionReference);
-    if (!sessionPath || !import_node_fs5.default.existsSync(sessionPath)) return void 0;
-    const events = import_node_fs5.default
-      .readFileSync(sessionPath, "utf8")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => JSON.parse(line));
-    const sessionEvent = events.find((event) => event.type === "session");
-    if (!sessionEvent) return void 0;
-    const forkSessionPath = this.createSessionFilePath();
-    const forkSessionEvent = {
-      ...sessionEvent,
-      id: createSessionId(),
-      timestamp: /* @__PURE__ */ new Date().toISOString(),
-      cwd: this.workingDirectory || sessionEvent.cwd,
-      parentSession: this.createSessionReference(sessionPath) ?? sessionPath
-    };
-    import_node_fs5.default.writeFileSync(
-      forkSessionPath,
-      `${JSON.stringify(forkSessionEvent)}
-${events
-  .filter((event) => event.type !== "session")
-  .map((event) => JSON.stringify(event))
-  .join("\n")}
-`,
-      "utf8"
-    );
-    return this.createSessionReference(forkSessionPath) ?? forkSessionPath;
+    if (!sessionPath || !import_node_fs5.default.existsSync(sessionPath)) {
+      throw new Error("The local Pi session file is not available.");
+    }
+    return this.getOrCreateRpcClient(sessionReference);
+  }
+  async cloneSession(sessionReference) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    const result = await client.request("clone");
+    if (result?.cancelled) return void 0;
+    const state = await client.request("get_state");
+    const cloneReference = this.createSessionReference(state?.sessionFile);
+    const clonePath = this.resolveSessionPath(cloneReference);
+    if (!clonePath || !import_node_fs5.default.existsSync(clonePath)) {
+      throw new Error("Pi did not return a portable local clone session.");
+    }
+    return cloneReference;
+  }
+  async getSessionStats(sessionReference) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("get_session_stats");
+  }
+  async setSessionName(sessionReference, name) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("set_session_name", { name });
+  }
+  async exportSession(sessionReference, outputPath) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("export_html", outputPath ? { outputPath } : {});
+  }
+  async getSessionTree(sessionReference) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("get_tree");
+  }
+  async getSessionEntries(sessionReference, since) {
+    const { client } = await this.getExistingSessionRpcClient(sessionReference);
+    return client.request("get_entries", since ? { since } : {});
   }
   formatDryRunCompactResponse(sessionId) {
     return {
@@ -2728,12 +2736,6 @@ function isSafeRelativePath(relativePath) {
     !relativePath.startsWith(`..${import_node_path5.default.sep}`) &&
     !import_node_path5.default.isAbsolute(relativePath)
   );
-}
-function createSessionId() {
-  const randomUUID = globalThis.crypto?.randomUUID;
-  return randomUUID
-    ? randomUUID.call(globalThis.crypto)
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 // src/plugin/settings-tab.mjs
@@ -3478,6 +3480,7 @@ function renderPromptQueue() {
 // src/ui/thread-list-view.mjs
 var thread_list_view_exports = {};
 __export(thread_list_view_exports, {
+  countSessionEntries: () => countSessionEntries,
   deleteThreadFromList: () => deleteThreadFromList,
   formatThreadDate: () => formatThreadDate,
   formatThreadMeta: () => formatThreadMeta,
@@ -3489,6 +3492,54 @@ __export(thread_list_view_exports, {
   toggleThreadFavorite: () => toggleThreadFavorite
 });
 var f2 = __toESM(require("obsidian"), 1);
+
+// src/ui/modals/delete-thread-modal.mjs
+var import_obsidian8 = require("obsidian");
+function chooseThreadDeletion(app, thread) {
+  return new Promise((resolve) => new DeleteThreadModal(app, thread, resolve).open());
+}
+function getThreadDeletionChoices(thread) {
+  return thread?.piSessionId ? ["cancel", "chat", "both"] : ["cancel", "chat"];
+}
+var DeleteThreadModal = class extends import_obsidian8.Modal {
+  constructor(app, thread, resolve) {
+    super(app);
+    this.thread = thread;
+    this.resolve = resolve;
+    this.choice = "cancel";
+  }
+  onOpen() {
+    this.contentEl.empty();
+    this.contentEl.createEl("h2", { text: "Delete chat?" });
+    this.contentEl.createEl("p", {
+      text: this.thread.piSessionId
+        ? `Choose whether to keep or delete the local Pi session for \u201C${this.thread.title}\u201D.`
+        : `Delete \u201C${this.thread.title}\u201D from plugin history?`
+    });
+    const actions = this.contentEl.createDiv({ cls: "pi-agent-modal-actions" });
+    const labels = {
+      cancel: "Cancel",
+      chat: "Delete chat only",
+      both: "Delete chat and local Pi session"
+    };
+    for (const choice of getThreadDeletionChoices(this.thread))
+      this.addButton(actions, labels[choice], choice);
+  }
+  addButton(container, label, choice) {
+    const button = container.createEl("button", { text: label });
+    if (choice === "both") button.addClass("mod-warning");
+    button.addEventListener("click", () => {
+      this.choice = choice;
+      this.close();
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+    this.resolve(this.choice);
+  }
+};
+
+// src/ui/thread-list-view.mjs
 function showThreadList() {
   ((this.showingThreadList = true), this.renderThreadList());
 }
@@ -3606,6 +3657,43 @@ function showThreadRowMenu(e, t, n, s) {
         .setIcon("pencil")
         .onClick(() => this.startThreadListRename(t, s))
     ),
+    t.piSessionId &&
+      a.addItem((o) =>
+        o
+          .setTitle("Pi session info")
+          .setIcon("info")
+          .onClick(async () => {
+            try {
+              const [stats, tree] = await Promise.all([
+                this.plugin.getThreadSessionStats(t.id),
+                this.plugin.getThreadSessionTree(t.id)
+              ]);
+              const entryCount = countSessionEntries(tree?.tree ?? []);
+              new f2.Notice(
+                stats
+                  ? `${stats.sessionFile}
+${stats.totalMessages} messages \xB7 ${entryCount} tree entries \xB7 ${stats.tokens?.total ?? 0} tokens \xB7 $${Number(stats.cost ?? 0).toFixed(4)}`
+                  : "No Pi session information is available."
+              );
+            } catch (error) {
+              new f2.Notice(error instanceof Error ? error.message : String(error));
+            }
+          })
+      ),
+    t.piSessionId &&
+      a.addItem((o) =>
+        o
+          .setTitle("Export Pi session to HTML")
+          .setIcon("download")
+          .onClick(async () => {
+            try {
+              const result = await this.plugin.exportThreadSession(t.id);
+              new f2.Notice(result?.path ? `Exported to ${result.path}` : "Session export failed.");
+            } catch (error) {
+              new f2.Notice(error instanceof Error ? error.message : String(error));
+            }
+          })
+      ),
     a.addSeparator(),
     a.addItem((o) =>
       o
@@ -3646,16 +3734,12 @@ async function deleteThreadFromList(e) {
     new f2.Notice("Wait for the agent run to finish before deleting this chat.");
     return;
   }
-  let t = await confirmWithModal(this.plugin.app, {
-    title: "Delete chat?",
-    message: `Delete chat "${e.title}" from plugin history?`,
-    confirmText: "Delete",
-    warning: true
-  });
-  if (!t) return;
-  this.plugin.deleteThread(e.id)
-    ? (new f2.Notice("Chat deleted."), this.renderThreadList())
-    : new f2.Notice("Chat thread was not found.");
+  const choice = await chooseThreadDeletion(this.plugin.app, e);
+  if (choice === "cancel") return;
+  this.plugin.deleteThread(e.id, { deletePiSession: choice === "both" })
+    ? (new f2.Notice(choice === "both" ? "Chat and local Pi session deleted." : "Chat deleted."),
+      this.renderThreadList())
+    : new f2.Notice("Chat or local Pi session could not be deleted.");
 }
 function formatThreadMeta(e, t) {
   let n = this.plugin.getThreadDisplayMessageCount
@@ -3663,6 +3747,13 @@ function formatThreadMeta(e, t) {
       : e.messages.length,
     s = `${n} message${n === 1 ? "" : "s"} \u2022 Updated ${this.formatThreadDate(e.updatedAt)}`;
   return t ? `Current \u2022 ${s}` : s;
+}
+function countSessionEntries(nodes) {
+  return nodes.reduce(
+    (count, node) =>
+      count + 1 + countSessionEntries(Array.isArray(node.children) ? node.children : []),
+    0
+  );
 }
 function formatThreadDate(e) {
   try {
@@ -4334,7 +4425,7 @@ function formatActiveToolStatus() {
 }
 
 // src/ui/run-settings.mjs
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var RunSettingsControls = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -4359,7 +4450,7 @@ var RunSettingsControls = class {
         this.plugin.settings.model = value;
         this.plugin.settings.reasoningEffort = "";
         if (value === CUSTOM_MODEL_VALUE && !this.plugin.settings.customModel) {
-          new import_obsidian8.Notice("Set custom model ID in plugin settings.");
+          new import_obsidian9.Notice("Set custom model ID in plugin settings.");
         }
         await this.plugin.saveSettings();
         this.refresh();
@@ -4414,11 +4505,11 @@ var RunSettingsControls = class {
       cls: `clickable-icon pi-agent-run-setting ${this.getRunSettingClass(name, selectedValue)}`,
       attr: { "aria-label": `${name}: ${selectedLabel}`, title: `${name}: ${selectedLabel}` }
     });
-    (0, import_obsidian8.setIcon)(buttonEl, icon);
+    (0, import_obsidian9.setIcon)(buttonEl, icon);
     buttonEl.createSpan({ cls: "pi-agent-control-label", text: displayLabel });
     buttonEl.addEventListener("click", async (event) => {
       event.preventDefault();
-      const menu = new import_obsidian8.Menu();
+      const menu = new import_obsidian9.Menu();
       for (const [optionValue, optionLabel] of Object.entries(options)) {
         menu.addItem((item) => {
           item.setTitle(optionLabel).onClick(async () => {
@@ -4676,7 +4767,7 @@ var ComposerSuggestions = class {
 };
 
 // src/ui/thread-actions.mjs
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var ThreadActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -4689,13 +4780,18 @@ var ThreadActions = class {
     this.callbacks.renderMessages();
     this.callbacks.renderToolBadges?.();
   }
-  forkChat() {
-    this.plugin.forkCurrentThread()
-      ? (this.callbacks.resetThreadUiState?.(),
-        this.callbacks.renderThreadTitle(),
-        this.callbacks.renderMessages(),
-        this.callbacks.renderToolBadges?.())
-      : new import_obsidian9.Notice("Nothing to fork yet.");
+  async forkChat() {
+    try {
+      const fork = await this.plugin.forkCurrentThread();
+      fork
+        ? (this.callbacks.resetThreadUiState?.(),
+          this.callbacks.renderThreadTitle(),
+          this.callbacks.renderMessages(),
+          this.callbacks.renderToolBadges?.())
+        : new import_obsidian10.Notice("Nothing to fork yet.");
+    } catch (error) {
+      new import_obsidian10.Notice(error instanceof Error ? error.message : String(error));
+    }
   }
 };
 
@@ -5943,22 +6039,53 @@ var PiAgentPlugin = class extends P.Plugin {
     let t = this.threadHistory.startNewThread(e);
     return (this.syncCurrentThreadState(), this.saveThreadHistory(), t);
   }
-  forkCurrentThread() {
-    var t;
-    let e = this.getCurrentThread(),
-      n = e.piSessionId
-        ? (t = this.pi) == null
-          ? void 0
-          : t.createForkSessionFile(e.piSessionId)
-        : void 0,
-      s = this.threadHistory.forkCurrentThread(n);
-    return s ? (this.syncCurrentThreadState(), this.saveThreadHistory(), s) : void 0;
+  async forkCurrentThread() {
+    const current = this.getCurrentThread();
+    if (current.messages.length === 0) return void 0;
+    let clonedSession;
+    if (current.piSessionId) {
+      const runner = this.createPiRunner(current.id);
+      try {
+        clonedSession = await runner.cloneSession(current.piSessionId);
+        if (clonedSession) {
+          await runner
+            .setSessionName(clonedSession, `${current.title} (fork)`)
+            .catch((error) => console.warn("Pi Agent: could not name cloned Pi session", error));
+        }
+      } finally {
+        runner.rpcClient?.dispose();
+        this.threadRunners.delete(current.id);
+      }
+      if (!clonedSession) return void 0;
+    }
+    const fork = this.threadHistory.forkCurrentThread(clonedSession);
+    return fork ? (this.syncCurrentThreadState(), this.saveThreadHistory(), fork) : void 0;
   }
   getCurrentThread() {
     return this.threadHistory.getCurrentThread();
   }
   listThreads(e) {
     return this.threadHistory.listThreads(e);
+  }
+  async getThreadSessionStats(threadId) {
+    const thread = this.threadHistory.getThread(threadId);
+    if (!thread?.piSessionId) return void 0;
+    return this.createPiRunner(threadId).getSessionStats(thread.piSessionId);
+  }
+  async exportThreadSession(threadId) {
+    const thread = this.threadHistory.getThread(threadId);
+    if (!thread?.piSessionId) return void 0;
+    return this.createPiRunner(threadId).exportSession(thread.piSessionId);
+  }
+  async getThreadSessionTree(threadId) {
+    const thread = this.threadHistory.getThread(threadId);
+    if (!thread?.piSessionId) return void 0;
+    return this.createPiRunner(threadId).getSessionTree(thread.piSessionId);
+  }
+  async getThreadSessionEntries(threadId, since) {
+    const thread = this.threadHistory.getThread(threadId);
+    if (!thread?.piSessionId) return void 0;
+    return this.createPiRunner(threadId).getSessionEntries(thread.piSessionId, since);
   }
   getThreadDisplayMessageCount(e) {
     let t = Array.isArray(e == null ? void 0 : e.messages) ? e.messages.length : 0,
@@ -6003,10 +6130,36 @@ var PiAgentPlugin = class extends P.Plugin {
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
       : false;
   }
-  deleteThread(e) {
+  deleteThread(e, options = {}) {
+    const thread = this.threadHistory.getThread(e);
+    if (!thread) return false;
     const runner = this.threadRunners.get(e);
+    if (runner?.isRunning) return false;
+    let sessionPath;
+    if (options.deletePiSession && thread.piSessionId) {
+      const resolver = runner ?? this.pi;
+      sessionPath = resolver?.resolveSessionPath(thread.piSessionId);
+      if (!sessionPath || !import_node_fs6.default.existsSync(sessionPath)) return false;
+      const sessionIsShared = this.threadHistory
+        .listThreads({ includeArchived: true })
+        .some(
+          (other) =>
+            other.id !== e &&
+            other.piSessionId &&
+            resolver.resolveSessionPath(other.piSessionId) === sessionPath
+        );
+      if (sessionIsShared) return false;
+    }
     runner?.rpcClient?.dispose();
     this.threadRunners.delete(e);
+    if (sessionPath) {
+      try {
+        import_node_fs6.default.unlinkSync(sessionPath);
+      } catch (error) {
+        console.warn("Pi Agent: could not delete local Pi session", error);
+        return false;
+      }
+    }
     return this.threadHistory.deleteThread(e)
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
       : false;
@@ -6016,9 +6169,18 @@ var PiAgentPlugin = class extends P.Plugin {
     return e === 0 ? 0 : (this.syncCurrentThreadState(), this.saveThreadHistory(), e);
   }
   renameThread(e, t) {
-    return this.threadHistory.renameThread(e, t)
-      ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
-      : false;
+    const thread = this.threadHistory.getThread(e);
+    const renamed = this.threadHistory.renameThread(e, t);
+    if (!renamed) return false;
+    this.syncCurrentThreadState();
+    this.saveThreadHistory();
+    if (thread?.piSessionId) {
+      const sessionName = this.threadHistory.getThread(e)?.title ?? t;
+      this.createPiRunner(e)
+        .setSessionName(thread.piSessionId, sessionName)
+        .catch((error) => console.warn("Pi Agent: could not rename Pi session", error));
+    }
+    return true;
   }
   toggleThreadFavorite(e) {
     return this.threadHistory.toggleThreadFavorite(e)
