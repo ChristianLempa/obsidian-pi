@@ -1,0 +1,39 @@
+CHANGELOG.md
+  s_5802409db8226a::t_24bc9efdfec0ba 3-4
+PRIVACY.md
+  s_5802409db8226a::t_4837a459156b47 17,29
+TESTING.md
+  s_5802409db8226a::t_f843d90f81bdd8 69-76
+src/context/context-builder.mjs
+  s_5802409db8226a::t_3b04757b252bbd 127-129
+src/plugin/PiAgentPlugin.mjs
+  s_5802409db8226a::t_db5c9d9f4240c8 731-732,997-1001
+src/ui/PiAgentView.mjs
+  s_5802409db8226a::t_3e5515ddcecc5c 21-23,26,28-31,56,276-283,286,314-315,467-468,476,482-483,492-493,585,587-627,632-691,719,724-727,742-761,806-812,821,828,844-847,878,897,1132-1135,1160-1201
+src/ui/prompt-payload.mjs
+  s_5802409db8226a::t_589d8ce8499933 3-4,6-102,105-107,112,137-139,143-306,319-321,323-341,348-350,360-369,372-377
+src/ui/prompt-queue.mjs
+  s_5802409db8226a::t_4888fa256f095c 9-13,15-21,45,62,87,90,140,144,146,203-204,207-208,212-220,223-231
+styles.css
+  s_5802409db8226a::t_77c41a91b1e354 567-573,577-605
+tests/local-prompt-queue.test.mjs
+  s_5802409db8226a::t_a44ab3efa22eef 54-70
+tests/prompt-payload.test.mjs
+  s_5802409db8226a::t_e1a7a0b4ddda51 3,5,9-11,14,60-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a133888078eb512d8e813fe36c844c314fb06273",
+  "prompts": {},
+  "sessions": {
+    "s_5802409db8226a": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7039-7ad9-7ceb-a098-74022133a76c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
