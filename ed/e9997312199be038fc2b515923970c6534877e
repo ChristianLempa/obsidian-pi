@@ -1,0 +1,56 @@
+tests/model-catalog.test.mjs
+  s_9917037d63149d::t_5d2126b7c0a406 3,5,25-26,31-65
+src/pi/runner.mjs
+  s_c73688532cdab1::t_1cd4ecfbf0918b 117,135
+  s_9917037d63149d::t_07da08902c24f9 99,112,116,118-134,136-137
+tests/runner.test.mjs
+  s_9917037d63149d::t_5e3e3806d5523b 31,133-165
+  s_c73688532cdab1::t_984c77f94ab2d0 166,168-206
+  s_b3d65b86d2af53::t_693ae2e97e8883 167
+src/pi/model-catalog.mjs
+  s_c73688532cdab1::t_19e1de91240daa 92
+  s_9917037d63149d::t_42e1a571853f14 1,3,13-18,20-32,35-36,40,68-91,93-96
+src/plugin/settings.mjs
+  s_9917037d63149d::t_f38bb0e12981a3 10-11,68-69,78-80,82,84,138-141,144-152
+CHANGELOG.md
+  s_9917037d63149d::t_a8303e8568f951 5
+src/plugin/settings-tab.mjs
+  s_c73688532cdab1::t_f66b4da693113d 207
+tests/settings.test.mjs
+  s_9917037d63149d::t_d25bb3bc210fd3 18-21,25-26,28-36,51-52,54-59
+src/plugin/PiAgentPlugin.mjs
+  s_9917037d63149d::t_3d54360b410b19 8,203-204,246-249,255-258
+  s_c73688532cdab1::t_9c89c6b47a638c 259-261
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "ede9997312199be038fc2b515923970c6534877e",
+  "prompts": {},
+  "sessions": {
+    "s_9917037d63149d": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fe8-fd56-747d-9bb8-3bd1f854651d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_c73688532cdab1": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fef-34f8-707f-858b-9f89d1bd2ed1",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
