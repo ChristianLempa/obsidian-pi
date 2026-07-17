@@ -18645,16 +18645,11 @@ function renderThinkingDisclosure(container, thinking, expanded, onToggle, live 
   const summary = details.createEl("summary");
   const chevron = summary.createSpan({ cls: "pi-agent-thinking-chevron" });
   (0, f3.setIcon)(chevron, "chevron-right");
-  summary.createSpan({ cls: "pi-agent-thinking-label", text: "Thinking" });
-  if (live) {
-    const status = summary.createSpan({
-      cls: "pi-agent-thinking-status",
-      attr: { role: "status", "aria-label": "Thinking in progress" }
-    });
-    const spinner = status.createSpan({ cls: "pi-agent-thinking-spinner" });
-    (0, f3.setIcon)(spinner, "loader");
-    status.createSpan({ text: "Live" });
-  }
+  summary.createSpan({
+    cls: "pi-agent-thinking-label",
+    text: "Thinking",
+    attr: live ? { role: "status", "aria-label": "Thinking in progress" } : void 0
+  });
   const text = details.createDiv({ cls: "pi-agent-thinking-content", text: thinking });
   details.addEventListener("toggle", () => {
     if (details.open === knownExpanded) return;
@@ -18756,8 +18751,6 @@ function renderRoleLabel(e, t, n, s) {
       cls: `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
       attr: { title: this.activityDetail || this.activityText }
     });
-    const spinner = h.createSpan({ cls: "pi-agent-inline-activity-spinner" });
-    (0, f3.setIcon)(spinner, "loader");
     ((this.activityInlineEl = h),
       (this.activityInlineTextEl = h.createSpan({
         cls: "pi-agent-inline-activity-text",
