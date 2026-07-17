@@ -51,6 +51,23 @@ describe("local prompt queue", () => {
     );
   });
 
+  it("persists text attachments through claim, restore, retrieve-style edit, and one-time take", () => {
+    const attachment = {
+      id: "file-1", kind: "text", fileName: "config.yaml", mimeType: "application/yaml",
+      content: "enabled: true", originalSize: 13, includedBytes: 13, truncated: false,
+      source: "vault", path: "config.yaml"
+    };
+    const normalized = normalizeLocalPromptQueue([
+      { id: "files", prompt: "review", images: [], attachments: [attachment], threadId: "a", createdAt: 1 }
+    ]);
+    expect(normalized[0].attachments).toEqual([attachment]);
+    const taken = takeLocalPrompt(normalized, "files");
+    expect(taken.item.attachments[0].fileName).toBe("config.yaml");
+    expect(takeLocalPrompt(taken.queue, "files").item).toBeUndefined();
+    const restored = restoreLocalPrompt(taken.queue, taken.item, taken.index);
+    expect(claimLocalPrompt(restored, "files", "delivering").item.state).toBe("delivering");
+  });
+
   it("supports safe edit and removal by stable id", () => {
     const edited = updateLocalPrompt(normalizeLocalPromptQueue(queue()), "two", {
       prompt: "changed"

@@ -124,7 +124,9 @@ export class ContextBuilder {
       JSON.stringify(context.searchResults, null, 2),
       "",
       "## Explicit prompt attachments",
-      JSON.stringify(context.attachments, null, 2)
+      JSON.stringify(context.attachments, null, 2),
+      "",
+      context.fileAttachmentsContext || ""
     ].join("\n");
 
     return context.piCommand

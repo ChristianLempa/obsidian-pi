@@ -728,7 +728,8 @@ export class PiAgentPlugin extends P.Plugin {
   getLocalPromptQueue() {
     return this.localPromptQueue.map((item) => ({
       ...item,
-      images: item.images.map((image) => ({ ...image }))
+      images: item.images.map((image) => ({ ...image })),
+      attachments: item.attachments.map((attachment) => ({ ...attachment }))
     }));
   }
   isLocalPromptQueuePaused() {
@@ -993,5 +994,9 @@ function isLegacyBareModelId(model) {
 }
 function getPriorThreadHistory(r, i) {
   let e = r[r.length - 1];
-  return (e == null ? void 0 : e.role) === "user" && e.content === i ? r.slice(0, -1) : r;
+  const isCurrentAttachmentOnlyMessage =
+    i === "" && /^\[\d+ attached (?:image|file)s?\]$/.test(e?.content || "");
+  return e?.role === "user" && (e.content === i || isCurrentAttachmentOnlyMessage)
+    ? r.slice(0, -1)
+    : r;
 }

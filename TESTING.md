@@ -66,6 +66,14 @@ Use disposable files only.
 - [ ] **Pending:** Review a trusted extension before enabling it; confirm its tools follow the plugin's mode policy.
 - [ ] **Pending:** Exercise extension UI `select`, `confirm`, `input`, `editor`, `notify`, `set_editor_text`, `setStatus`, and `setWidget`, including cancel/error paths.
 
+## Native file attachments
+
+- [ ] **Pending:** Confirm the paperclip is labeled **Attach files** and its native Obsidian menu offers a fuzzy vault-file picker and a local-file picker.
+- [ ] **Pending:** Attach PNG/JPEG/WebP files and verify thumbnails and Pi RPC image delivery; verify other images and generic binaries are rejected rather than described as RPC binary support.
+- [ ] **Pending:** Attach supported UTF-8 text/code/config files from both sources; verify name, type, size, source, and truncation state, 64 KiB per-file and 192 KiB total limits, and rejection of NUL/binary, invalid UTF-8, PDF, office, and archive files.
+- [ ] **Pending:** Inspect the delivered prompt and confirm file text is clearly delimited as untrusted data while the visible user message stays concise.
+- [ ] **Pending:** Exercise normal send, queued delivery, retrieve/edit/remove, restart persistence, and **Steer now**; confirm each attachment is delivered exactly once.
+
 ## Context, local queue, and native Steer now
 
 Create an active note with frontmatter, headings, tags, wikilinks, backlinks, and non-sensitive content.

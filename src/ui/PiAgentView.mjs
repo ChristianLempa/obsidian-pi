@@ -18,10 +18,17 @@ import { ComposerSuggestions } from "./suggestions.mjs";
 import { ThreadActions } from "./thread-actions.mjs";
 import { getCurrentRunMetadata } from "./view/run-metadata.mjs";
 import {
+  appendTextAttachmentContext,
+  bytesToPromptImage,
+  createPromptTextAttachment,
   fileToPromptImage,
   imagePreviewUrl,
+  isSupportedTextFile,
   modelSupportsImages,
-  SUPPORTED_IMAGE_MIME_TYPES
+  SUPPORTED_IMAGE_MIME_TYPES,
+  SUPPORTED_TEXT_EXTENSIONS,
+  textAttachmentBytes,
+  MAX_TOTAL_TEXT_ATTACHMENT_BYTES
 } from "./prompt-payload.mjs";
 import { formatToolError, getThinkingDelta } from "./activity.mjs";
 import { getSendActionState } from "./send-state.mjs";
@@ -46,6 +53,7 @@ export class PiAgentView extends f.ItemView {
     this.streamingAssistantContent = "";
     this.promptQueue = this.plugin.getLocalPromptQueue();
     this.composerImages = [];
+    this.composerAttachments = [];
     this.nativePiQueue = undefined;
     this.steeringPromptIds = new Set();
     this.streamingThinkingContent = "";
@@ -265,10 +273,17 @@ export class PiAgentView extends f.ItemView {
       this.resizeInput());
     this.imageInputEl = d.createEl("input", {
       cls: "pi-agent-image-input",
-      attr: { type: "file", accept: SUPPORTED_IMAGE_MIME_TYPES.join(","), multiple: "" }
+      attr: {
+        type: "file",
+        accept: [
+          ...SUPPORTED_IMAGE_MIME_TYPES,
+          ...SUPPORTED_TEXT_EXTENSIONS.map((ext) => `.${ext}`)
+        ].join(","),
+        multiple: ""
+      }
     });
     this.imageInputEl.addEventListener("change", () => {
-      this.addImageFiles(this.imageInputEl?.files);
+      this.addLocalFiles(this.imageInputEl?.files);
       if (this.imageInputEl) this.imageInputEl.value = "";
     });
     let h = d.createDiv({ cls: "pi-agent-composer-bar" });
@@ -296,6 +311,8 @@ export class PiAgentView extends f.ItemView {
       (this.extensionWidgetsAboveEl = void 0),
       (this.extensionWidgetsBelowEl = void 0),
       (this.composerImagesEl = void 0),
+      (this.composerImages = []),
+      (this.composerAttachments = []),
       (this.imageInputEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
@@ -447,7 +464,8 @@ export class PiAgentView extends f.ItemView {
     var t, n;
     let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
     let images = this.composerImages.map((image) => ({ ...image }));
-    if (!e && images.length === 0) return;
+    let attachments = this.composerAttachments.map((attachment) => ({ ...attachment }));
+    if (!e && images.length === 0 && attachments.length === 0) return;
     if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
     if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
       new f.Notice("The selected Pi model does not support image input.");
@@ -455,13 +473,14 @@ export class PiAgentView extends f.ItemView {
     }
     (this.inputEl && (this.inputEl.value = ""),
       (this.composerImages = []),
+      (this.composerAttachments = []),
       this.renderComposerImages(),
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
       this.running
-        ? this.enqueuePrompt(e, this.plugin.getCurrentThread().id, images)
-        : this.runPrompt(e, undefined, images),
+        ? this.enqueuePrompt(e, this.plugin.getCurrentThread().id, images, attachments)
+        : this.runPrompt(e, undefined, images, undefined, attachments),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
@@ -470,7 +489,8 @@ export class PiAgentView extends f.ItemView {
     if (
       this.running &&
       !((t = this.inputEl) != null && t.value.trim()) &&
-      this.composerImages.length === 0
+      this.composerImages.length === 0 &&
+      this.composerAttachments.length === 0
     ) {
       this.cancelCurrentRun();
       return;
@@ -562,13 +582,112 @@ export class PiAgentView extends f.ItemView {
   renderImagePicker(parent) {
     const button = parent.createEl("button", {
       cls: "clickable-icon pi-agent-image-button",
-      attr: { "aria-label": "Attach images", title: "Attach PNG, JPEG, or WebP images" }
+      attr: { "aria-label": "Attach files", title: "Attach files" }
     });
-    f.setIcon(button, "image-plus");
-    button.addEventListener("click", () => this.imageInputEl?.click());
+    f.setIcon(button, "paperclip");
+    button.createSpan({ cls: "pi-agent-control-label", text: "Attach files" });
+    button.addEventListener("click", (event) => this.showAttachmentMenu(event));
+  }
+  showAttachmentMenu(event) {
+    const menu = new f.Menu();
+    menu.addItem((item) =>
+      item
+        .setTitle("Vault file")
+        .setIcon("vault")
+        .onClick(() => this.showVaultFilePicker())
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle("Local file")
+        .setIcon("hard-drive")
+        .onClick(() => this.imageInputEl?.click())
+    );
+    menu.showAtMouseEvent(event);
+  }
+  showVaultFilePicker() {
+    const view = this;
+    class VaultFileModal extends f.FuzzySuggestModal {
+      getItems() {
+        return view.plugin.app.vault
+          .getFiles()
+          .filter((file) => view.isAttachableFile(file.name, mimeForName(file.name)));
+      }
+      getItemText(file) {
+        return file.path;
+      }
+      onChooseItem(file) {
+        view.addVaultFile(file);
+      }
+    }
+    const modal = new VaultFileModal(this.plugin.app);
+    modal.setPlaceholder("Choose a vault image, text, code, or config file…");
+    modal.open();
+  }
+  isAttachableFile(name, mimeType) {
+    return SUPPORTED_IMAGE_MIME_TYPES.includes(mimeType) || isSupportedTextFile(name, mimeType);
   }
   getImageFiles(files) {
     return [...(files || [])].filter((file) => SUPPORTED_IMAGE_MIME_TYPES.includes(file.type));
+  }
+  async addLocalFiles(files) {
+    for (const file of [...(files || [])]) {
+      try {
+        if (SUPPORTED_IMAGE_MIME_TYPES.includes(file.type)) await this.addImageFiles([file]);
+        else {
+          const remaining =
+            MAX_TOTAL_TEXT_ATTACHMENT_BYTES - textAttachmentBytes(this.composerAttachments);
+          const bytes = new Uint8Array(
+            await file.slice(0, Math.min(file.size, remaining + 4)).arrayBuffer()
+          );
+          const attachment = createPromptTextAttachment(
+            {
+              bytes,
+              fileName: file.name,
+              mimeType: file.type,
+              source: "local",
+              originalSize: file.size
+            },
+            remaining
+          );
+          this.composerAttachments.push(attachment);
+        }
+      } catch (error) {
+        new f.Notice(error instanceof Error ? error.message : String(error));
+      }
+    }
+    this.renderComposerImages();
+    this.setRunningState(this.running);
+  }
+  async addVaultFile(file) {
+    try {
+      const mimeType = mimeForName(file.name);
+      const bytes = new Uint8Array(await this.plugin.app.vault.readBinary(file));
+      if (SUPPORTED_IMAGE_MIME_TYPES.includes(mimeType)) {
+        await this.plugin.ensureModelCatalogLoaded();
+        if (!modelSupportsImages(this.plugin.getSelectedModelInfo()))
+          throw new Error("The selected Pi model does not support image input.");
+        this.composerImages.push(
+          bytesToPromptImage({
+            bytes,
+            fileName: file.name,
+            mimeType,
+            source: "vault",
+            path: file.path
+          })
+        );
+      } else {
+        this.composerAttachments.push(
+          createPromptTextAttachment(
+            { bytes, fileName: file.name, mimeType, source: "vault", path: file.path },
+            MAX_TOTAL_TEXT_ATTACHMENT_BYTES - textAttachmentBytes(this.composerAttachments)
+          )
+        );
+      }
+      this.renderComposerImages();
+      this.setRunningState(this.running);
+    } catch (error) {
+      new f.Notice(error instanceof Error ? error.message : String(error));
+    }
   }
   async addImageFiles(files) {
     const imageFiles = [...(files || [])];
@@ -597,12 +716,15 @@ export class PiAgentView extends f.ItemView {
     const files = [...(event.dataTransfer?.files || [])];
     if (files.length === 0) return;
     event.preventDefault();
-    this.addImageFiles(files);
+    this.addLocalFiles(files);
   }
   renderComposerImages() {
     if (!this.composerImagesEl) return;
     this.composerImagesEl.empty();
-    this.composerImagesEl.toggleClass("is-empty", this.composerImages.length === 0);
+    this.composerImagesEl.toggleClass(
+      "is-empty",
+      this.composerImages.length === 0 && this.composerAttachments.length === 0
+    );
     for (const image of this.composerImages) {
       const preview = this.composerImagesEl.createDiv({ cls: "pi-agent-composer-image" });
       preview.createEl("img", {
@@ -615,6 +737,26 @@ export class PiAgentView extends f.ItemView {
       f.setIcon(remove, "x");
       remove.addEventListener("click", () => {
         this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
+        this.renderComposerImages();
+      });
+      renderAttachmentMetadata(preview, image, "image");
+    }
+    for (const attachment of this.composerAttachments) {
+      const preview = this.composerImagesEl.createDiv({
+        cls: "pi-agent-composer-image pi-agent-composer-file"
+      });
+      const icon = preview.createSpan({ cls: "pi-agent-attachment-icon" });
+      f.setIcon(icon, "file-text");
+      renderAttachmentMetadata(preview, attachment, "text");
+      const remove = preview.createEl("button", {
+        cls: "clickable-icon",
+        attr: { "aria-label": `Remove ${attachment.fileName}`, title: "Remove file" }
+      });
+      f.setIcon(remove, "x");
+      remove.addEventListener("click", () => {
+        this.composerAttachments = this.composerAttachments.filter(
+          (item) => item.id !== attachment.id
+        );
         this.renderComposerImages();
       });
     }
@@ -661,7 +803,13 @@ export class PiAgentView extends f.ItemView {
   renderThreadListIfVisible() {
     this.showingThreadList && this.renderThreadList();
   }
-  async runPrompt(e, t = this.plugin.getCurrentThread().id, images = [], queuedId) {
+  async runPrompt(
+    e,
+    t = this.plugin.getCurrentThread().id,
+    images = [],
+    queuedId,
+    attachments = []
+  ) {
     if (this.isThreadRunning(t)) {
       if (queuedId) {
         this.promptQueue = this.promptQueue.map((item) =>
@@ -670,14 +818,14 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images);
+        this.enqueuePrompt(e, t, images, attachments);
       }
       return;
     }
     let delivery;
     try {
       delivery = await this.plugin.enrichPromptDelivery(
-        { prompt: e, images },
+        { prompt: e, images, attachments },
         { mode: "prompt", threadId: t }
       );
     } catch (error) {
@@ -693,7 +841,10 @@ export class PiAgentView extends f.ItemView {
     }
     e = String(delivery.prompt || "").trim();
     images = delivery.images || [];
-    if (!e && images.length === 0) {
+    attachments = delivery.attachments || [];
+    if (delivery.promptContext && attachments.length > 0)
+      delivery.promptContext.fileAttachmentsContext = appendTextAttachmentContext("", attachments);
+    if (!e && images.length === 0 && attachments.length === 0) {
       if (queuedId) {
         this.promptQueue = this.promptQueue.map((item) =>
           item.id === queuedId ? { ...item, state: "pending" } : item
@@ -724,7 +875,7 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images);
+        this.enqueuePrompt(e, t, images, attachments);
       }
       return;
     }
@@ -743,7 +894,7 @@ export class PiAgentView extends f.ItemView {
       n.userMessageAdded = true;
       this.plugin.addMessageToThread(t, {
         role: "user",
-        content: e || `[${images.length} attached image${images.length === 1 ? "" : "s"}]`,
+        content: e || conciseAttachmentSummary(images, attachments),
         createdAt: Date.now()
       });
       if (this.isCurrentThread(t)) {
@@ -978,7 +1129,10 @@ export class PiAgentView extends f.ItemView {
     }
   }
   setRunningState(e) {
-    const hasInput = !!this.inputEl?.value.trim() || this.composerImages.length > 0;
+    const hasInput =
+      !!this.inputEl?.value.trim() ||
+      this.composerImages.length > 0 ||
+      this.composerAttachments.length > 0;
     const action = getSendActionState({
       running: e,
       canceling: this.canceling,
@@ -1001,6 +1155,48 @@ export class PiAgentView extends f.ItemView {
   renderPiIcon(e) {
     (0, f.setIcon)(e, I);
   }
+}
+
+function mimeForName(name) {
+  const extension = String(name || "")
+    .toLowerCase()
+    .split(".")
+    .pop();
+  return (
+    {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+      md: "text/markdown",
+      txt: "text/plain",
+      csv: "text/csv",
+      json: "application/json",
+      yaml: "application/yaml",
+      yml: "application/yaml",
+      xml: "application/xml",
+      html: "text/html",
+      css: "text/css",
+      js: "text/javascript",
+      mjs: "text/javascript",
+      ts: "text/typescript",
+      py: "text/x-python"
+    }[extension] || ""
+  );
+}
+function formatAttachmentBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "unknown size";
+  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KiB`;
+}
+function renderAttachmentMetadata(parent, attachment, kind) {
+  parent.createSpan({
+    cls: "pi-agent-attachment-metadata",
+    text: `${attachment.fileName} · ${attachment.mimeType || kind} · ${formatAttachmentBytes(attachment.originalSize ?? attachment.size)}${attachment.truncated ? " · truncated" : ""}`
+  });
+}
+function conciseAttachmentSummary(images, attachments) {
+  const count = images.length + attachments.length;
+  return `[${count} attached file${count === 1 ? "" : "s"}]`;
 }
 
 Object.assign(
