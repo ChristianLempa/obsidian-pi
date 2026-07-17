@@ -20,6 +20,14 @@ import { PiAgentView } from "../ui/PiAgentView.mjs";
 import { previewFrontmatterPatch } from "../shared/frontmatter.mjs";
 import { sanitizeThreadHistory } from "../shared/thread-history.mjs";
 import { ThreadStore } from "../threads/thread-store.mjs";
+import {
+  enqueueLocalPrompt,
+  normalizeLocalPromptQueue,
+  removeLocalPrompt,
+  restorePersistedLocalPromptQueue,
+  updateLocalPrompt
+} from "../ui/local-prompt-queue.mjs";
+import { applyPromptEnricher } from "../ui/prompt-payload.mjs";
 
 var be = `# Pi Agent
 
@@ -101,6 +109,10 @@ export class PiAgentPlugin extends P.Plugin {
     this.threadHistory = new ThreadStore();
     this.dataSaveChain = Promise.resolve();
     this.threadRunners = new Map();
+    this.localPromptQueue = [];
+    this.localPromptSteering = [];
+    this.localPromptQueuePaused = false;
+    this.promptEnricher = undefined;
   }
   async onload() {
     await this.loadSettings();
@@ -194,8 +206,19 @@ export class PiAgentPlugin extends P.Plugin {
   }
   async loadSettings() {
     let e = await this.loadData(),
-      { chatHistory: t, messages: n, threadId: s, sessionId: a, ...o } = e != null ? e : {};
+      {
+        chatHistory: t,
+        messages: n,
+        threadId: s,
+        sessionId: a,
+        localPromptQueue: q,
+        localPromptSteering: steering,
+        ...o
+      } = e != null ? e : {};
     ((this.settings = normalizeSettings(o)),
+      (this.localPromptQueue = restorePersistedLocalPromptQueue(q, steering)),
+      (this.localPromptSteering = []),
+      (this.localPromptQueuePaused = this.localPromptQueue.length > 0),
       (this.settings.additionalSkillFolders = normalizeSkillFolderList(
         this.settings.additionalSkillFolders
       )),
@@ -376,7 +399,7 @@ export class PiAgentPlugin extends P.Plugin {
     }
     this.app.workspace.revealLeaf(t);
   }
-  async runPiPrompt(e, t, n, i = this.pi) {
+  async runPiPrompt(e, t, n, i = this.pi, images = []) {
     var p;
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     if (
@@ -415,7 +438,7 @@ export class PiAgentPlugin extends P.Plugin {
           }
         }));
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
-    let h = await i.run(e, a, o.piSessionId, l, t);
+    let h = await i.run(e, a, o.piSessionId, l, t, images);
     return (
       h.sessionId &&
         (this.threadHistory.setThreadPiSessionId(o.id, h.sessionId),
@@ -423,6 +446,50 @@ export class PiAgentPlugin extends P.Plugin {
         this.saveThreadHistory()),
       h
     );
+  }
+  setPromptEnricher(callback) {
+    this.promptEnricher = typeof callback === "function" ? callback : undefined;
+  }
+  async enrichPromptDelivery(delivery, context) {
+    return applyPromptEnricher(delivery, this.promptEnricher, context);
+  }
+  getLocalPromptQueue() {
+    return this.localPromptQueue.map((item) => ({
+      ...item,
+      images: item.images.map((image) => ({ ...image }))
+    }));
+  }
+  isLocalPromptQueuePaused() {
+    return this.localPromptQueuePaused;
+  }
+  resumeLocalPromptQueue() {
+    this.localPromptQueuePaused = false;
+  }
+  beginLocalPromptSteering(item) {
+    if (!this.localPromptSteering.some((candidate) => candidate.id === item.id))
+      this.localPromptSteering.push(item);
+    this.saveThreadHistory();
+  }
+  finishLocalPromptSteering(id) {
+    this.localPromptSteering = this.localPromptSteering.filter((item) => item.id !== id);
+    this.saveThreadHistory();
+  }
+  replaceLocalPromptQueue(queue) {
+    this.localPromptQueue = normalizeLocalPromptQueue(queue, { preserveState: true });
+    this.saveThreadHistory();
+  }
+  enqueueLocalPrompt(item) {
+    this.localPromptQueue = enqueueLocalPrompt(this.localPromptQueue, item);
+    this.saveThreadHistory();
+    return this.localPromptQueue.at(-1);
+  }
+  updateLocalPrompt(id, patch) {
+    this.localPromptQueue = updateLocalPrompt(this.localPromptQueue, id, patch);
+    this.saveThreadHistory();
+  }
+  removeLocalPrompt(id) {
+    this.localPromptQueue = removeLocalPrompt(this.localPromptQueue, id);
+    this.saveThreadHistory();
   }
   async ensureModelCatalogLoaded() {
     this.settings.availableModels.length === 0 && (await this.refreshModelCatalog(!1));
@@ -504,7 +571,9 @@ export class PiAgentPlugin extends P.Plugin {
     let e = {
       ...this.settings,
       availableModels: [],
-      chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON())
+      chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON()),
+      localPromptQueue: this.localPromptQueue,
+      localPromptSteering: this.localPromptSteering
     };
     return (
       (this.dataSaveChain = this.dataSaveChain.catch(() => {}).then(() => this.saveData(e))),

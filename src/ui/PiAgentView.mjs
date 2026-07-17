@@ -17,6 +17,12 @@ import { RunSettingsControls } from "./run-settings.mjs";
 import { ComposerSuggestions } from "./suggestions.mjs";
 import { ThreadActions } from "./thread-actions.mjs";
 import { getCurrentRunMetadata } from "./view/run-metadata.mjs";
+import {
+  fileToPromptImage,
+  imagePreviewUrl,
+  modelSupportsImages,
+  SUPPORTED_IMAGE_MIME_TYPES
+} from "./prompt-payload.mjs";
 
 export class PiAgentView extends f.ItemView {
   constructor(e, t) {
@@ -37,7 +43,10 @@ export class PiAgentView extends f.ItemView {
     this.currentRunContextUsage = void 0;
     this.invalidatedContextThreadIds = new Set();
     this.streamingAssistantContent = "";
-    this.promptQueue = [];
+    this.promptQueue = this.plugin.getLocalPromptQueue();
+    this.composerImages = [];
+    this.nativePiQueue = undefined;
+    this.steeringPromptIds = new Set();
     this.messageRenderComponents = [];
     this.activeRuns = new Map();
     this.activeEditorScrollSnapshot = void 0;
@@ -193,8 +202,11 @@ export class PiAgentView extends f.ItemView {
     let d = e.createDiv({ cls: "pi-agent-composer" });
     ((this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" })),
       this.renderToolBadges(),
+      (this.promptQueue = this.plugin.getLocalPromptQueue()),
       (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
       this.renderPromptQueue(),
+      (this.composerImagesEl = d.createDiv({ cls: "pi-agent-composer-images" })),
+      this.renderComposerImages(),
       (this.inputEl = d.createEl("textarea", {
         placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
       })),
@@ -209,6 +221,11 @@ export class PiAgentView extends f.ItemView {
             (this.syncCurrentRunFlags(), this.running) &&
             (c.preventDefault(), this.cancelCurrentRun()));
       }),
+      this.inputEl.addEventListener("paste", (event) => this.handleImagePaste(event)),
+      this.inputEl.addEventListener("dragover", (event) => {
+        if ((event.dataTransfer?.files?.length || 0) > 0) event.preventDefault();
+      }),
+      this.inputEl.addEventListener("drop", (event) => this.handleImageDrop(event)),
       this.inputEl.addEventListener("input", () => {
         var c;
         (this.syncCurrentRunFlags(),
@@ -230,9 +247,18 @@ export class PiAgentView extends f.ItemView {
         this.resizeInput()
       )),
       this.resizeInput());
+    this.imageInputEl = d.createEl("input", {
+      cls: "pi-agent-image-input",
+      attr: { type: "file", accept: SUPPORTED_IMAGE_MIME_TYPES.join(","), multiple: "" }
+    });
+    this.imageInputEl.addEventListener("change", () => {
+      this.addImageFiles(this.imageInputEl?.files);
+      if (this.imageInputEl) this.imageInputEl.value = "";
+    });
     let h = d.createDiv({ cls: "pi-agent-composer-bar" });
     ((this.composerBarEl = h),
       (this.runSettings = new RunSettingsControls(this.plugin)),
+      this.renderImagePicker(h),
       this.runSettings.render(h));
     let m = h.createEl("button", {
       cls: "clickable-icon pi-agent-send-button",
@@ -251,6 +277,8 @@ export class PiAgentView extends f.ItemView {
     ((this.messagesEl = void 0),
       (this.inputEl = void 0),
       (this.promptQueueEl = void 0),
+      (this.composerImagesEl = void 0),
+      (this.imageInputEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
       (this.composerBarExpandEl = void 0),
@@ -357,21 +385,35 @@ export class PiAgentView extends f.ItemView {
       t.focus(),
       t.select());
   }
-  submitInput() {
+  async submitInput() {
     var t, n;
     let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
-    if (!e) return;
+    let images = this.composerImages.map((image) => ({ ...image }));
+    if (!e && images.length === 0) return;
+    if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
+    if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      new f.Notice("The selected Pi model does not support image input.");
+      return;
+    }
     (this.inputEl && (this.inputEl.value = ""),
+      (this.composerImages = []),
+      this.renderComposerImages(),
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
-      this.running ? this.enqueuePrompt(e) : this.runPrompt(e),
+      this.running
+        ? this.enqueuePrompt(e, this.plugin.getCurrentThread().id, images)
+        : this.runPrompt(e, undefined, images),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
     var t;
     this.syncCurrentRunFlags();
-    if (this.running && !((t = this.inputEl) != null && t.value.trim())) {
+    if (
+      this.running &&
+      !((t = this.inputEl) != null && t.value.trim()) &&
+      this.composerImages.length === 0
+    ) {
       this.cancelCurrentRun();
       return;
     }
@@ -456,6 +498,66 @@ export class PiAgentView extends f.ItemView {
       t.setAttr("title", n ? "Collapse run options" : "Expand run options"),
       (0, f.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
   }
+  renderImagePicker(parent) {
+    const button = parent.createEl("button", {
+      cls: "clickable-icon pi-agent-image-button",
+      attr: { "aria-label": "Attach images", title: "Attach PNG, JPEG, or WebP images" }
+    });
+    f.setIcon(button, "image-plus");
+    button.addEventListener("click", () => this.imageInputEl?.click());
+  }
+  getImageFiles(files) {
+    return [...(files || [])].filter((file) => SUPPORTED_IMAGE_MIME_TYPES.includes(file.type));
+  }
+  async addImageFiles(files) {
+    const imageFiles = [...(files || [])];
+    if (imageFiles.length === 0) return;
+    await this.plugin.ensureModelCatalogLoaded();
+    if (!modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      new f.Notice("The selected Pi model does not support image input.");
+      return;
+    }
+    try {
+      const images = await Promise.all(imageFiles.map(fileToPromptImage));
+      this.composerImages.push(...images);
+      this.renderComposerImages();
+      this.setRunningState(this.running);
+    } catch (error) {
+      new f.Notice(error instanceof Error ? error.message : String(error));
+    }
+  }
+  handleImagePaste(event) {
+    const files = this.getImageFiles(event.clipboardData?.files);
+    if (files.length === 0) return;
+    event.preventDefault();
+    this.addImageFiles(files);
+  }
+  handleImageDrop(event) {
+    const files = [...(event.dataTransfer?.files || [])];
+    if (files.length === 0) return;
+    event.preventDefault();
+    this.addImageFiles(files);
+  }
+  renderComposerImages() {
+    if (!this.composerImagesEl) return;
+    this.composerImagesEl.empty();
+    this.composerImagesEl.toggleClass("is-empty", this.composerImages.length === 0);
+    for (const image of this.composerImages) {
+      const preview = this.composerImagesEl.createDiv({ cls: "pi-agent-composer-image" });
+      preview.createEl("img", {
+        attr: { src: imagePreviewUrl(image), alt: image.fileName || "Attached image" }
+      });
+      const remove = preview.createEl("button", {
+        cls: "clickable-icon",
+        attr: { "aria-label": `Remove ${image.fileName || "image"}`, title: "Remove image" }
+      });
+      f.setIcon(remove, "x");
+      remove.addEventListener("click", () => {
+        this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
+        this.renderComposerImages();
+      });
+    }
+  }
   resizeInput() {
     this.inputEl &&
       ((this.inputEl.style.height = "auto"),
@@ -496,12 +598,96 @@ export class PiAgentView extends f.ItemView {
   renderThreadListIfVisible() {
     this.showingThreadList && this.renderThreadList();
   }
-  async runPrompt(e, t = this.plugin.getCurrentThread().id) {
+  async runPrompt(e, t = this.plugin.getCurrentThread().id, images = [], queuedId) {
     if (this.isThreadRunning(t)) {
-      this.enqueuePrompt(e, t);
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      } else {
+        this.enqueuePrompt(e, t, images);
+      }
       return;
     }
-    let n = { canceling: !1, runner: this.plugin.createPiRunner(t) };
+    let delivery;
+    try {
+      delivery = await this.plugin.enrichPromptDelivery(
+        { prompt: e, images },
+        { mode: "prompt", threadId: t }
+      );
+    } catch (error) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      }
+      new f.Notice(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    e = String(delivery.prompt || "").trim();
+    images = delivery.images || [];
+    if (!e && images.length === 0) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+        new f.Notice("The queued message became empty and was not sent.");
+      }
+      return;
+    }
+    if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
+    if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      }
+      new f.Notice("The selected Pi model does not support image input.");
+      return;
+    }
+    if (this.isThreadRunning(t)) {
+      if (queuedId) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        this.renderPromptQueue();
+      } else {
+        this.enqueuePrompt(e, t, images);
+      }
+      return;
+    }
+    let n = { canceling: !1, runner: this.plugin.createPiRunner(t), accepted: !1 };
+    let skipQueueDrain = !1;
+    const addUserMessage = () => {
+      if (n.userMessageAdded) return;
+      n.userMessageAdded = !0;
+      this.plugin.addMessageToThread(t, {
+        role: "user",
+        content: e || `[${images.length} attached image${images.length === 1 ? "" : "s"}]`,
+        createdAt: Date.now()
+      });
+      if (this.isCurrentThread(t)) {
+        this.renderThreadTitle();
+        this.renderMessages();
+      }
+    };
+    const acknowledgeQueuedDelivery = () => {
+      addUserMessage();
+      if (!queuedId || n.accepted) return;
+      n.accepted = !0;
+      this.promptQueue = this.promptQueue.filter((item) => item.id !== queuedId);
+      this.plugin.replaceLocalPromptQueue(this.promptQueue);
+      this.renderPromptQueue();
+    };
     (this.activeRuns.set(t, n),
       this.syncCurrentRunFlags(),
       (this.runningThreadId = t),
@@ -523,12 +709,7 @@ export class PiAgentView extends f.ItemView {
         : this.activeEditorScrollSnapshot),
       (this.stickToBottom = !0),
       this.setRunningState(this.running),
-      this.plugin.addMessageToThread(t, {
-        role: "user",
-        content: e,
-        createdAt: Date.now()
-      }),
-      this.isCurrentThread(t) && (this.renderThreadTitle(), this.renderMessages()));
+      !queuedId && addUserMessage());
     this.renderThreadListIfVisible();
     let s = getCurrentRunMetadata(this.plugin.settings);
     try {
@@ -537,12 +718,15 @@ export class PiAgentView extends f.ItemView {
         {
           isCanceled: () => n.canceling,
           onEvent: (o) => this.isCurrentThread(t) && this.handleRunEvent(o),
-          onTextDelta: (o) => this.isCurrentThread(t) && this.appendStreamingDelta(o)
+          onTextDelta: (o) => this.isCurrentThread(t) && this.appendStreamingDelta(o),
+          onPromptAccepted: acknowledgeQueuedDelivery
         },
         t,
-        n.runner
+        n.runner,
+        images
       );
-      ((this.streamingAssistantContent = ""),
+      (acknowledgeQueuedDelivery(),
+        (this.streamingAssistantContent = ""),
         (this.streamingItemEl = void 0),
         (this.streamingTextEl = void 0),
         this.plugin.addMessageToThread(t, {
@@ -559,6 +743,13 @@ export class PiAgentView extends f.ItemView {
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
+      if (queuedId && !n.accepted) {
+        this.promptQueue = this.promptQueue.map((item) =>
+          item.id === queuedId ? { ...item, state: "pending" } : item
+        );
+        this.plugin.replaceLocalPromptQueue(this.promptQueue);
+        skipQueueDrain = true;
+      }
       if (o === "Pi run canceled.") {
         new f.Notice("Agent run canceled.");
         return;
@@ -584,6 +775,7 @@ export class PiAgentView extends f.ItemView {
         (this.activityText = ""),
         (this.activityDetail = ""),
         (this.currentRunContextUsage = void 0),
+        this.isCurrentThread(t) && (this.nativePiQueue = void 0),
         this.activeEditorScrollSnapshot &&
           this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
         (this.activeEditorScrollSnapshot = void 0),
@@ -593,7 +785,7 @@ export class PiAgentView extends f.ItemView {
         this.isCurrentThread(t) && (this.renderMessages(), this.renderToolBadges()),
         this.renderThreadListIfVisible(),
         this.plugin.rebuildServicesIfPending(),
-        this.runNextQueuedPrompt());
+        !skipQueueDrain && this.runNextQueuedPrompt());
     }
   }
   getActiveEditorScrollSnapshot() {
@@ -654,7 +846,7 @@ export class PiAgentView extends f.ItemView {
   }
   setRunningState(e) {
     var n;
-    let s = !!((n = this.inputEl) != null && n.value.trim()),
+    let s = !!((n = this.inputEl) != null && n.value.trim()) || this.composerImages.length > 0,
       a = e && !this.canceling && s,
       o = e ? (this.canceling ? "loader" : a ? "send" : "x") : "send",
       l = e ? (this.canceling ? "Canceling" : a ? "Queue" : "Cancel") : "Send",

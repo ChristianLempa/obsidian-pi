@@ -126,6 +126,14 @@ export function getContextUsageForTokens(e) {
 export function handleRunEvent(e) {
   let t = this.normalizeRunEventType(e.type);
   this.captureContextUsage(e);
+  if (t === "queue_update") {
+    this.nativePiQueue = {
+      steering: Array.isArray(e.raw?.steering) ? e.raw.steering : [],
+      followUp: Array.isArray(e.raw?.followUp) ? e.raw.followUp : []
+    };
+    this.renderPromptQueue();
+    return;
+  }
   if (t === "context_ready") {
     this.setActivity("Starting Pi", "context");
     return;

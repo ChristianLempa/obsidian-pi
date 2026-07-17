@@ -130,6 +130,57 @@ describe("PiRunner", () => {
     expect(rpcClient.start).toHaveBeenCalledTimes(2);
   });
 
+  it("sends image content and one-shot steering through RPC", async () => {
+    const requests = [];
+    const listeners = new Set();
+    const rpcClient = {
+      start: vi.fn(async () => {}),
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      async request(type, payload) {
+        requests.push({ type, payload });
+        if (type === "steer") {
+          for (const listener of listeners) listener({ type: "agent_settled" });
+        }
+      }
+    };
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      createTempDir(),
+      rpcClient
+    );
+
+    const run = runner.runPiRpc("inspect", undefined, undefined, [
+      { id: "one", fileName: "one.png", mimeType: "image/png", data: "cG5n" }
+    ]);
+    await vi.waitFor(() =>
+      expect(requests.some((request) => request.type === "prompt")).toBe(true)
+    );
+    await runner.steer("look again", [
+      { id: "two", fileName: "two.webp", mimeType: "image/webp", data: "d2VicA==" }
+    ]);
+    await run;
+
+    expect(requests).toContainEqual({
+      type: "prompt",
+      payload: {
+        message: "inspect",
+        images: [{ type: "image", data: "cG5n", mimeType: "image/png" }]
+      }
+    });
+    expect(requests).toContainEqual({
+      type: "steer",
+      payload: {
+        message: "look again",
+        images: [{ type: "image", data: "d2VicA==", mimeType: "image/webp" }]
+      }
+    });
+  });
+
   it("configures model and thinking through RPC before the first prompt", async () => {
     const requests = [];
     const listeners = new Set();
