@@ -65,8 +65,9 @@ export function normalizeSettings(rawSettings = {}) {
 
 export function getModelOptions(settings) {
   const models = settings.availableModels;
-  const effective = settings.effectiveModel ? ` — ${settings.effectiveModel}` : "";
-  const options = { "": `Use Pi configured default${effective}` };
+  const effectiveModel = getEffectiveModelInfo(settings);
+  const effective = effectiveModel?.displayName || settings.effectiveModel;
+  const options = effective ? { "": `Pi default — ${effective}` } : {};
 
   for (const model of models) options[model.slug] = formatModelOptionLabel(model);
   return options;
