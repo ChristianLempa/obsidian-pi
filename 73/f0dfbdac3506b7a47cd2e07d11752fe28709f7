@@ -1,0 +1,86 @@
+src/ui/PiAgentView.mjs
+  s_70e34f818a6810::t_eb89224bc933bf 21-23,26,28-31,56,286-287,292-293,296,477-478,486,492-493,502-503,595,597-602,615-619,631-637,642-646,652,661-663,667-678,688,695-697,701,729,752-754,758-761,764-766
+  s_b2fc4a706f02c0::t_08362ee3593123 324-325
+  s_b2fc4a706f02c0::t_c2fb7fca9fd3b7 288-291,603-614,620-630,647-651,653-659,664-666,679-687,689-694,698-700,734-737,755-757,762-763,767-771,816-822,1138-1140,1166-1190
+  s_70e34f818a6810::t_4d02e750c8b240 1137,1165,1191-1201,1203,1205
+  s_70e34f818a6810::t_823b7c90c2cff4 907,1202,1204
+  s_70e34f818a6810::t_fe540cfabc49f0 660
+  s_70e34f818a6810::t_555f370e54b357 831,838,854-857,888
+  s_b2fc4a706f02c0::t_fce010f534a907 1206
+src/ui/prompt-queue.mjs
+  s_70e34f818a6810::t_0b59389e51a13e 9-13,15-21,45,62,87,90,140,144,146,203-204,207-208,212-219,223-225,227
+  s_70e34f818a6810::t_15e3c5015d5e7b 220
+  s_b2fc4a706f02c0::t_74897408fdfc68 226,228-231
+PRIVACY.md
+  s_70e34f818a6810::t_548dec6858c784 17,29
+TESTING.md
+  s_70e34f818a6810::t_3f7cd128a6d6e1 69-76
+src/plugin/PiAgentPlugin.mjs
+  s_70e34f818a6810::t_5dc3ffb246660a 671-672
+  s_70e34f818a6810::t_56146e454d7d5a 936-940
+styles.css
+  s_70e34f818a6810::t_7a4dd1ae50fe3b 557-563,567-594
+  s_b3d65b86d2af53::t_0214158ef1f5d7 595
+src/context/context-builder.mjs
+  s_70e34f818a6810::t_b1697147b49f83 127-129
+CHANGELOG.md
+  s_70e34f818a6810::t_05d02eff920114 3-4
+src/ui/prompt-payload.mjs
+  s_70e34f818a6810::t_0c9bd9d33035b3 360-362
+  s_b2fc4a706f02c0::t_3d453209e037e4 283-284,364-369
+  s_70e34f818a6810::t_bf6fdf99b2ac78 3-4,6,59-61,93-94,105-107,112,137-139,147-152,156,158-159,161-183,187,217,219-220,225-226,232-234,248,267-282,285-294,298-300,305-306,338-341,363,372,374-375,377
+  s_70e34f818a6810::t_7ee38a75ee9790 241-242,244,249
+  s_b2fc4a706f02c0::t_862b181ee87cf0 157,160,235,243,250,373,376
+  s_70e34f818a6810::t_df0a5ac0a01c9f 319-320,323-327,335-337
+  s_70e34f818a6810::t_acc3a772f0785f 92
+  s_b2fc4a706f02c0::t_c2fb7fca9fd3b7 7-58,62-91,95-102,143-146,153-155,184-186,189-214,221-224,227-231,236-240,245-247,251-266,295-297,301-304,321,328-334,348-350
+  s_70e34f818a6810::t_b64bf1138b9c2d 188,215-216,218
+tests/prompt-payload.test.mjs
+  s_b2fc4a706f02c0::t_7848051c893713 61,107
+  s_70e34f818a6810::t_5b2e7be7ef0d44 3,5,9-10,14,60,62,68-76,90
+  s_b2fc4a706f02c0::t_3c3308147b095d 11,77-89,91-106,108-130
+  s_b2fc4a706f02c0::t_c2fb7fca9fd3b7 63-67
+  s_b74c12a1374435::t_d120d277a083d7 131
+tests/local-prompt-queue.test.mjs
+  s_70e34f818a6810::t_1cc4353fa10a0e 54-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "73f0dfbdac3506b7a47cd2e07d11752fe28709f7",
+  "prompts": {},
+  "sessions": {
+    "s_70e34f818a6810": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f702c-7c19-7761-aa76-3e92aa07b589",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_b2fc4a706f02c0": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7034-b8af-755c-905a-425d6d239c73",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_b74c12a1374435": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7032-8714-7b7c-a477-35c7514c2954",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
