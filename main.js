@@ -730,10 +730,6 @@ var ContextBuilder = class {
     const inspection = this.createInspection(preAttachedContext);
     return {
       ...preAttachedContext,
-      instructions: [this.bundledInstructions, this.settings.customInstructions]
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .join("\n\n"),
       toolCatalog,
       inspection,
       slashCommands,
@@ -765,7 +761,13 @@ var ContextBuilder = class {
   async inspectContext(prompt, selection = "") {
     return (await this.build(prompt, selection)).inspection;
   }
-  formatPrompt(prompt, context, threadHistory = []) {
+  getSystemInstructions() {
+    return [this.bundledInstructions, this.settings.customInstructions]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join("\n\n");
+  }
+  formatPrompt(prompt, context) {
     return [
       "Use the following Obsidian vault context as a starting point.",
       "When read/search/list tools are enabled, inspect additional files yourself instead of assuming the pre-attached context is complete.",
@@ -774,9 +776,6 @@ var ContextBuilder = class {
       "",
       "## User prompt",
       prompt,
-      "",
-      "## Instructions",
-      context.instructions,
       "",
       "## Obsidian context helpers",
       context.toolCatalog.map((tool) => `- ${tool}`).join("\n"),
@@ -792,9 +791,6 @@ var ContextBuilder = class {
         })
         .join("\n"),
       "",
-      "## Local chat thread history",
-      this.formatThreadHistory(threadHistory),
-      "",
       "## Active note",
       JSON.stringify(context.activeNote ?? null, null, 2),
       "",
@@ -807,20 +803,6 @@ var ContextBuilder = class {
       "## Explicit prompt attachments",
       JSON.stringify(context.attachments, null, 2)
     ].join("\n");
-  }
-  formatThreadHistory(threadHistory) {
-    let remainingBudget = 6e3;
-    const messages = [];
-    for (const message of threadHistory.slice(-8).reverse()) {
-      if (remainingBudget <= 0) break;
-      const content = truncateThreadHistoryContent(
-        message.content,
-        Math.min(1200, remainingBudget)
-      );
-      remainingBudget -= content.length;
-      messages.unshift({ role: message.role, content });
-    }
-    return messages.length === 0 ? "[]" : JSON.stringify(messages, null, 2);
   }
   async resolveAttachments(references, activeNote) {
     const attachments = [];
@@ -1014,13 +996,6 @@ var ContextBuilder = class {
       : this.settings.model.trim() || "default";
   }
 };
-function truncateThreadHistoryContent(content, maxLength) {
-  const text = String(content ?? "");
-  return text.length <= maxLength
-    ? text
-    : `${text.slice(0, Math.max(0, maxLength - 34))}
-[...truncated for context budget...]`;
-}
 
 // src/context/context-show.mjs
 function isContextShowPrompt(prompt) {
@@ -2213,7 +2188,7 @@ var PiRunner = class {
     this.rpcClient = rpcClient;
     this.cancelRequested = false;
   }
-  async run(prompt, context, sessionId, threadHistory = [], callbacks) {
+  async run(prompt, context, sessionId, _threadHistory = [], callbacks) {
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
     const compactInstructions = getCompactInstructions(prompt);
     if (compactInstructions !== void 0)
@@ -2221,11 +2196,7 @@ var PiRunner = class {
         ? this.formatDryRunCompactResponse(sessionId)
         : this.runPiRpcCompact(sessionId, compactInstructions, callbacks);
     const effectivePrompt = context?.userPrompt ?? prompt;
-    const formattedPrompt = this.contextBuilder.formatPrompt(
-      effectivePrompt,
-      context,
-      threadHistory
-    );
+    const formattedPrompt = this.contextBuilder.formatPrompt(effectivePrompt, context);
     if (callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
     return this.settings.dryRun
       ? {
@@ -2572,6 +2543,8 @@ var PiRunner = class {
   }
   buildPiArgs(sessionId, mode = "rpc") {
     const args = ["--mode", mode, "--session", sessionId];
+    const instructions = this.contextBuilder.getSystemInstructions?.();
+    if (instructions) args.push("--append-system-prompt", instructions);
     const model =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
     if (model) args.push("--model", model);
