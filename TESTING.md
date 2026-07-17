@@ -115,6 +115,10 @@ Use non-sensitive PNG, JPEG, and WebP files.
 
 ## Note annotations
 
+> **CodeMirror singleton regression (#35):** The failure was `Unrecognized extension value in extension set ([object Object]). This sometimes happens because multiple instances of @codemirror/state are loaded, breaking instanceof checks.` The root cause was `main.js` bundling private copies of `@codemirror/state` and `@codemirror/view`, so Obsidian rejected the annotation `ViewPlugin` created by the duplicate runtime whenever any Markdown editor opened.
+
+- [ ] **Pending disabled-plugin baseline:** Disable Pi Agent, fully reload Obsidian, and open several Markdown notes in source and live-preview modes; confirm every editor opens and the exact CodeMirror error above is absent from the Developer Console.
+- [ ] **Pending:** Enable Pi Agent, fully reload Obsidian, repeat the same editor-opening cases, and confirm they still open without the exact CodeMirror error. Inspect the installed `main.js` and confirm it requires `@codemirror/state` and `@codemirror/view` from Obsidian rather than containing bundled `node_modules/@codemirror` implementations.
 - [ ] **Pending:** Confirm one **Annotations** action appears in every Markdown view, indicates pick mode, and accepts an existing exact selection or a source/reading-mode block by click or Enter.
 - [ ] **Pending:** Verify accent-color target highlighting in source and reading modes, light and dark themes, without moving to an ambiguous duplicate quote.
 - [ ] **Pending:** In the **Annotations** modal, exercise labelled context, Change/Question intent, validation, keyboard operation, cancel, and focus restoration.

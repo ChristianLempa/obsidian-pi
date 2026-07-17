@@ -15,7 +15,9 @@ const result = await build({
   bundle: true,
   platform: "node",
   format: "cjs",
-  external: ["obsidian"],
+  // Obsidian owns these runtime singletons. Bundling CodeMirror creates a second
+  // copy whose extension objects fail the host editor's instanceof checks.
+  external: ["obsidian", "@codemirror/state", "@codemirror/view"],
   write: false,
   legalComments: "none",
   logLevel: "silent"
