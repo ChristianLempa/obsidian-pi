@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-## 0.0.9-1
+## 0.0.10
 
 - Fixed the two error-level Obsidian Community scanner findings by removing a `this` alias from the vault attachment picker and using Obsidian's `setCssProps` helper for dynamic composer height updates.
 - Added the official Obsidian ESLint rules as a release gate so future error-level scanner findings fail CI before publication.
+- Restricted release versions to the numbers-and-dots format required by Obsidian Community Plugins.
 
 ## 0.0.9
 

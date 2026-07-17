@@ -13,6 +13,11 @@ function fail(message) {
 }
 
 if (!manifest.version) fail("manifest.json has no version");
+if (!/^\d+(?:\.\d+)*$/.test(manifest.version)) {
+  fail(
+    `manifest.json version (${manifest.version}) must contain only numbers and dots, for example 1.0.0`
+  );
+}
 if (pkg.version !== manifest.version) {
   fail(`package.json version (${pkg.version}) does not match manifest.json (${manifest.version})`);
 }
