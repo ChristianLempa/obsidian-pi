@@ -1,0 +1,50 @@
+tests/markdown-annotations-controller.test.mjs
+  s_b3d65b86d2af53::t_3ecbb3af15a0d8 64-86
+  s_b3d65b86d2af53::t_c358842237b313 269-327
+  s_b3d65b86d2af53::t_c61ba51a7f0477 87-106
+tests/reading-mode-capture.test.mjs
+  s_b3d65b86d2af53::t_ae0d00a87ba9ec 3,66-67,71-73
+  s_b3d65b86d2af53::t_d0e3d609d998e6 68-70
+  s_b3d65b86d2af53::t_9a3d3b40976f9e 74-75
+src/plugin/PiAgentPlugin.mjs
+  s_b3d65b86d2af53::t_639cb4b63af19d 860-861,863
+CHANGELOG.md
+  s_b3d65b86d2af53::t_792d0236d4c587 6
+src/annotations/markdown-annotation-extension.mjs
+  s_b3d65b86d2af53::t_0325f5ba230fc8 82-87
+src/annotations/reading-mode-capture.mjs
+  s_b3d65b86d2af53::t_91482c1091a2bc 78-81,84-87,89-106,108
+TESTING.md
+  s_b3d65b86d2af53::t_a9cf8136214f85 128,130-131
+src/annotations/markdown-annotations-controller.mjs
+  s_b3d65b86d2af53::t_20d22bc917c481 679-681,683-686
+  s_b3d65b86d2af53::t_ca40b95f76d304 976-1007
+  s_b3d65b86d2af53::t_3ac282bc0c3461 295,306-307,311
+  s_b3d65b86d2af53::t_8d65241ed239c6 7,544,549,551-552,557-566
+  s_b3d65b86d2af53::t_927f4dfe06351d 157-172,176-177,206-211
+  s_b3d65b86d2af53::t_b645006eac97d6 485-487
+  s_b3d65b86d2af53::t_3942fbeafb2263 820-821
+styles.css
+  s_b3d65b86d2af53::t_7b8559d88fda4e 1159,1161,1169-1171,1175,1183-1185
+  s_b3d65b86d2af53::t_190c3e452a0f93 1288,1290-1305
+  s_b3d65b86d2af53::t_47cd6b15c304f3 1289
+tests/annotation-processing.test.mjs
+  s_b3d65b86d2af53::t_7153e23a9cf6d5 12,25-29,56,64-71
+  s_b3d65b86d2af53::t_f7f48a712dc2ee 72-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "fcadc2219336d3b585300f82af1684637d59bf26",
+  "prompts": {},
+  "sessions": {
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
