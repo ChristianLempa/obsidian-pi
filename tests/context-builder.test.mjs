@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ContextBuilder, truncateThreadHistoryContent } from "../src/context/context-builder.mjs";
+import { ContextBuilder } from "../src/context/context-builder.mjs";
 import { DEFAULT_SETTINGS } from "../src/plugin/settings.mjs";
 
 function createGraph() {
@@ -43,7 +43,8 @@ describe("ContextBuilder", () => {
       "selection text"
     );
 
-    expect(context.instructions).toBe("Bundled\n\nCustom");
+    expect(builder.getSystemInstructions()).toBe("Bundled\n\nCustom");
+    expect(context).not.toHaveProperty("instructions");
     expect(context.activeNote.selection).toBe("selection text");
     expect(context.linkedNeighborhood).toEqual([{ path: "Linked.md" }]);
     expect(context.searchResults).toEqual([]);
@@ -61,15 +62,21 @@ describe("ContextBuilder", () => {
     });
   });
 
-  it("formats prompts and truncates long history", async () => {
+  it("formats only current-turn context and does not duplicate thread history", async () => {
     const builder = new ContextBuilder(createGraph(), DEFAULT_SETTINGS, "Bundled", "");
-    const context = await builder.build("Prompt", "");
-    const formatted = builder.formatPrompt("Prompt", context, [
-      { role: "user", content: "x".repeat(1300) }
+    const context = await builder.build("Second prompt", "current selection");
+    const priorMessage = "prior-local-message-" + "x".repeat(12_000);
+    const formatted = builder.formatPrompt("Second prompt", context, [
+      { role: "user", content: priorMessage }
     ]);
+    const withoutHistory = builder.formatPrompt("Second prompt", context);
 
-    expect(formatted).toContain("## User prompt\nPrompt");
-    expect(formatted).toContain("[...truncated for context budget...]");
-    expect(truncateThreadHistoryContent("short", 10)).toBe("short");
+    expect(formatted).toBe(withoutHistory);
+    expect(formatted).toContain("## User prompt\nSecond prompt");
+    expect(formatted).toContain('"selection": "current selection"');
+    expect(formatted).not.toContain("Local chat thread history");
+    expect(formatted).not.toContain("prior-local-message");
+    expect(formatted).not.toContain("Bundled");
+    expect(formatted.length).toBeLessThan(priorMessage.length);
   });
 });

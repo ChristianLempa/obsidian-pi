@@ -446,6 +446,8 @@ export class PiRunner {
 
   buildPiArgs(sessionId, mode = "rpc") {
     const args = ["--mode", mode, "--session", sessionId];
+    const instructions = this.contextBuilder.getSystemInstructions?.();
+    if (instructions) args.push("--append-system-prompt", instructions);
     if (this.settings.includeDefaultSkills === false) args.push("--no-skills");
 
     for (const skillPath of getConfiguredSkillPaths(this.settings, this.workingDirectory)) {

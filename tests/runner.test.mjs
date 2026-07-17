@@ -54,6 +54,35 @@ describe("PiRunner", () => {
     );
   });
 
+  it("loads durable instructions through the persistent Pi runtime arguments", () => {
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { getSystemInstructions: () => "Bundled\n\nCustom", formatPrompt: (prompt) => prompt },
+      "/vault",
+      "/vault/.obsidian/plugins/pi-agent"
+    );
+    const args = runner.buildPiArgs("session.jsonl");
+
+    expect(args).toContain("--append-system-prompt");
+    expect(args[args.indexOf("--append-system-prompt") + 1]).toBe("Bundled\n\nCustom");
+  });
+
+  it("wraps unknown slash prompts as normal user prompts", async () => {
+    const formatPrompt = vi.fn((prompt) => `formatted:${prompt}`);
+    const runner = new PiRunner(
+      DEFAULT_SETTINGS,
+      { formatPrompt },
+      "/vault",
+      "/vault/.obsidian/plugins/pi-agent"
+    );
+    runner.runPiRpc = vi.fn(async (prompt) => ({ finalResponse: prompt }));
+
+    await expect(runner.run("/missing test", { userPrompt: "/missing test" })).resolves.toMatchObject(
+      { finalResponse: "formatted:/missing test" }
+    );
+    expect(formatPrompt).toHaveBeenCalledOnce();
+  });
+
   it("honors cancellation before spawning Pi", async () => {
     await expect(
       createRunner({ dryRun: true }).run(
