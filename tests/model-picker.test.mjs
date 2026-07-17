@@ -27,11 +27,11 @@ const resolvedSettings = {
 };
 
 describe("native model picker state", () => {
-  it("pins a resolved, friendly Pi default before catalog models", () => {
+  it("pins the resolved friendly model without a Default prefix", () => {
     const items = buildModelPickerItems(resolvedSettings);
 
     expect(items.map((item) => item.value)).toEqual(["", model.slug]);
-    expect(getModelPickerPrimary(items[0])).toBe("Pi default — GPT-5");
+    expect(getModelPickerPrimary(items[0])).toBe("GPT-5");
     expect(getModelPickerSecondary(items[0])).toBe(
       "openai/gpt-5 · thinking · images · 200K context"
     );
@@ -50,9 +50,9 @@ describe("native model picker state", () => {
     expect(
       needsRuntimeCatalogRefresh({ ...resolvedSettings, effectiveReasoning: "" }, 1_000, 1_100)
     ).toBe(true);
-    expect(needsRuntimeCatalogRefresh({ ...resolvedSettings, availableModels: [] }, 1_000, 1_100)).toBe(
-      true
-    );
+    expect(
+      needsRuntimeCatalogRefresh({ ...resolvedSettings, availableModels: [] }, 1_000, 1_100)
+    ).toBe(true);
   });
 
   it("validates get_state against the runtime catalog before atomic application", () => {

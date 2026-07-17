@@ -259,23 +259,18 @@ export class PiAgentSettingTab extends PluginSettingTab {
     const effective = this.plugin.settings.availableModels.find(
       (model) => model.slug === this.plugin.settings.effectiveModel
     );
-    return effective
-      ? `Pi default — ${effective.displayName}`
-      : this.plugin.settings.effectiveModel
-        ? `Pi default — ${this.plugin.settings.effectiveModel}`
-        : "Loading Pi default…";
+    return effective?.displayName || this.plugin.settings.effectiveModel || "Loading model…";
   }
 
   getReasoningButtonLabel() {
     const value = this.getReasoningDropdownValue();
     if (value) return this.getReasoningOptions()[value] || value;
-    if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) return "Pi/model default";
     const resolved = getResolvedReasoning(this.plugin.settings);
     return resolved === "pi-default"
-      ? "Loading Pi default…"
-      : `Pi default — ${
-          resolved === "xhigh" ? "XHigh" : resolved.charAt(0).toUpperCase() + resolved.slice(1)
-        }`;
+      ? "Loading thinking…"
+      : resolved === "xhigh"
+        ? "XHigh"
+        : resolved.charAt(0).toUpperCase() + resolved.slice(1);
   }
 
   getReasoningOptions() {

@@ -5,6 +5,7 @@ import {
   getModelPickerPrimary,
   getModelPickerSecondary
 } from "../model-picker.mjs";
+import { renderProviderIcon } from "../provider-icons.mjs";
 
 export class ModelPickerModal extends FuzzySuggestModal {
   constructor(app, settings, onChoose) {
@@ -31,8 +32,11 @@ export class ModelPickerModal extends FuzzySuggestModal {
 
   renderSuggestion(match, el) {
     const item = match.item;
-    el.createDiv({ cls: "pi-agent-suggestion-title", text: getModelPickerPrimary(item) });
-    el.createDiv({ cls: "pi-agent-suggestion-detail", text: getModelPickerSecondary(item) });
+    const row = el.createDiv({ cls: "pi-agent-model-suggestion" });
+    renderProviderIcon(row, item.model);
+    const copy = row.createDiv({ cls: "pi-agent-model-suggestion-copy" });
+    copy.createDiv({ cls: "pi-agent-suggestion-title", text: getModelPickerPrimary(item) });
+    copy.createDiv({ cls: "pi-agent-suggestion-detail", text: getModelPickerSecondary(item) });
     el.setAttribute(
       "aria-label",
       `${getModelPickerPrimary(item)}, ${getModelPickerSecondary(item)}${
@@ -77,7 +81,7 @@ export class ThinkingPickerModal extends SuggestModal {
       return [
         {
           value,
-          primary: value === "" ? `Pi default — ${formatReasoningLabel(resolved)}` : label,
+          primary: value === "" ? formatReasoningLabel(resolved) : label,
           secondary: value === "" ? `Effective for ${formatEffectiveModel(this.settings)}` : ""
         }
       ];
