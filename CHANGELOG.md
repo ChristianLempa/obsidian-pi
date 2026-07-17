@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.0.9-1
+
+- Fixed the two error-level Obsidian Community scanner findings by removing a `this` alias from the vault attachment picker and using Obsidian's `setCssProps` helper for dynamic composer height updates.
+- Added the official Obsidian ESLint rules as a release gate so future error-level scanner findings fail CI before publication.
+
 ## 0.0.9
 
 - Simplified the composer attachment action to an accessible paperclip-only button. Model and thinking controls now display their resolved runtime names without a `Default` prefix, and recognized model providers use distinct bundled brand icons or compact provider marks with a neutral fallback for custom providers.

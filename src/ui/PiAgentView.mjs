@@ -604,18 +604,20 @@ export class PiAgentView extends f.ItemView {
     menu.showAtMouseEvent(event);
   }
   showVaultFilePicker() {
-    const view = this;
+    const getAttachableFiles = () =>
+      this.plugin.app.vault
+        .getFiles()
+        .filter((file) => this.isAttachableFile(file.name, mimeForName(file.name)));
+    const addVaultFile = (file) => this.addVaultFile(file);
     class VaultFileModal extends f.FuzzySuggestModal {
       getItems() {
-        return view.plugin.app.vault
-          .getFiles()
-          .filter((file) => view.isAttachableFile(file.name, mimeForName(file.name)));
+        return getAttachableFiles();
       }
       getItemText(file) {
         return file.path;
       }
       onChooseItem(file) {
-        view.addVaultFile(file);
+        addVaultFile(file);
       }
     }
     const modal = new VaultFileModal(this.plugin.app);
@@ -761,9 +763,9 @@ export class PiAgentView extends f.ItemView {
     }
   }
   resizeInput() {
-    this.inputEl &&
-      ((this.inputEl.style.height = "auto"),
-      (this.inputEl.style.height = `${Math.min(this.inputEl.scrollHeight, 160)}px`));
+    if (!this.inputEl) return;
+    this.inputEl.setCssProps({ height: "auto" });
+    this.inputEl.setCssProps({ height: `${Math.min(this.inputEl.scrollHeight, 160)}px` });
   }
   getCurrentThreadId() {
     var e;
