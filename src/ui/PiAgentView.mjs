@@ -817,7 +817,8 @@ export class PiAgentView extends f.ItemView {
         },
         t,
         n.runner,
-        images
+        images,
+        delivery.promptContext
       );
       acknowledgeQueuedDelivery();
       const createdAt = Date.now();

@@ -14,18 +14,24 @@ When you send a message, the plugin can include:
 - skill and prompt-template content that Pi expands after applying its resource and project-trust rules
 - local chat thread history for continuity
 - PNG, JPEG, or WebP images that you explicitly select, paste, or drop into the composer
+- annotations for the active note, including quoted/source text, rendered-selection text, intent, and the context you wrote
+
 
 Pi may forward this prompt/context to the model provider configured in your Pi settings.
 
 ## Network use
 
-The plugin itself does not call model-provider APIs directly and does not include telemetry. Network use happens through the Pi CLI and depends on your Pi provider/model configuration.
+The plugin itself does not call model-provider APIs directly and does not include telemetry. Network use happens through the Pi CLI and depends on your Pi provider/model configuration. When annotations are attached to a prompt, the configured provider can receive their plaintext content along with the rest of the prompt; consult that provider's privacy and retention terms.
 
 ## Local storage
 
 The plugin stores settings, trimmed chat history, and unsent local follow-up queue items in Obsidian plugin data. Queued image data is stored locally as base64 until the item is sent or removed; once sent, Pi and the configured model provider receive it. After the plugin restarts, saved follow-ups remain paused until you explicitly resume or discard them, preventing stale prompts from replaying automatically. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git, but may be included by vault-sync tools.
 
 Deleting a chat removes only its Obsidian plugin history by default. When a chat has a local Pi session, the deletion dialog separately offers to delete that session file; local Pi data is removed only after choosing that explicit option. Session information shows the local storage path, and HTML export writes a separate local file at the path reported by Pi.
+The plugin stores settings, trimmed chat history, and annotations in Obsidian plugin data. Annotation records are plaintext JSON: they include note paths, quoted/source text, optional rendered-selection text, and your annotation context. They are not encrypted by this plugin.
+
+Obsidian Sync, third-party sync tools, backups, or copying the vault may sync or copy the plugin data and therefore the annotations. Their retention and security policies apply. Pi session files are written under the plugin directory during local runs. These runtime files are ignored by git.
+
 
 ## File and shell access
 
