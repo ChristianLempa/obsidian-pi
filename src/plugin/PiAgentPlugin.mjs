@@ -850,9 +850,10 @@ export class PiAgentPlugin extends P.Plugin {
         this.getExtensionUiHandler()
       )));
   }
-  async consumeAnnotationsForPrompt(processingToken, threadId) {
+  async consumeAnnotationsForPrompt(processingToken, threadId, sourcePath) {
     this.annotationController?.cancelPick();
-    const file = this.getCurrentContextFile();
+    const explicitFile = sourcePath ? this.app.vault.getAbstractFileByPath(sourcePath) : undefined;
+    const file = explicitFile instanceof P.TFile ? explicitFile : this.getCurrentContextFile();
     if (!file) return [];
     const annotations = await this.getAnnotationsForContext(file.path);
     if (annotations.length > 0) {
@@ -963,6 +964,22 @@ export class PiAgentPlugin extends P.Plugin {
       return;
     }
     new P.Notice("Could not open Pi view.");
+  }
+  async runAnnotationsPrompt(path) {
+    if (this.annotationStore.list(path).length === 0) {
+      new P.Notice("There are no annotations to send for this note.");
+      return;
+    }
+    await this.activateView();
+    const view = this.app.workspace.getLeavesOfType(T)[0]?.view;
+    if (!(view instanceof PiAgentView)) {
+      new P.Notice("Could not open Pi view.");
+      return;
+    }
+    await view.runAnnotationPrompt(
+      "Process the submitted annotations for this note. Apply each Change annotation with a targeted edit and answer each Question annotation.",
+      path
+    );
   }
   async suggestFrontmatterForCurrentNote() {
     var o;

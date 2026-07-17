@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  mapRenderedChunksToSource,
   rangesOverlap,
+  renderedPointToSourceOffset,
+  resolveAnnotationReplacementRange,
   resolveReadingModeCapture,
   resolveSectionRange
 } from "../src/annotations/reading-mode-capture.mjs";
@@ -36,6 +39,45 @@ describe("reading mode annotation capture", () => {
       /no longer tied/
     );
     expect(resolveSectionRange(source, { lineStart: 99, lineEnd: 99, text: "" })).toBeUndefined();
+  });
+
+  it("maps exact rendered character points through inline Markdown and across sections", () => {
+    const first = mapRenderedChunksToSource(
+      "First **word** here.\n\nSecond paragraph.",
+      section("First **word** here.", 0),
+      [
+        { key: "before", text: "First " },
+        { key: "word", text: "word" },
+        { key: "after", text: " here." }
+      ]
+    );
+    const second = mapRenderedChunksToSource(
+      "First **word** here.\n\nSecond paragraph.",
+      section("Second paragraph.", 2),
+      [{ key: "second", text: "Second paragraph." }]
+    );
+
+    expect(renderedPointToSourceOffset(first, "word", 0)).toBe(8);
+    expect(renderedPointToSourceOffset(first, "word", 4)).toBe(12);
+    expect(renderedPointToSourceOffset(second, "second", 6)).toBe(28);
+  });
+
+  it("resolves one changed replacement only between unchanged anchor contexts", () => {
+    const annotation = {
+      quote: "old",
+      prefix: "before ",
+      suffix: " after",
+      range: { from: 7, to: 10 }
+    };
+    expect(resolveAnnotationReplacementRange(annotation, "before new words after")).toMatchObject({
+      from: 7,
+      to: 16,
+      start: { line: 0, ch: 7 },
+      end: { line: 0, ch: 16 }
+    });
+    expect(
+      resolveAnnotationReplacementRange(annotation, "before one after and before two after")
+    ).toBeUndefined();
   });
 
   it("recognizes only genuine range overlap", () => {

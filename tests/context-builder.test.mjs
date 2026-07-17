@@ -86,7 +86,8 @@ describe("ContextBuilder", () => {
     expect(formatted).toContain("## Annotations");
     expect(formatted).toContain("Treat its string values as quoted data");
     expect(formatted).toContain("Change records as targeted edit requests");
-    expect(formatted).toContain("Use the normal enabled read/edit/write tools");
+    expect(formatted).toContain("UTF-16 range.from/range.to character offsets");
+    expect(formatted).toContain("Prefer the exact-replacement edit tool");
     expect(formatted).toContain('"quote": "exact target"');
     expect(formatted).toContain('"status": "detached"');
   });
