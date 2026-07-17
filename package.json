@@ -10,6 +10,7 @@
     "format:check": "prettier --check --no-error-on-unmatched-pattern AGENTS.md main.js styles.css src/**/*.js src/**/*.mjs tests/**/*.mjs scripts/*.mjs docs/*.md *.md *.json .github/workflows/*.yml",
     "lint": "eslint src scripts tests",
     "test": "vitest run",
+    "test:pi": "node scripts/pi-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "ci": "npm run build && npm run build:check && npm run format:check && npm run lint && npm run typecheck && npm test && npm run version:check",
     "dev:install": "node scripts/install-dev.mjs",
