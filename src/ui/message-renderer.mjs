@@ -1,5 +1,4 @@
 import * as f from "obsidian";
-import { formatToolStatus } from "./activity.mjs";
 
 export function renderMessages() {
   this.syncCurrentRunFlags();
@@ -11,9 +10,10 @@ export function renderMessages() {
     (this.activityItemEl = void 0),
     (this.activityInlineEl = void 0),
     (this.activityInlineTextEl = void 0),
+    (this.liveThinkingDetailsEl = void 0),
+    (this.liveThinkingTextEl = void 0),
+    (this.liveThinkingSetExpanded = void 0),
     this.unloadMessageRenderComponents(),
-    (this.activityDetailsEl = void 0),
-    (this.activityDetailsSignature = ""),
     e.empty());
   let s = this.plugin.messages;
   if (s.length === 0) {
@@ -46,8 +46,49 @@ export function renderMessage(e, t) {
     cls: `pi-agent-message pi-agent-message-${e.role}`
   });
   this.renderRoleLabel(n, e.role === "user" ? "user" : "pi", e, t);
+  if (e.role === "assistant") {
+    this.renderToolErrors(n, e.toolErrors);
+    if (e.thinking) {
+      const key = `${this.getCurrentThreadId()}:${e.createdAt}`;
+      this.renderThinkingDisclosure(
+        n,
+        e.thinking,
+        this.completedThinkingExpansion.get(key) === true,
+        (expanded) => this.completedThinkingExpansion.set(key, expanded)
+      );
+    }
+  }
   let s = n.createDiv({ cls: "pi-agent-message-content" });
   this.renderPlainMessageContent(s, e.content);
+}
+
+export function renderToolErrors(container, errors) {
+  for (const error of Array.isArray(errors) ? errors : [])
+    container.createDiv({ cls: "pi-agent-tool-error", text: error });
+}
+
+export function renderThinkingDisclosure(container, thinking, expanded, onToggle) {
+  const details = container.createEl("details", { cls: "pi-agent-thinking-disclosure" });
+  let knownExpanded = expanded;
+  details.toggleAttribute("open", expanded);
+  const summary = details.createEl("summary");
+  const icon = summary.createSpan({ cls: "pi-agent-thinking-icon" });
+  (0, f.setIcon)(icon, "brain");
+  summary.createSpan({ text: "Thinking" });
+  const text = details.createEl("pre", { cls: "pi-agent-thinking-content", text: thinking });
+  details.addEventListener("toggle", () => {
+    if (details.open === knownExpanded) return;
+    knownExpanded = details.open;
+    onToggle?.(details.open);
+  });
+  return {
+    details,
+    text,
+    setExpanded(nextExpanded) {
+      knownExpanded = nextExpanded;
+      details.toggleAttribute("open", nextExpanded);
+    }
+  };
 }
 
 export function renderPlainMessageContent(container, content) {
@@ -80,6 +121,17 @@ export function renderStreamingAssistantMessage() {
     cls: "pi-agent-message pi-agent-message-assistant pi-agent-message-streaming"
   });
   ((this.streamingItemEl = e), this.renderRoleLabel(e, "pi"));
+  if (this.streamingThinkingContent) {
+    const rendered = this.renderThinkingDisclosure(
+      e,
+      this.streamingThinkingContent,
+      this.thinkingDisclosureExpanded,
+      (expanded) => this.setLiveThinkingExpanded(expanded)
+    );
+    this.liveThinkingDetailsEl = rendered.details;
+    this.liveThinkingTextEl = rendered.text;
+    this.liveThinkingSetExpanded = rendered.setExpanded;
+  }
   let t = e.createDiv({
     cls: "pi-agent-message-content pi-agent-message-content-streaming"
   });
@@ -97,21 +149,17 @@ export function renderActivityMessage() {
   });
   this.activityItemEl = e;
   this.renderRoleLabel(e, "pi");
-  let t = this.getVisibleActivityDetails();
-  t.length > 0 && this.renderActivityDetails(e, t);
-}
-
-export function getVisibleActivityDetails() {
-  if (this.activeToolCalls.size < 2) return [];
-  return [...this.activeToolCalls.values()].map(
-    (e) => formatToolStatus(e.name, e.args, "running").label
-  );
-}
-
-export function renderActivityDetails(e, t) {
-  let n = e.createDiv({ cls: "pi-agent-activity-details" });
-  ((this.activityDetailsEl = n), (this.activityDetailsSignature = t.join("\n")));
-  for (let s of t.slice(0, 5)) n.createDiv({ cls: "pi-agent-activity-detail", text: s });
+  if (this.streamingThinkingContent) {
+    const rendered = this.renderThinkingDisclosure(
+      e,
+      this.streamingThinkingContent,
+      this.thinkingDisclosureExpanded,
+      (expanded) => this.setLiveThinkingExpanded(expanded)
+    );
+    this.liveThinkingDetailsEl = rendered.details;
+    this.liveThinkingTextEl = rendered.text;
+    this.liveThinkingSetExpanded = rendered.setExpanded;
+  }
 }
 
 export function renderRoleLabel(e, t, n, s) {

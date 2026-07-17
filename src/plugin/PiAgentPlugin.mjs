@@ -428,6 +428,14 @@ export class PiAgentPlugin extends P.Plugin {
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), !0)
       : !1;
   }
+  archiveThreads(e) {
+    const archivedIds = this.threadHistory.archiveThreads(e);
+    if (archivedIds.length > 0) {
+      this.syncCurrentThreadState();
+      this.saveThreadHistory();
+    }
+    return { archivedIds, archivedCount: archivedIds.length };
+  }
   deleteThread(e, options = {}) {
     const thread = this.threadHistory.getThread(e);
     if (!thread) return false;
