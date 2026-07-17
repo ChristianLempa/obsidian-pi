@@ -1,0 +1,29 @@
+CHANGELOG.md
+  s_5802409db8226a::t_795bfd0e5f23e4 16
+src/ui/PiAgentView.mjs
+  s_5802409db8226a::t_05173c8ceca61d 861-865,869
+src/ui/message-renderer.mjs
+  s_5802409db8226a::t_81fdf148d28a09 57-58,71-74,78-90,141-142,170-171,187-192,198-199
+src/ui/thread-list-view.mjs
+  s_5802409db8226a::t_8a84fa99098d5c 40-45
+styles.css
+  s_5802409db8226a::t_d40fc778c10de9 113-117,119-124,733-748,753-755,760-761,766-768,772,781-782,786-791,796-797,799,802-821,825,828,832,887-889,896-898,963,969
+tests/native-chat-polish.test.mjs
+  s_5802409db8226a::t_c49da662e0211a 1-130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "74b7cb04ead7d442e6da36fa80378eda46a3c2ab",
+  "prompts": {},
+  "sessions": {
+    "s_5802409db8226a": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7039-7ad9-7ceb-a098-74022133a76c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
