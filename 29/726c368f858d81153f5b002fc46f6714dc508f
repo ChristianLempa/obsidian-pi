@@ -1,0 +1,44 @@
+tests/settings-tab.test.mjs
+  s_952ff04dcce9dd::t_4127ca279a82c4 35-38,48-53
+  s_952ff04dcce9dd::t_b3532f2b34c4bd 1-34,39-47,54-88
+package.json
+  s_952ff04dcce9dd::t_3999fa11a6aab8 33-34
+src/plugin/settings.mjs
+  s_952ff04dcce9dd::t_fd9b21e3d98cec 21
+src/ui/modals/pi-setup-modal.mjs
+  s_952ff04dcce9dd::t_936a9d2b476dba 30
+eslint.obsidian.config.mjs
+  s_952ff04dcce9dd::t_4fafd1933397ef 14-15
+  s_952ff04dcce9dd::t_8d3ea71016c5f1 7-13,16-19
+src/plugin/settings-tab.mjs
+  s_952ff04dcce9dd::t_e11ddcdbc1fffc 166,179,322
+  s_952ff04dcce9dd::t_43b650ce9fbd6e 18-22
+  s_952ff04dcce9dd::t_ed7eee6d3b3c93 23,25-54,57-59,61-65,68-76,78-82,84-130,132-161,163-165,167-178,180-186,188-196,198-210,213-215,217-249,251-263,265-267,269-284,286-293,295-297,299-313,315-321,323-354
+  s_df13fa6e9c3709::t_5aca71e652d98c 24
+package-lock.json
+  s_952ff04dcce9dd::t_6064c0c010de94 12-13,899,2088,5890,6406
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "29726c368f858d81153f5b002fc46f6714dc508f",
+  "prompts": {},
+  "sessions": {
+    "s_952ff04dcce9dd": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7474-4980-79ff-ae4b-317e21213267",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_df13fa6e9c3709": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f744f-d011-73c8-a644-dbe572af1a47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
