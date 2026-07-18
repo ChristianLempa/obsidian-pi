@@ -18,7 +18,7 @@ export const DEFAULT_SETTINGS = {
   acknowledgedToolRisk: false,
   availableModels: [],
   dryRun: false,
-  ignoredFolders: [".obsidian", ".git", "node_modules", "Templates"],
+  ignoredFolders: [".git", "node_modules", "Templates"],
   customInstructions: "",
   piExecutablePath: "",
   includeDefaultSkills: true,
