@@ -14,6 +14,7 @@ import { getCompactInstructions, PiRunner } from "../pi/runner.mjs";
 import { CUSTOM_MODEL_VALUE as b, DEFAULT_SETTINGS as H, normalizeSettings } from "./settings.mjs";
 import { PiAgentSettingTab } from "./settings-tab.mjs";
 import {
+  PI_AGENT_DISPLAY_NAME as Ce,
   PI_AGENT_ICON_ID as I,
   PI_AGENT_ICON_SVG as O,
   PI_AGENT_VIEW_TYPE as T
@@ -40,6 +41,8 @@ import {
   needsRuntimeCatalogRefresh,
   RuntimeCatalogRefreshGate
 } from "../ui/model-picker.mjs";
+
+const PI_BRAND_NAME = "Pi";
 
 var be = `# Pi Agent
 
@@ -188,7 +191,7 @@ export class PiAgentPlugin extends P.Plugin {
       })
     );
     this.registerView(T, (e) => new PiAgentView(e, this));
-    this.addRibbonIcon(I, "Open Pi Agent", () => {
+    this.addRibbonIcon(I, `Open ${Ce}`, () => {
       this.activateView();
     });
     this.addCommand({
@@ -208,7 +211,7 @@ export class PiAgentPlugin extends P.Plugin {
     });
     this.addCommand({
       id: "check-pi-installation",
-      name: "Check Pi installation",
+      name: `Check ${PI_BRAND_NAME} installation`,
       callback: () => {
         this.checkPiInstallation(true);
       }
@@ -271,24 +274,24 @@ export class PiAgentPlugin extends P.Plugin {
         annotationData,
         ...o
       } = e != null ? e : {};
-    ((this.settings = normalizeSettings(o)),
-      (this.localPromptQueue = restorePersistedLocalPromptQueue(q, steering)),
-      (this.localPromptSteering = []),
-      (this.localPromptQueuePaused = this.localPromptQueue.length > 0),
-      (this.settings.additionalSkillFolders = normalizeSkillFolderList(
-        this.settings.additionalSkillFolders
-      )),
-      (this.threadHistory = new ThreadStore(t, n, a != null ? a : s)),
-      (this.annotationStore = new AnnotationStore(annotationData, () => {
-        this.saveAnnotations();
-        this.annotationController?.refresh();
-        this.refreshAnnotationBadges();
-      })));
-    (this.syncCurrentThreadState(),
-      this.settings.model &&
-        isLegacyBareModelId(this.settings.model) &&
-        ((this.settings.customModel = `openai/${this.settings.model}`),
-        (this.settings.model = "__custom")));
+    this.settings = normalizeSettings(o);
+    this.localPromptQueue = restorePersistedLocalPromptQueue(q, steering);
+    this.localPromptSteering = [];
+    this.localPromptQueuePaused = this.localPromptQueue.length > 0;
+    this.settings.additionalSkillFolders = normalizeSkillFolderList(
+      this.settings.additionalSkillFolders
+    );
+    this.threadHistory = new ThreadStore(t, n, a != null ? a : s);
+    this.annotationStore = new AnnotationStore(annotationData, () => {
+      this.saveAnnotations();
+      this.annotationController?.refresh();
+      this.refreshAnnotationBadges();
+    });
+    this.syncCurrentThreadState();
+    if (this.settings.model && isLegacyBareModelId(this.settings.model)) {
+      this.settings.customModel = `openai/${this.settings.model}`;
+      this.settings.model = "__custom";
+    }
   }
   async saveSettings() {
     // Invalidate before the first await so an older catalog request cannot win
@@ -837,29 +840,29 @@ export class PiAgentPlugin extends P.Plugin {
     this.disposeThreadRunners();
     this.piCommands = [];
     this.commandCatalogLoaded = false;
-    ((this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile())),
-      (this.contextBuilder = new ContextBuilder(
-        this.graph,
-        this.settings,
-        be,
-        this.getVaultBasePath(),
-        () => this.piCommands,
-        (path) => this.getAnnotationsForContext(path)
-      )),
-      (this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings)),
-      (this.commandCatalog = new PiCommandCatalog(
-        this.getPluginDirectory(),
-        this.settings,
-        this.getExtensionUiHandler()
-      )),
-      (this.pi = new PiRunner(
-        this.settings,
-        this.contextBuilder,
-        this.getVaultBasePath(),
-        this.getPluginDirectory(),
-        undefined,
-        this.getExtensionUiHandler()
-      )));
+    this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile());
+    this.contextBuilder = new ContextBuilder(
+      this.graph,
+      this.settings,
+      be,
+      this.getVaultBasePath(),
+      () => this.piCommands,
+      (path) => this.getAnnotationsForContext(path)
+    );
+    this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings);
+    this.commandCatalog = new PiCommandCatalog(
+      this.getPluginDirectory(),
+      this.settings,
+      this.getExtensionUiHandler()
+    );
+    this.pi = new PiRunner(
+      this.settings,
+      this.contextBuilder,
+      this.getVaultBasePath(),
+      this.getPluginDirectory(),
+      undefined,
+      this.getExtensionUiHandler()
+    );
   }
   async consumeAnnotationsForPrompt(sourcePath) {
     this.annotationController?.cancelPick();
@@ -1024,14 +1027,14 @@ export class PiAgentPlugin extends P.Plugin {
     var a, o, l;
     let n = new Set(),
       s = (a = e.parent) == null ? void 0 : a.path;
-    s &&
-      s !== "/" &&
+    if (s && s !== "/") {
       n.add(
         (l = (o = s.split("/").pop()) == null ? void 0 : o.toLowerCase().replace(/\s+/g, "-")) !=
           null
           ? l
           : ""
       );
+    }
     for (let d of t.matchAll(/#([A-Za-z0-9/_-]+)/g)) n.add(d[1]);
     return [...n].filter(Boolean).slice(0, 6);
   }
@@ -1050,14 +1053,14 @@ export class PiAgentPlugin extends P.Plugin {
     var a;
     let e = this.getVaultBasePath();
     if (!e) return;
+    const configDir = this.app.vault.configDir;
     let t = (a = this.manifest.dir) != null ? a : `plugins/${this.manifest.id}`,
       n = e.replace(/\/+$/, ""),
       s = t.replace(/^\/+/, "");
-    return s.startsWith(".obsidian/")
-      ? `${n}/${s}`
-      : n.endsWith("/.obsidian")
-        ? `${n}/${s}`
-        : `${n}/.obsidian/${s}`;
+    if (s.startsWith(`${configDir}/`)) {
+      return n.endsWith(`/${configDir}`) ? `${n}/${s.slice(configDir.length + 1)}` : `${n}/${s}`;
+    }
+    return n.endsWith(`/${configDir}`) ? `${n}/${s}` : `${n}/${configDir}/${s}`;
   }
 }
 function isLegacyBareModelId(model) {

@@ -6,26 +6,27 @@ export function renderMessages() {
   let e = this.messagesEl,
     t = this.stickToBottom,
     n = e.scrollTop;
-  ((this.isRenderingMessages = !0),
-    (this.activityItemEl = void 0),
-    (this.activityDetailsEl = void 0),
-    (this.activityLabelEl = void 0),
-    (this.liveThinkingDetailsEl = void 0),
-    (this.liveThinkingTextEl = void 0),
-    (this.liveThinkingSetExpanded = void 0),
-    this.unloadMessageRenderComponents(),
-    e.empty());
+  this.isRenderingMessages = !0;
+  this.activityItemEl = void 0;
+  this.activityDetailsEl = void 0;
+  this.activityLabelEl = void 0;
+  this.liveThinkingDetailsEl = void 0;
+  this.liveThinkingTextEl = void 0;
+  this.liveThinkingSetExpanded = void 0;
+  this.unloadMessageRenderComponents();
+  e.empty();
   let s = this.plugin.messages;
   if (s.length === 0) {
-    (this.renderEmptyState(), this.restoreMessagesScroll(e, t, n), (this.isRenderingMessages = !1));
+    this.renderEmptyState();
+    this.restoreMessagesScroll(e, t, n);
+    this.isRenderingMessages = !1;
     return;
   }
   for (let a = 0; a < s.length; a++) this.renderMessage(s[a], a);
-  (this.running && this.streamingAssistantContent
-    ? this.renderStreamingAssistantMessage()
-    : this.running && this.activityText && this.renderActivityMessage(),
-    this.restoreMessagesScroll(e, t, n),
-    (this.isRenderingMessages = !1));
+  if (this.running && this.streamingAssistantContent) this.renderStreamingAssistantMessage();
+  else if (this.running && this.activityText) this.renderActivityMessage();
+  this.restoreMessagesScroll(e, t, n);
+  this.isRenderingMessages = !1;
 }
 
 export function restoreMessagesScroll(e, t, n) {
@@ -212,19 +213,24 @@ export function renderRoleLabel(e, t, n, s) {
     l = o.createSpan({
       cls: `pi-agent-role-icon pi-agent-role-icon-${t}`
     });
-  if (t === "user") ((0, f.setIcon)(l, "user"), o.createSpan({ text: "You" }));
-  else (this.renderPiIcon(l), o.createSpan({ text: "Agent" }));
+  if (t === "user") {
+    (0, f.setIcon)(l, "user");
+    o.createSpan({ text: "You" });
+  } else {
+    this.renderPiIcon(l);
+    o.createSpan({ text: "Agent" });
+  }
   if (n && s !== void 0) {
     let u = a.createEl("button", {
       cls: "clickable-icon pi-agent-message-actions",
       attr: { "aria-label": "Message actions" }
     });
-    ((0, f.setIcon)(u, "ellipsis"),
-      u.addEventListener("click", (g) => {
-        var m;
-        (g.preventDefault(),
-          g.stopPropagation(),
-          (m = this.messageActions) == null || m.showMessageMenu(g, n, s));
-      }));
+    (0, f.setIcon)(u, "ellipsis");
+    u.addEventListener("click", (g) => {
+      var m;
+      g.preventDefault();
+      g.stopPropagation();
+      if ((m = this.messageActions) != null) m.showMessageMenu(g, n, s);
+    });
   }
 }

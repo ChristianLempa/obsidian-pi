@@ -82,8 +82,11 @@ export class PiAgentView extends f.ItemView {
   }
   async onOpen() {
     this.registerDomEvent(document, "keydown", (e) => {
-      (this.syncCurrentRunFlags(),
-        e.key !== "Escape" || !this.running || (e.preventDefault(), this.cancelCurrentRun()));
+      this.syncCurrentRunFlags();
+      if (e.key === "Escape" && this.running) {
+        e.preventDefault();
+        this.cancelCurrentRun();
+      }
     });
     this.registerEvent(
       this.plugin.app.workspace.on("file-open", () => {
@@ -106,73 +109,76 @@ export class PiAgentView extends f.ItemView {
     this.syncCurrentRunFlags();
     this.cleanupComposerBarObserver();
     let e = this.containerEl.children[1];
-    (e.empty(),
-      e.addClass("pi-agent-view"),
-      (this.noteActions = new NoteActions(this.plugin, {
-        parseVaultLinkTarget: (c) => this.parseVaultLinkTarget(c),
-        formatVaultLinkTarget: (c) => this.formatVaultLinkTarget(c),
-        openVaultLink: (c) => this.openVaultLink(c)
-      })),
-      (this.messageActions = new MessageActions(this.plugin, {
-        getInput: () => this.inputEl,
-        runPrompt: (c) => {
-          this.runPrompt(c);
-        },
-        insertIntoCurrentNote: (c) => {
-          var p;
-          return (p = this.noteActions) == null ? void 0 : p.insertIntoCurrentNote(c);
-        },
-        createNoteFromResponse: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.createNoteFromResponse(c)) != null
-            ? v
-            : Promise.resolve();
-        },
-        openCitedNotes: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.openCitedNotes(c)) != null
-            ? v
-            : Promise.resolve();
-        },
-        extractVaultLinks: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.extractVaultLinks(c)) != null
-            ? v
-            : [];
-        },
-        getPreviousUserPrompt: (c) => {
-          var p;
-          return (p = this.noteActions) == null ? void 0 : p.getPreviousUserPrompt(c);
-        }
-      })),
-      (this.threadMenu = new ThreadActions(this.plugin, {
-        renderThreadTitle: () => this.renderThreadTitle(),
-        renderMessages: () => this.renderMessages(),
-        renderToolBadges: () => this.renderToolBadges(),
-        resetThreadUiState: () => {
-          this.renderedThreadId = this.getCurrentThreadId();
-          this.resetTransientRunUiState();
-          this.syncCurrentRunFlags();
-          this.renderPromptQueue();
-          this.setRunningState(this.running);
-        }
-      })));
+    e.empty();
+    e.addClass("pi-agent-view");
+    this.noteActions = new NoteActions(this.plugin, {
+      parseVaultLinkTarget: (c) => this.parseVaultLinkTarget(c),
+      formatVaultLinkTarget: (c) => this.formatVaultLinkTarget(c),
+      openVaultLink: (c) => this.openVaultLink(c)
+    });
+    this.messageActions = new MessageActions(this.plugin, {
+      getInput: () => this.inputEl,
+      runPrompt: (c) => {
+        this.runPrompt(c);
+      },
+      insertIntoCurrentNote: (c) => {
+        var p;
+        return (p = this.noteActions) == null ? void 0 : p.insertIntoCurrentNote(c);
+      },
+      createNoteFromResponse: (c) => {
+        var p, v;
+        return (v = (p = this.noteActions) == null ? void 0 : p.createNoteFromResponse(c)) != null
+          ? v
+          : Promise.resolve();
+      },
+      openCitedNotes: (c) => {
+        var p, v;
+        return (v = (p = this.noteActions) == null ? void 0 : p.openCitedNotes(c)) != null
+          ? v
+          : Promise.resolve();
+      },
+      extractVaultLinks: (c) => {
+        var p, v;
+        return (v = (p = this.noteActions) == null ? void 0 : p.extractVaultLinks(c)) != null
+          ? v
+          : [];
+      },
+      getPreviousUserPrompt: (c) => {
+        var p;
+        return (p = this.noteActions) == null ? void 0 : p.getPreviousUserPrompt(c);
+      }
+    });
+    this.threadMenu = new ThreadActions(this.plugin, {
+      renderThreadTitle: () => this.renderThreadTitle(),
+      renderMessages: () => this.renderMessages(),
+      renderToolBadges: () => this.renderToolBadges(),
+      resetThreadUiState: () => {
+        this.renderedThreadId = this.getCurrentThreadId();
+        this.resetTransientRunUiState();
+        this.syncCurrentRunFlags();
+        this.renderPromptQueue();
+        this.setRunningState(this.running);
+      }
+    });
     let t = e.createDiv({ cls: "pi-agent-header" }),
       n = t.createDiv({ cls: "pi-agent-brand" }),
       s = n.createSpan({
         cls: "pi-agent-brand-icon",
         attr: { title: "Pi Agent" }
       });
-    (this.renderPiIcon(s),
-      (this.threadTitleEl = n.createSpan({
-        cls: "pi-agent-thread-title",
-        attr: { role: "button", tabindex: "0", title: "Rename chat" }
-      })),
-      this.threadTitleEl.addEventListener("click", () => this.startThreadTitleRename()),
-      this.threadTitleEl.addEventListener("keydown", (c) => {
-        (c.key === "Enter" || c.key === " ") && (c.preventDefault(), this.startThreadTitleRename());
-      }),
-      this.renderThreadTitle());
+    this.renderPiIcon(s);
+    this.threadTitleEl = n.createSpan({
+      cls: "pi-agent-thread-title",
+      attr: { role: "button", tabindex: "0", title: "Rename chat" }
+    });
+    this.threadTitleEl.addEventListener("click", () => this.startThreadTitleRename());
+    this.threadTitleEl.addEventListener("keydown", (c) => {
+      if (c.key === "Enter" || c.key === " ") {
+        c.preventDefault();
+        this.startThreadTitleRename();
+      }
+    });
+    this.renderThreadTitle();
     let a = t.createDiv({ cls: "pi-agent-header-actions" }),
       favoriteButton = a.createEl("button", {
         cls: "clickable-icon pi-agent-header-action pi-agent-header-favorite"
@@ -181,28 +187,31 @@ export class PiAgentView extends f.ItemView {
         cls: "clickable-icon pi-agent-header-action",
         attr: { "aria-label": "New chat", title: "New chat" }
       });
-    ((this.threadFavoriteEl = favoriteButton),
-      (0, f.setIcon)(favoriteButton, "star"),
-      this.renderThreadFavorite(),
-      favoriteButton.addEventListener("click", () => this.toggleCurrentThreadFavorite()),
-      (0, f.setIcon)(o, "plus"),
-      o.addEventListener("click", (c) => {
-        var p;
-        (c.preventDefault(), (p = this.threadMenu) == null || p.startNewChat());
-      }));
+    this.threadFavoriteEl = favoriteButton;
+    (0, f.setIcon)(favoriteButton, "star");
+    this.renderThreadFavorite();
+    favoriteButton.addEventListener("click", () => this.toggleCurrentThreadFavorite());
+    (0, f.setIcon)(o, "plus");
+    o.addEventListener("click", (c) => {
+      var p;
+      c.preventDefault();
+      if ((p = this.threadMenu) != null) p.startNewChat();
+    });
     let l = a.createEl("button", {
       cls: "clickable-icon pi-agent-header-action",
       attr: { "aria-label": "Fork chat", title: "Fork chat" }
     });
-    ((0, f.setIcon)(l, "split"),
-      l.addEventListener("click", (c) => {
-        var p;
-        if ((c.preventDefault(), this.isThreadRunning(this.plugin.getCurrentThread().id))) {
-          new f.Notice("Wait for this chat's agent run to finish before forking it.");
-          return;
-        }
-        ((p = this.threadMenu) == null || p.forkChat(), this.renderToolBadges());
-      }));
+    (0, f.setIcon)(l, "split");
+    l.addEventListener("click", (c) => {
+      var p;
+      c.preventDefault();
+      if (this.isThreadRunning(this.plugin.getCurrentThread().id)) {
+        new f.Notice("Wait for this chat's agent run to finish before forking it.");
+        return;
+      }
+      if ((p = this.threadMenu) != null) p.forkChat();
+      this.renderToolBadges();
+    });
     let u = a.createEl("button", {
       cls: "clickable-icon pi-agent-thread-menu",
       attr: {
@@ -210,67 +219,68 @@ export class PiAgentView extends f.ItemView {
         title: "Manage chat threads"
       }
     });
-    ((0, f.setIcon)(u, "list"),
-      u.addEventListener("click", (c) => {
-        (c.preventDefault(), this.showThreadList());
-      }));
-    ((this.messagesEl = e.createDiv({ cls: "pi-agent-messages" })),
-      this.messagesEl.addEventListener("scroll", () => {
-        if (!this.messagesEl || this.isRenderingMessages) return;
-        let c =
-          this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
-        this.stickToBottom = c < 40;
-      }));
+    (0, f.setIcon)(u, "list");
+    u.addEventListener("click", (c) => {
+      c.preventDefault();
+      this.showThreadList();
+    });
+    this.messagesEl = e.createDiv({ cls: "pi-agent-messages" });
+    this.messagesEl.addEventListener("scroll", () => {
+      if (!this.messagesEl || this.isRenderingMessages) return;
+      let c =
+        this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
+      this.stickToBottom = c < 40;
+    });
     let d = e.createDiv({ cls: "pi-agent-composer" });
-    ((this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" })),
-      this.renderToolBadges(),
-      (this.promptQueue = this.plugin.getLocalPromptQueue()),
-      (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
-      this.renderPromptQueue(),
-      (this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
-      this.renderComposerImages(),
-      (this.inputEl = d.createEl("textarea", {
-        placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
-      })),
-      this.inputEl.addEventListener("keydown", (c) => {
-        var p;
-        ((p = this.suggestions) != null && p.handleKeydown(c)) ||
-          (c.key === "Enter" &&
-            !c.shiftKey &&
-            !c.isComposing &&
-            (c.preventDefault(), this.submitInput()),
-          c.key === "Escape" &&
-            (this.syncCurrentRunFlags(), this.running) &&
-            (c.preventDefault(), this.cancelCurrentRun()));
-      }),
-      this.inputEl.addEventListener("paste", (event) => this.handleImagePaste(event)),
-      this.inputEl.addEventListener("dragover", (event) => {
-        if ((event.dataTransfer?.files?.length || 0) > 0) event.preventDefault();
-      }),
-      this.inputEl.addEventListener("drop", (event) => this.handleImageDrop(event)),
-      this.inputEl.addEventListener("input", () => {
-        var c;
-        (this.syncCurrentRunFlags(),
-          this.resizeInput(),
-          (c = this.suggestions) == null || c.update(),
-          this.setRunningState(this.running));
-      }),
-      this.inputEl.addEventListener("click", () => {
-        var c;
-        return (c = this.suggestions) == null ? void 0 : c.update();
-      }),
-      this.inputEl.addEventListener("blur", () => {
-        window.setTimeout(() => {
-          var c;
-          return (c = this.suggestions) == null ? void 0 : c.close();
-        }, 120);
-      }),
-      (this.suggestions = new ComposerSuggestions(this.inputEl, this.plugin, () =>
-        this.resizeInput()
-      )),
-      (this.extensionWidgetsBelowEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
-      this.renderExtensionWidgets(),
-      this.resizeInput());
+    this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" });
+    this.renderToolBadges();
+    this.promptQueue = this.plugin.getLocalPromptQueue();
+    this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" });
+    this.renderPromptQueue();
+    this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" });
+    this.renderComposerImages();
+    this.inputEl = d.createEl("textarea", {
+      placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
+    });
+    this.inputEl.addEventListener("keydown", (c) => {
+      var p;
+      if ((p = this.suggestions) != null && p.handleKeydown(c)) return;
+      if (c.key === "Enter" && !c.shiftKey && !c.isComposing) {
+        c.preventDefault();
+        this.submitInput();
+      }
+      if (c.key === "Escape") {
+        this.syncCurrentRunFlags();
+        if (this.running) {
+          c.preventDefault();
+          this.cancelCurrentRun();
+        }
+      }
+    });
+    this.inputEl.addEventListener("paste", (event) => this.handleImagePaste(event));
+    this.inputEl.addEventListener("dragover", (event) => {
+      if ((event.dataTransfer?.files?.length || 0) > 0) event.preventDefault();
+    });
+    this.inputEl.addEventListener("drop", (event) => this.handleImageDrop(event));
+    this.inputEl.addEventListener("input", () => {
+      var c;
+      this.syncCurrentRunFlags();
+      this.resizeInput();
+      if ((c = this.suggestions) != null) c.update();
+      this.setRunningState(this.running);
+    });
+    this.inputEl.addEventListener("click", () => {
+      this.suggestions?.update();
+    });
+    this.inputEl.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        this.suggestions?.close();
+      }, 120);
+    });
+    this.suggestions = new ComposerSuggestions(this.inputEl, this.plugin, () => this.resizeInput());
+    this.extensionWidgetsBelowEl = d.createDiv({ cls: "pi-agent-extension-widgets" });
+    this.renderExtensionWidgets();
+    this.resizeInput();
     this.imageInputEl = d.createEl("input", {
       cls: "pi-agent-image-input",
       attr: {
@@ -287,47 +297,46 @@ export class PiAgentView extends f.ItemView {
       if (this.imageInputEl) this.imageInputEl.value = "";
     });
     let h = d.createDiv({ cls: "pi-agent-composer-bar" });
-    ((this.composerBarEl = h),
-      (this.runSettings = new RunSettingsControls(this.plugin)),
-      this.renderImagePicker(h),
-      this.runSettings.render(h));
+    this.composerBarEl = h;
+    this.runSettings = new RunSettingsControls(this.plugin);
+    this.renderImagePicker(h);
+    this.runSettings.render(h);
     let m = h.createEl("button", {
       cls: "clickable-icon pi-agent-send-button",
       attr: { "aria-label": "Send message", title: "Send message" }
     });
-    ((0, f.setIcon)(m, "send"),
-      m.createSpan({ cls: "pi-agent-control-label", text: "Send" }),
-      (this.sendButtonEl = m),
-      m.addEventListener("click", () => this.handleSendButtonClick()),
-      this.observeComposerBar(h),
-      this.renderMessages(),
-      this.setRunningState(this.running));
+    (0, f.setIcon)(m, "send");
+    m.createSpan({ cls: "pi-agent-control-label", text: "Send" });
+    this.sendButtonEl = m;
+    m.addEventListener("click", () => this.handleSendButtonClick());
+    this.observeComposerBar(h);
+    this.renderMessages();
+    this.setRunningState(this.running);
   }
   async onClose() {
-    var e;
-    ((this.messagesEl = void 0),
-      (this.inputEl = void 0),
-      (this.promptQueueEl = void 0),
-      (this.extensionWidgetsAboveEl = void 0),
-      (this.extensionWidgetsBelowEl = void 0),
-      (this.composerImages = []),
-      (this.composerAttachments = []),
-      (this.imageInputEl = void 0),
-      (this.sendButtonEl = void 0),
-      (this.composerBarEl = void 0),
-      (this.composerBarExpandEl = void 0),
-      (this.runSettings = void 0),
-      (this.toolBadgesEl = void 0),
-      (this.threadTitleEl = void 0),
-      (this.threadFavoriteEl = void 0),
-      this.cleanupComposerBarObserver(),
-      this.clearPendingActivityTimer(),
-      this.unloadMessageRenderComponents(),
-      (this.messageActions = void 0),
-      (this.noteActions = void 0),
-      (this.threadMenu = void 0),
-      (e = this.suggestions) == null || e.close(),
-      (this.suggestions = void 0));
+    this.messagesEl = void 0;
+    this.inputEl = void 0;
+    this.promptQueueEl = void 0;
+    this.extensionWidgetsAboveEl = void 0;
+    this.extensionWidgetsBelowEl = void 0;
+    this.composerImages = [];
+    this.composerAttachments = [];
+    this.imageInputEl = void 0;
+    this.sendButtonEl = void 0;
+    this.composerBarEl = void 0;
+    this.composerBarExpandEl = void 0;
+    this.runSettings = void 0;
+    this.toolBadgesEl = void 0;
+    this.threadTitleEl = void 0;
+    this.threadFavoriteEl = void 0;
+    this.cleanupComposerBarObserver();
+    this.clearPendingActivityTimer();
+    this.unloadMessageRenderComponents();
+    this.messageActions = void 0;
+    this.noteActions = void 0;
+    this.threadMenu = void 0;
+    this.suggestions?.close();
+    this.suggestions = void 0;
   }
   renderExtensionWidgets() {
     this.extensionWidgetsAboveEl?.empty();
@@ -444,7 +453,8 @@ export class PiAgentView extends f.ItemView {
   renderThreadTitle() {
     if (!this.threadTitleEl) return;
     let e = this.plugin.getCurrentThread();
-    (this.threadTitleEl.empty(), this.threadTitleEl.createSpan({ text: e.title }));
+    this.threadTitleEl.empty();
+    this.threadTitleEl.createSpan({ text: e.title });
     this.renderThreadFavorite();
   }
   renderThreadFavorite() {
@@ -468,7 +478,8 @@ export class PiAgentView extends f.ItemView {
     var a;
     if (!((a = this.threadTitleEl) != null && a.isConnected)) return;
     let e = this.plugin.getCurrentThread();
-    (this.threadTitleEl.empty(), this.threadTitleEl.addClass("is-editing"));
+    this.threadTitleEl.empty();
+    this.threadTitleEl.addClass("is-editing");
     let t = this.threadTitleEl.createEl("input", {
         cls: "pi-agent-thread-title-input",
         attr: { type: "text", value: e.title, "aria-label": "Chat title" }
@@ -476,26 +487,28 @@ export class PiAgentView extends f.ItemView {
       n = (o) => {
         var d;
         let l = t.value.trim();
-        ((d = this.threadTitleEl) == null || d.removeClass("is-editing"),
-          o && l && l !== e.title && this.plugin.renameThread(e.id, l),
-          this.renderThreadTitle());
+        if ((d = this.threadTitleEl) != null) d.removeClass("is-editing");
+        if (o && l && l !== e.title) this.plugin.renameThread(e.id, l);
+        this.renderThreadTitle();
       },
       s = (o) => {
         o.stopPropagation();
       };
-    (t.addEventListener(
+    t.addEventListener(
       "keydown",
       (o) => {
-        (s(o), o.key === "Enter" && n(!0), o.key === "Escape" && n(!1));
+        s(o);
+        if (o.key === "Enter") n(!0);
+        if (o.key === "Escape") n(!1);
       },
       { capture: !0 }
-    ),
-      t.addEventListener("keypress", s, { capture: !0 }),
-      t.addEventListener("keyup", s, { capture: !0 }),
-      t.addEventListener("click", (o) => o.stopPropagation()),
-      t.addEventListener("blur", () => n(!0)),
-      t.focus(),
-      t.select());
+    );
+    t.addEventListener("keypress", s, { capture: !0 });
+    t.addEventListener("keyup", s, { capture: !0 });
+    t.addEventListener("click", (o) => o.stopPropagation());
+    t.addEventListener("blur", () => n(!0));
+    t.focus();
+    t.select();
   }
   async submitInput() {
     var t, n;
@@ -509,15 +522,15 @@ export class PiAgentView extends f.ItemView {
       new f.Notice("The selected Pi model does not support image input.");
       return;
     }
-    (this.inputEl && (this.inputEl.value = ""),
-      (this.composerImages = []),
-      (this.composerAttachments = []),
-      this.renderComposerImages(),
-      (n = this.suggestions) == null || n.close(),
-      this.resizeInput(),
-      this.syncCurrentRunFlags(),
-      this.runPrompt(e, undefined, images, undefined, attachments, undefined, contextFilePath),
-      this.setRunningState(this.running));
+    if (this.inputEl) this.inputEl.value = "";
+    this.composerImages = [];
+    this.composerAttachments = [];
+    this.renderComposerImages();
+    if ((n = this.suggestions) != null) n.close();
+    this.resizeInput();
+    this.syncCurrentRunFlags();
+    this.runPrompt(e, undefined, images, undefined, attachments, undefined, contextFilePath);
+    this.setRunningState(this.running);
   }
   handleSendButtonClick() {
     var t;
@@ -536,52 +549,60 @@ export class PiAgentView extends f.ItemView {
   cancelCurrentRun() {
     this.syncCurrentRunFlags();
     let e = this.getCurrentThreadRun();
-    e &&
-      !e.canceling &&
-      ((e.canceling = !0),
-      (this.canceling = !0),
-      this.setActivity("Canceling", "finishing"),
-      this.plugin.cancelPiRun(e.runner),
-      this.setRunningState(!0),
-      this.renderThreadListIfVisible());
+    if (e && !e.canceling) {
+      e.canceling = !0;
+      this.canceling = !0;
+      this.setActivity("Canceling", "finishing");
+      this.plugin.cancelPiRun(e.runner);
+      this.setRunningState(!0);
+      this.renderThreadListIfVisible();
+    }
   }
   finishCanceledRun() {
-    ((this.running = !1),
-      (this.canceling = !1),
-      (this.streamingAssistantContent = ""),
-      (this.streamingThinkingContent = ""),
-      (this.thinkingDisclosureExpanded = false),
-      (this.thinkingDisclosureUserSet = false),
-      (this.streamingItemEl = void 0),
-      (this.streamingTextEl = void 0),
-      (this.activityText = ""),
-      (this.activityDetail = ""),
-      (this.activityStickyUntil = 0),
-      (this.pendingActivity = void 0),
-      this.clearPendingActivityTimer(),
-      this.activeToolCalls.clear(),
-      (this.currentRunContextUsage = void 0),
-      this.runningThreadId && this.plugin.endAnnotationProcessingForThread(this.runningThreadId),
-      (this.runningThreadId = void 0),
-      this.plugin.cancelPiRun(),
-      this.renderPromptQueue(),
-      this.setRunningState(!1),
-      this.renderMessages(),
-      this.renderToolBadges());
+    this.running = !1;
+    this.canceling = !1;
+    this.streamingAssistantContent = "";
+    this.streamingThinkingContent = "";
+    this.thinkingDisclosureExpanded = false;
+    this.thinkingDisclosureUserSet = false;
+    this.streamingItemEl = void 0;
+    this.streamingTextEl = void 0;
+    this.activityText = "";
+    this.activityDetail = "";
+    this.activityStickyUntil = 0;
+    this.pendingActivity = void 0;
+    this.clearPendingActivityTimer();
+    this.activeToolCalls.clear();
+    this.currentRunContextUsage = void 0;
+    if (this.runningThreadId) this.plugin.endAnnotationProcessingForThread(this.runningThreadId);
+    this.runningThreadId = void 0;
+    this.plugin.cancelPiRun();
+    this.renderPromptQueue();
+    this.setRunningState(!1);
+    this.renderMessages();
+    this.renderToolBadges();
   }
   cleanupComposerBarObserver() {
-    this.composerBarCleanup && (this.composerBarCleanup(), (this.composerBarCleanup = void 0));
+    if (this.composerBarCleanup) {
+      this.composerBarCleanup();
+      this.composerBarCleanup = void 0;
+    }
   }
   observeComposerBar(e) {
     this.cleanupComposerBarObserver();
     let t = () => this.updateComposerBarMode(e.clientWidth);
-    if ((t(), typeof ResizeObserver == "undefined")) {
+    t();
+    if (typeof ResizeObserver == "undefined") {
       window.addEventListener("resize", t);
       let n = !1,
         s = () => {
-          n || ((n = !0), window.removeEventListener("resize", t));
+          if (!n) {
+            n = !0;
+            window.removeEventListener("resize", t);
+          }
         };
-      ((this.composerBarCleanup = s), this.register(s));
+      this.composerBarCleanup = s;
+      this.register(s);
       return;
     }
     let n = new ResizeObserver((a) => {
@@ -591,29 +612,34 @@ export class PiAgentView extends f.ItemView {
       }),
       s = !1,
       a = () => {
-        s || ((s = !0), n.disconnect());
+        if (!s) {
+          s = !0;
+          n.disconnect();
+        }
       };
-    (n.observe(e), (this.composerBarCleanup = a), this.register(a));
+    n.observe(e);
+    this.composerBarCleanup = a;
+    this.register(a);
   }
   updateComposerBarMode(e) {
     let t = this.composerBarEl;
     if (!t) return;
     let n = e < 560,
       s = e < 390;
-    (!n && this.composerBarExpanded && (this.composerBarExpanded = !1),
-      t.toggleClass("is-compact", n),
-      t.toggleClass("is-narrow", s),
-      this.updateComposerBarExpansion());
+    if (!n && this.composerBarExpanded) this.composerBarExpanded = !1;
+    t.toggleClass("is-compact", n);
+    t.toggleClass("is-narrow", s);
+    this.updateComposerBarExpansion();
   }
   updateComposerBarExpansion() {
     let e = this.composerBarEl,
       t = this.composerBarExpandEl;
     if (!e || !t) return;
     let n = this.composerBarExpanded && e.hasClass("is-compact");
-    (e.toggleClass("is-expanded", n),
-      t.setAttr("aria-label", n ? "Collapse run options" : "Expand run options"),
-      t.setAttr("title", n ? "Collapse run options" : "Expand run options"),
-      (0, f.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
+    e.toggleClass("is-expanded", n);
+    t.setAttr("aria-label", n ? "Collapse run options" : "Expand run options");
+    t.setAttr("title", n ? "Collapse run options" : "Expand run options");
+    (0, f.setIcon)(t, n ? "chevrons-right" : "chevrons-left");
   }
   renderImagePicker(parent) {
     const button = parent.createEl("button", {
@@ -779,26 +805,27 @@ export class PiAgentView extends f.ItemView {
   }
   syncCurrentRunFlags() {
     let e = this.getCurrentThreadRun();
-    ((this.running = !!e), (this.canceling = e?.canceling === !0));
+    this.running = !!e;
+    this.canceling = e?.canceling === !0;
   }
   resetTransientRunUiState() {
-    ((this.activityText = ""),
-      (this.activityKind = "thinking"),
-      (this.activityDetail = ""),
-      (this.activityStickyUntil = 0),
-      (this.pendingActivity = void 0),
-      this.clearPendingActivityTimer(),
-      this.activeToolCalls.clear(),
-      (this.currentRunContextUsage = void 0),
-      (this.streamingAssistantContent = ""),
-      (this.streamingThinkingContent = ""),
-      (this.thinkingDisclosureExpanded = false),
-      (this.thinkingDisclosureUserSet = false),
-      (this.streamingItemEl = void 0),
-      (this.streamingTextEl = void 0));
+    this.activityText = "";
+    this.activityKind = "thinking";
+    this.activityDetail = "";
+    this.activityStickyUntil = 0;
+    this.pendingActivity = void 0;
+    this.clearPendingActivityTimer();
+    this.activeToolCalls.clear();
+    this.currentRunContextUsage = void 0;
+    this.streamingAssistantContent = "";
+    this.streamingThinkingContent = "";
+    this.thinkingDisclosureExpanded = false;
+    this.thinkingDisclosureUserSet = false;
+    this.streamingItemEl = void 0;
+    this.streamingTextEl = void 0;
   }
   renderThreadListIfVisible() {
-    this.showingThreadList && this.renderThreadList();
+    if (this.showingThreadList) this.renderThreadList();
   }
   runAnnotationPrompt(prompt, sourcePath) {
     return this.runPrompt(prompt, undefined, [], undefined, [], undefined, sourcePath);
@@ -931,28 +958,27 @@ export class PiAgentView extends f.ItemView {
       this.plugin.replaceLocalPromptQueue(this.promptQueue);
       this.renderPromptQueue();
     };
-    (this.activeRuns.set(t, n),
-      this.syncCurrentRunFlags(),
-      (this.runningThreadId = t),
-      (this.running = this.isCurrentThread(t)),
-      (this.canceling = !1),
-      (this.activityText = "Preparing context"),
-      (this.activityKind = "context"),
-      (this.activityDetail =
-        "Collecting current note, links, backlinks, and explicit attachments."),
-      (this.activityStickyUntil = 0),
-      (this.pendingActivity = void 0),
-      this.clearPendingActivityTimer(),
-      this.activeToolCalls.clear(),
-      (this.currentRunContextUsage = void 0),
-      (this.streamingAssistantContent = ""),
-      (this.streamingThinkingContent = ""),
-      (this.thinkingDisclosureExpanded = false),
-      (this.thinkingDisclosureUserSet = false),
-      (this.stickToBottom = !0),
-      this.plugin.beginAnnotationProcessing(t, annotations),
-      this.setRunningState(this.running),
-      !queuedId && addUserMessage());
+    this.activeRuns.set(t, n);
+    this.syncCurrentRunFlags();
+    this.runningThreadId = t;
+    this.running = this.isCurrentThread(t);
+    this.canceling = !1;
+    this.activityText = "Preparing context";
+    this.activityKind = "context";
+    this.activityDetail = "Collecting current note, links, backlinks, and explicit attachments.";
+    this.activityStickyUntil = 0;
+    this.pendingActivity = void 0;
+    this.clearPendingActivityTimer();
+    this.activeToolCalls.clear();
+    this.currentRunContextUsage = void 0;
+    this.streamingAssistantContent = "";
+    this.streamingThinkingContent = "";
+    this.thinkingDisclosureExpanded = false;
+    this.thinkingDisclosureUserSet = false;
+    this.stickToBottom = !0;
+    this.plugin.beginAnnotationProcessing(t, annotations);
+    this.setRunningState(this.running);
+    if (!queuedId) addUserMessage();
     this.renderThreadListIfVisible();
     let s = getCurrentRunMetadata(this.plugin.settings);
     try {
@@ -1001,24 +1027,27 @@ export class PiAgentView extends f.ItemView {
         thinkingKey,
         n.thinkingUserSet ? n.thinkingExpanded : false
       );
-      ((this.streamingAssistantContent = ""),
-        (this.streamingThinkingContent = ""),
-        (this.streamingItemEl = void 0),
-        (this.streamingTextEl = void 0),
-        this.plugin.addMessageToThread(t, {
-          role: "assistant",
-          content: a.finalResponse,
-          createdAt,
-          contextUsage: a.contextUsage,
-          tokenUsage: a.tokenUsage,
-          runMetadata: s,
-          thinking: n.thinking || undefined,
-          toolErrors: n.toolErrors.length > 0 ? n.toolErrors : undefined
-        }),
-        a.contextUsage && !a.contextCompacted && this.invalidatedContextThreadIds.delete(t),
-        a.contextCompacted && this.invalidatedContextThreadIds.add(t),
-        this.isCurrentThread(t) &&
-          (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
+      this.streamingAssistantContent = "";
+      this.streamingThinkingContent = "";
+      this.streamingItemEl = void 0;
+      this.streamingTextEl = void 0;
+      this.plugin.addMessageToThread(t, {
+        role: "assistant",
+        content: a.finalResponse,
+        createdAt,
+        contextUsage: a.contextUsage,
+        tokenUsage: a.tokenUsage,
+        runMetadata: s,
+        thinking: n.thinking || undefined,
+        toolErrors: n.toolErrors.length > 0 ? n.toolErrors : undefined
+      });
+      if (a.contextUsage && !a.contextCompacted) this.invalidatedContextThreadIds.delete(t);
+      if (a.contextCompacted) this.invalidatedContextThreadIds.add(t);
+      if (this.isCurrentThread(t)) {
+        this.renderThreadTitle();
+        this.renderMessages();
+        this.renderToolBadges();
+      }
       this.notifyRunCompleted(n.notificationRunId, t);
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
@@ -1038,42 +1067,48 @@ export class PiAgentView extends f.ItemView {
         `${t}:${createdAt}`,
         n.thinkingUserSet ? n.thinkingExpanded : false
       );
-      (this.plugin.addMessageToThread(t, {
+      this.plugin.addMessageToThread(t, {
         role: "assistant",
         content: `Agent run failed: ${o}`,
         createdAt,
         thinking: n.thinking || undefined,
         toolErrors: n.toolErrors.length > 0 ? n.toolErrors : undefined
-      }),
-        this.isCurrentThread(t) &&
-          (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()),
-        new f.Notice(o));
+      });
+      if (this.isCurrentThread(t)) {
+        this.renderThreadTitle();
+        this.renderMessages();
+        this.renderToolBadges();
+      }
+      new f.Notice(o);
       this.notifyRunCompleted(n.notificationRunId, t, "Agent run failed. Click to open the chat.");
     } finally {
-      (this.activeRuns.delete(t),
-        this.syncCurrentRunFlags(),
-        (this.running = this.isThreadRunning(this.plugin.getCurrentThread().id)),
-        (this.canceling = this.getCurrentThreadRun()?.canceling === !0),
-        (this.streamingAssistantContent = ""),
-        (this.streamingThinkingContent = ""),
-        (this.thinkingDisclosureExpanded = false),
-        (this.thinkingDisclosureUserSet = false),
-        (this.activityStickyUntil = 0),
-        (this.pendingActivity = void 0),
-        this.clearPendingActivityTimer(),
-        this.activeToolCalls.clear(),
-        (this.activityText = ""),
-        (this.activityDetail = ""),
-        (this.currentRunContextUsage = void 0),
-        this.isCurrentThread(t) && (this.nativePiQueue = void 0),
-        this.renderPromptQueue(),
-        (this.runningThreadId = void 0),
-        this.setRunningState(this.running),
-        this.isCurrentThread(t) && (this.renderMessages(), this.renderToolBadges()),
-        this.renderThreadListIfVisible(),
-        this.plugin.endAnnotationProcessingForThread(t),
-        this.plugin.rebuildServicesIfPending(),
-        !skipQueueDrain && this.runNextQueuedPrompt());
+      this.activeRuns.delete(t);
+      this.syncCurrentRunFlags();
+      this.running = this.isThreadRunning(this.plugin.getCurrentThread().id);
+      this.canceling = this.getCurrentThreadRun()?.canceling === !0;
+      this.streamingAssistantContent = "";
+      this.streamingThinkingContent = "";
+      this.thinkingDisclosureExpanded = false;
+      this.thinkingDisclosureUserSet = false;
+      this.activityStickyUntil = 0;
+      this.pendingActivity = void 0;
+      this.clearPendingActivityTimer();
+      this.activeToolCalls.clear();
+      this.activityText = "";
+      this.activityDetail = "";
+      this.currentRunContextUsage = void 0;
+      if (this.isCurrentThread(t)) this.nativePiQueue = void 0;
+      this.renderPromptQueue();
+      this.runningThreadId = void 0;
+      this.setRunningState(this.running);
+      if (this.isCurrentThread(t)) {
+        this.renderMessages();
+        this.renderToolBadges();
+      }
+      this.renderThreadListIfVisible();
+      this.plugin.endAnnotationProcessingForThread(t);
+      this.plugin.rebuildServicesIfPending();
+      if (!skipQueueDrain) this.runNextQueuedPrompt();
     }
   }
   notifyRunCompleted(runId, threadId, body = "Agent response completed. Click to open the chat.") {
@@ -1116,24 +1151,21 @@ export class PiAgentView extends f.ItemView {
   }
   appendStreamingDelta(e) {
     if (e) {
-      if (
-        ((this.activityText = "Responding"),
-        (this.activityKind = "answer"),
-        (this.activityDetail = ""),
-        (this.activityStickyUntil = 0),
-        (this.pendingActivity = void 0),
-        this.clearPendingActivityTimer(),
-        (this.streamingAssistantContent += e),
-        this.updateActivityDom(),
-        !this.streamingTextEl)
-      ) {
+      this.activityText = "Responding";
+      this.activityKind = "answer";
+      this.activityDetail = "";
+      this.activityStickyUntil = 0;
+      this.pendingActivity = void 0;
+      this.clearPendingActivityTimer();
+      this.streamingAssistantContent += e;
+      this.updateActivityDom();
+      if (!this.streamingTextEl) {
         this.renderMessages();
         return;
       }
-      (this.streamingTextEl.appendText(e),
-        this.messagesEl &&
-          this.stickToBottom &&
-          (this.messagesEl.scrollTop = this.messagesEl.scrollHeight));
+      this.streamingTextEl.appendText(e);
+      if (this.messagesEl && this.stickToBottom)
+        this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     }
   }
   setRunningState(e) {
