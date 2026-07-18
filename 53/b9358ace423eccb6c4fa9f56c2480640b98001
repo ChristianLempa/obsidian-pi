@@ -1,0 +1,33 @@
+versions.json
+  s_df13fa6e9c3709::t_f13a7b7788128f 11-12
+CHANGELOG.md
+  s_df13fa6e9c3709::t_03fb88e895cb3a 5-6
+TESTING.md
+  s_df13fa6e9c3709::t_0b7756a5bcf1d9 159
+package.json
+  s_df13fa6e9c3709::t_19fa9686754a25 3
+src/ui/desktop-notifications.mjs
+  s_df13fa6e9c3709::t_9fcee317a32cf4 2,33-35
+main.js
+  s_df13fa6e9c3709::t_77aacbab154a46 5114-5116,5143-5145
+manifest.json
+  s_df13fa6e9c3709::t_d4f4a0e2bff8c1 4
+package-lock.json
+  s_df13fa6e9c3709::t_76503f51f22ea6 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "53b9358ace423eccb6c4fa9f56c2480640b98001",
+  "prompts": {},
+  "sessions": {
+    "s_df13fa6e9c3709": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f744f-d011-73c8-a644-dbe572af1a47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
