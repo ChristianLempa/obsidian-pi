@@ -8,7 +8,6 @@ import {
   mapRenderedChunksToSource,
   rangesOverlap,
   renderedPointToSourceOffset,
-  resolveAnnotationReplacementRange,
   resolveReadingModeCapture,
   resolveSectionRange
 } from "./reading-mode-capture.mjs";
@@ -40,11 +39,9 @@ export class MarkdownAnnotationsController {
     this.renderedRecords = new Set();
     this.renderedByElement = new WeakMap();
     this.pickState = undefined;
-    this.modifyVersions = new Map();
-    this.processingBatches = new Map();
-    this.revealRanges = new Map();
-    this.revealTimers = new Map();
-    this.revealVersions = new Map();
+    this.modifyTimers = new Map();
+    this.modifyGenerations = new Map();
+    this.processingByThread = new Map();
     this.selectionPicks = new WeakMap();
     this.destroyed = false;
   }
@@ -74,14 +71,17 @@ export class MarkdownAnnotationsController {
     );
     this.plugin.registerEvent(
       this.plugin.app.vault.on("rename", (file, oldPath) => {
-        this.modifyVersions.delete(oldPath);
-        this.modifyVersions.delete(file.path);
+        this.clearModifyTimer(oldPath);
+        this.clearModifyTimer(file.path);
+        this.modifyGenerations.delete(oldPath);
+        this.modifyGenerations.delete(file.path);
         this.refresh();
       })
     );
     this.plugin.registerEvent(
       this.plugin.app.vault.on("delete", (file) => {
-        this.modifyVersions.delete(file.path);
+        this.clearModifyTimer(file.path);
+        this.modifyGenerations.delete(file.path);
         this.refresh();
       })
     );
@@ -90,12 +90,10 @@ export class MarkdownAnnotationsController {
 
   destroy() {
     this.destroyed = true;
-    this.modifyVersions.clear();
-    this.processingBatches.clear();
-    this.revealRanges.clear();
-    this.revealVersions.clear();
-    for (const timer of this.revealTimers.values()) globalThis.clearTimeout?.(timer);
-    this.revealTimers.clear();
+    for (const timer of this.modifyTimers.values()) globalThis.clearTimeout?.(timer);
+    this.modifyTimers.clear();
+    this.modifyGenerations.clear();
+    this.processingByThread.clear();
     this.cancelPick();
     for (const record of [...this.renderedRecords]) this.removeRenderedRecord(record);
     for (const state of this.leaves.values()) this.removeLeaf(state);
@@ -654,23 +652,7 @@ export class MarkdownAnnotationsController {
   }
 
   refreshRenderedHighlights() {
-    for (const record of this.renderedRecords) {
-      const annotations = this.plugin.annotationStore.list(record.sourcePath);
-      const processing = this.processingForPath(record.sourcePath);
-      const source =
-        record.state.view.editor?.getValue?.() ?? record.state.view.getViewData?.() ?? "";
-      record.element.classList.remove("pi-agent-annotation-rendered-block");
-      clearRenderedMarks(record.element);
-      renderExactRenderedRanges(record.element, source, record.getSectionInfo(), annotations, {
-        attribute: "data-reading-annotation",
-        className: (annotation) =>
-          `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`
-      });
-      renderExactRenderedRanges(record.element, source, record.getSectionInfo(), processing, {
-        attribute: "data-reading-processing",
-        className: () => "pi-agent-annotation-processing-range"
-      });
-    }
+    for (const record of this.renderedRecords) this.refreshRenderedRecord(record);
   }
 
   isReadingState(state) {
@@ -847,13 +829,8 @@ export class MarkdownAnnotationsController {
     return path ? this.processingForPath(path) : [];
   }
 
-  revealRangesForEditor(view) {
-    const path = this.stateForEditor(view)?.view.file?.path;
-    return path ? structuredCloneSafe(this.revealRanges.get(path) ?? []) : [];
-  }
-
-  beginProcessing(token, annotations, threadId) {
-    const key = String(token || "");
+  beginProcessing(threadId, annotations) {
+    const key = String(threadId || "");
     if (!key) return;
     const items = (Array.isArray(annotations) ? annotations : []).filter(
       (annotation) =>
@@ -863,117 +840,122 @@ export class MarkdownAnnotationsController {
         Number.isFinite(annotation.range?.to) &&
         annotation.range.to > annotation.range.from
     );
-    if (items.length === 0) {
-      this.endProcessing(key);
-      return;
-    }
-    for (const path of new Set(items.map((annotation) => annotation.path)))
-      this.clearRevealForPath(path);
-    this.processingBatches.set(key, {
-      threadId: String(threadId || ""),
-      annotations: items.map((annotation) => structuredCloneSafe(annotation))
-    });
-    this.refresh();
-  }
-
-  endProcessing(token) {
-    if (!this.processingBatches.delete(String(token || ""))) return false;
-    this.refresh();
-    return true;
-  }
-
-  endProcessingForPath(path) {
-    const target = String(path || "");
-    let changed = false;
-    for (const [token, batch] of this.processingBatches) {
-      if (!batch.annotations.some((annotation) => annotation.path === target)) continue;
-      this.processingBatches.delete(token);
-      changed = true;
-    }
-    if (changed) this.refresh();
-    return changed;
+    if (items.length === 0) return;
+    const previous = this.processingByThread.get(key) ?? [];
+    const combined = new Map(
+      [...previous, ...items].map((annotation) => [
+        `${annotation.path}:${annotation.id || `${annotation.range.from}:${annotation.range.to}`}`,
+        structuredCloneSafe(annotation)
+      ])
+    );
+    this.processingByThread.set(key, [...combined.values()]);
+    this.refreshPaths(new Set(items.map((annotation) => annotation.path)));
   }
 
   endProcessingForThread(threadId) {
-    const target = String(threadId || "");
-    let changed = false;
-    for (const [token, batch] of this.processingBatches) {
-      if (batch.threadId !== target) continue;
-      this.processingBatches.delete(token);
-      changed = true;
-    }
-    if (changed) this.refresh();
-    return changed;
+    const key = String(threadId || "");
+    const annotations = this.processingByThread.get(key);
+    if (!annotations || !this.processingByThread.delete(key)) return false;
+    this.refreshPaths(new Set(annotations.map((annotation) => annotation.path)));
+    return true;
+  }
+
+  completeProcessingForPath(threadId, path) {
+    const key = String(threadId || "");
+    const target = String(path || "");
+    const annotations = this.processingByThread.get(key);
+    if (!annotations?.some((annotation) => annotation.path === target)) return false;
+    const remaining = annotations.filter((annotation) => annotation.path !== target);
+    if (remaining.length === 0) this.processingByThread.delete(key);
+    else this.processingByThread.set(key, remaining);
+    this.refreshPath(target);
+    return true;
   }
 
   processingForPath(path) {
     const target = String(path || "");
-    return [...this.processingBatches.values()].flatMap((batch) =>
-      batch.annotations
+    return [...this.processingByThread.values()].flatMap((annotations) =>
+      annotations
         .filter((annotation) => annotation.path === target)
         .map((annotation) => structuredCloneSafe(annotation))
     );
   }
 
   handleMarkdownFileModified(file) {
-    if (file.extension !== "md") return;
-    const processing = this.processingForPath(file.path);
-    this.clearRevealForPath(file.path);
-    this.endProcessingForPath(file.path);
-    if (processing.length > 0) void this.prepareRevealForModifiedFile(file, processing);
+    if (file.extension !== "md" || this.plugin.annotationStore.list(file.path).length === 0) return;
     this.reanchorModifiedFile(file);
   }
 
-  async prepareRevealForModifiedFile(file, annotations) {
-    const version = (this.revealVersions.get(file.path) ?? 0) + 1;
-    this.revealVersions.set(file.path, version);
-    try {
-      const source = await this.plugin.app.vault.read(file);
-      if (this.destroyed || this.revealVersions.get(file.path) !== version) return;
-      const ranges = annotations
-        .map((annotation) => resolveAnnotationReplacementRange(annotation, source))
-        .filter(
-          (range, index) =>
-            range &&
-            range.to > range.from &&
-            source.slice(range.from, range.to) !== annotations[index].quote
-        );
-      if (ranges.length === 0) return;
-      globalThis.setTimeout?.(() => {
-        if (this.destroyed || this.revealVersions.get(file.path) !== version) return;
-        this.revealRanges.set(file.path, ranges);
-        this.refresh();
-        const timer = globalThis.setTimeout?.(() => this.clearRevealForPath(file.path), 850);
-        if (timer !== undefined) this.revealTimers.set(file.path, timer);
-      }, 50);
-    } catch {
-      // A visual reveal is optional; file content and native refresh remain authoritative.
-    }
+  reanchorModifiedFile(file) {
+    this.clearModifyTimer(file.path);
+    const generation = {};
+    this.modifyGenerations.set(file.path, generation);
+    const timer = globalThis.setTimeout?.(() => {
+      this.modifyTimers.delete(file.path);
+      void this.reanchorFileNow(file, generation);
+    }, 150);
+    if (timer !== undefined) this.modifyTimers.set(file.path, timer);
   }
 
-  clearRevealForPath(path) {
-    const key = String(path || "");
-    const timer = this.revealTimers.get(key);
-    if (timer !== undefined) globalThis.clearTimeout?.(timer);
-    this.revealTimers.delete(key);
-    if (!this.revealRanges.delete(key)) return false;
-    this.refresh();
-    return true;
-  }
-
-  async reanchorModifiedFile(file) {
-    const version = (this.modifyVersions.get(file.path) ?? 0) + 1;
-    this.modifyVersions.set(file.path, version);
+  async reanchorFileNow(file, generation = this.modifyGenerations.get(file.path)) {
+    if (this.destroyed || this.plugin.annotationStore.list(file.path).length === 0) return;
     try {
       const text = await this.plugin.app.vault.read(file);
-      if (this.destroyed || this.modifyVersions.get(file.path) !== version) return;
+      if (
+        this.destroyed ||
+        this.modifyGenerations.get(file.path) !== generation ||
+        this.plugin.annotationStore.list(file.path).length === 0
+      )
+        return;
       this.plugin.annotationStore.reanchorPath(file.path, text);
-      this.refresh();
+      this.refreshPath(file.path);
     } catch {
       // File lifecycle events can invalidate an in-flight read; no annotation data is logged.
     } finally {
-      if (this.modifyVersions.get(file.path) === version) this.modifyVersions.delete(file.path);
+      if (this.modifyGenerations.get(file.path) === generation)
+        this.modifyGenerations.delete(file.path);
     }
+  }
+
+  clearModifyTimer(path) {
+    const timer = this.modifyTimers.get(path);
+    if (timer !== undefined) globalThis.clearTimeout?.(timer);
+    this.modifyTimers.delete(path);
+  }
+
+  refreshPaths(paths) {
+    for (const path of paths) this.refreshPath(path);
+  }
+
+  refreshPath(path) {
+    if (this.destroyed) return;
+    for (const state of this.leaves.values()) {
+      if (state.view.file?.path === path) this.renderList(state);
+    }
+    for (const record of this.renderedRecords) {
+      if (record.sourcePath === path) this.refreshRenderedRecord(record);
+    }
+    for (const view of this.editorViews) {
+      if (this.stateForEditor(view)?.view.file?.path === path) requestAnnotationRefresh(view);
+    }
+  }
+
+  refreshRenderedRecord(record) {
+    const annotations = this.plugin.annotationStore.list(record.sourcePath);
+    const processing = this.processingForPath(record.sourcePath);
+    const source =
+      record.state.view.editor?.getValue?.() ?? record.state.view.getViewData?.() ?? "";
+    record.element.classList.remove("pi-agent-annotation-rendered-block");
+    clearRenderedMarks(record.element);
+    renderExactRenderedRanges(record.element, source, record.getSectionInfo(), annotations, {
+      attribute: "data-reading-annotation",
+      className: (annotation) =>
+        `pi-agent-annotation-range pi-agent-annotation-${annotation.intent}`
+    });
+    renderExactRenderedRanges(record.element, source, record.getSectionInfo(), processing, {
+      attribute: "data-reading-processing",
+      className: () => "pi-agent-annotation-processing-range"
+    });
   }
 }
 

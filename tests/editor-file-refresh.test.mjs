@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { refreshOpenMarkdownViews } from "../src/ui/editor-file-refresh.mjs";
+import {
+  getSuccessfulMarkdownMutationPath,
+  refreshOpenMarkdownViews
+} from "../src/ui/editor-file-refresh.mjs";
 
 function leaf(path, content) {
   return {
@@ -13,6 +16,52 @@ function leaf(path, content) {
 }
 
 describe("agent file refresh", () => {
+  it("recognizes only successful edit/write completion paths", () => {
+    expect(
+      getSuccessfulMarkdownMutationPath({
+        type: "tool_end",
+        toolName: "edit",
+        toolArgs: { path: "./Note.md", edits: [{ oldText: "old", newText: "new" }] },
+        isError: false
+      })
+    ).toBe("Note.md");
+    expect(
+      getSuccessfulMarkdownMutationPath({
+        type: "tool_end",
+        toolName: "write",
+        toolArgs: { path: "Folder/New.md" }
+      })
+    ).toBe("Folder/New.md");
+    expect(
+      getSuccessfulMarkdownMutationPath(
+        {
+          type: "tool_end",
+          toolName: "edit",
+          toolArgs: { path: "/vault/Folder/Note.md" }
+        },
+        "/vault"
+      )
+    ).toBe("Folder/Note.md");
+    expect(
+      getSuccessfulMarkdownMutationPath(
+        {
+          type: "tool_end",
+          toolName: "edit",
+          toolArgs: { path: "/outside/Note.md" }
+        },
+        "/vault"
+      )
+    ).toBeUndefined();
+    for (const event of [
+      { type: "tool_start", toolName: "edit", toolArgs: { path: "Note.md" } },
+      { type: "tool_end", toolName: "edit", toolArgs: { path: "Note.md" }, isError: true },
+      { type: "tool_end", toolName: "read", toolArgs: { path: "Note.md" } },
+      { type: "tool_end", toolName: "edit", toolArgs: { path: "data.json" } }
+    ]) {
+      expect(getSuccessfulMarkdownMutationPath(event)).toBeUndefined();
+    }
+  });
+
   it("reloads every stale open view of an externally changed Markdown file", async () => {
     const first = leaf("Note.md", "old");
     const second = leaf("Note.md", "old");
@@ -30,6 +79,21 @@ describe("agent file refresh", () => {
     expect(first.view.setViewData).toHaveBeenCalledWith("new", false);
     expect(second.view.setViewData).toHaveBeenCalledWith("new", false);
     expect(other.view.setViewData).not.toHaveBeenCalled();
+  });
+
+  it("restores each refreshed view's scroll once inside the targeted refresh", async () => {
+    const current = leaf("Note.md", "old");
+    current.view.editor.getScrollInfo = vi.fn(() => ({ left: 4, top: 120 }));
+    current.view.editor.scrollTo = vi.fn();
+    const app = {
+      vault: { read: vi.fn().mockResolvedValue("new") },
+      workspace: { getLeavesOfType: vi.fn(() => [current]) }
+    };
+
+    await refreshOpenMarkdownViews(app, { path: "Note.md", extension: "md" });
+
+    expect(current.view.editor.scrollTo).toHaveBeenCalledOnce();
+    expect(current.view.editor.scrollTo).toHaveBeenCalledWith(4, 120);
   });
 
   it("does not reset an editor that already reflects the vault contents", async () => {

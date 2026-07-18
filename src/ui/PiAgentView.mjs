@@ -31,7 +31,10 @@ import {
 } from "./prompt-payload.mjs";
 import { formatToolError, getThinkingDelta } from "./activity.mjs";
 import { getSendActionState } from "./send-state.mjs";
-import { refreshOpenMarkdownViews } from "./editor-file-refresh.mjs";
+import {
+  getSuccessfulMarkdownMutationPath,
+  refreshOpenMarkdownViews
+} from "./editor-file-refresh.mjs";
 
 export class PiAgentView extends f.ItemView {
   constructor(e, t) {
@@ -63,7 +66,6 @@ export class PiAgentView extends f.ItemView {
     this.completedThinkingExpansion = new Map();
     this.messageRenderComponents = [];
     this.activeRuns = new Map();
-    this.activeEditorScrollSnapshot = void 0;
     this.stickToBottom = !0;
   }
   getViewType() {
@@ -88,11 +90,6 @@ export class PiAgentView extends f.ItemView {
     this.registerEvent(
       this.plugin.app.workspace.on("active-leaf-change", () => {
         this.renderToolBadges();
-      })
-    );
-    this.registerEvent(
-      this.plugin.app.vault.on("modify", (e) => {
-        this.handleVaultFileModify(e);
       })
     );
     this.renderChatView();
@@ -534,7 +531,6 @@ export class PiAgentView extends f.ItemView {
         undefined,
         attachments,
         undefined,
-        undefined,
         contextFilePath,
         includeActiveNote
       ),
@@ -584,7 +580,6 @@ export class PiAgentView extends f.ItemView {
       (this.currentRunContextUsage = void 0),
       this.runningThreadId && this.plugin.endAnnotationProcessingForThread(this.runningThreadId),
       (this.runningThreadId = void 0),
-      (this.activeEditorScrollSnapshot = void 0),
       this.plugin.cancelPiRun(),
       this.renderPromptQueue(),
       this.setRunningState(!1),
@@ -823,7 +818,7 @@ export class PiAgentView extends f.ItemView {
     this.showingThreadList && this.renderThreadList();
   }
   runAnnotationPrompt(prompt, sourcePath) {
-    return this.runPrompt(prompt, undefined, [], undefined, [], undefined, undefined, sourcePath);
+    return this.runPrompt(prompt, undefined, [], undefined, [], undefined, sourcePath);
   }
   async runPrompt(
     e,
@@ -832,26 +827,18 @@ export class PiAgentView extends f.ItemView {
     queuedId,
     attachments = [],
     annotations,
-    annotationBatchId = createAnnotationBatchId(t),
     annotationSourcePath,
     includeActiveNote = true
   ) {
     if (annotations === undefined) {
       try {
-        annotations = await this.plugin.consumeAnnotationsForPrompt(
-          annotationBatchId,
-          t,
-          annotationSourcePath
-        );
+        annotations = await this.plugin.consumeAnnotationsForPrompt(annotationSourcePath);
       } catch (error) {
         new f.Notice(error instanceof Error ? error.message : String(error));
         return;
       }
-    } else if (annotations.length > 0) {
-      this.plugin.beginAnnotationProcessing(annotationBatchId, annotations, t);
     }
     const restoreUnsentAnnotations = () => {
-      this.plugin.endAnnotationProcessing(annotationBatchId);
       if (!queuedId && annotations.length > 0) this.plugin.restoreConsumedAnnotations(annotations);
     };
     if (this.isThreadRunning(t)) {
@@ -868,7 +855,6 @@ export class PiAgentView extends f.ItemView {
           images,
           attachments,
           annotations,
-          annotationBatchId,
           annotationSourcePath,
           includeActiveNote
         );
@@ -941,7 +927,6 @@ export class PiAgentView extends f.ItemView {
           images,
           attachments,
           annotations,
-          annotationBatchId,
           annotationSourcePath,
           includeActiveNote
         );
@@ -955,8 +940,7 @@ export class PiAgentView extends f.ItemView {
       thinking: "",
       thinkingExpanded: false,
       thinkingUserSet: false,
-      toolErrors: [],
-      contextFilePath: annotationSourcePath ?? delivery.promptContext?.activeNote?.path
+      toolErrors: []
     };
     let skipQueueDrain = false;
     const addUserMessage = () => {
@@ -999,10 +983,8 @@ export class PiAgentView extends f.ItemView {
       (this.streamingThinkingContent = ""),
       (this.thinkingDisclosureExpanded = false),
       (this.thinkingDisclosureUserSet = false),
-      (this.activeEditorScrollSnapshot = this.isCurrentThread(t)
-        ? this.getActiveEditorScrollSnapshot()
-        : this.activeEditorScrollSnapshot),
       (this.stickToBottom = !0),
+      this.plugin.beginAnnotationProcessing(t, annotations),
       this.setRunningState(this.running),
       !queuedId && addUserMessage());
     this.renderThreadListIfVisible();
@@ -1021,6 +1003,7 @@ export class PiAgentView extends f.ItemView {
             const toolError = formatToolError(o);
             if (toolError && n.toolErrors[n.toolErrors.length - 1] !== toolError)
               n.toolErrors.push(toolError);
+            this.handleSuccessfulToolMutation(o, t);
             if (!this.isCurrentThread(t)) return;
             this.streamingThinkingContent = n.thinking;
             this.thinkingDisclosureExpanded = n.thinkingExpanded;
@@ -1115,10 +1098,6 @@ export class PiAgentView extends f.ItemView {
         (this.activityDetail = ""),
         (this.currentRunContextUsage = void 0),
         this.isCurrentThread(t) && (this.nativePiQueue = void 0),
-        n.contextFilePath && this.refreshOpenMarkdownPath(n.contextFilePath),
-        this.activeEditorScrollSnapshot &&
-          this.scheduleEditorScrollRestore(this.activeEditorScrollSnapshot.path),
-        (this.activeEditorScrollSnapshot = void 0),
         this.renderPromptQueue(),
         (this.runningThreadId = void 0),
         this.setRunningState(this.running),
@@ -1129,48 +1108,15 @@ export class PiAgentView extends f.ItemView {
         !skipQueueDrain && this.runNextQueuedPrompt());
     }
   }
-  getActiveEditorScrollSnapshot() {
-    var s;
-    let e = this.plugin.app.workspace.activeEditor,
-      t = e == null ? void 0 : e.file,
-      n = e == null ? void 0 : e.editor;
-    if (!t || !n) return void 0;
-    try {
-      return { path: t.path, ...n.getScrollInfo(), createdAt: Date.now() };
-    } catch {
-      return (s = this.activeEditorScrollSnapshot) != null ? s : void 0;
-    }
-  }
-  handleVaultFileModify(e) {
-    if (!(e instanceof f.TFile) || e.extension !== "md" || this.activeRuns.size === 0) return;
-    this.scheduleEditorScrollRestore(e.path);
-    this.refreshOpenMarkdownPath(e.path, e);
-  }
-  refreshOpenMarkdownPath(path, knownFile) {
-    const file = knownFile ?? this.plugin.app.vault.getAbstractFileByPath(path);
+  handleSuccessfulToolMutation(event, threadId) {
+    const path = getSuccessfulMarkdownMutationPath(event, this.plugin.getVaultBasePath());
+    if (!path) return;
+    const file = this.plugin.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof f.TFile) || file.extension !== "md") return;
+    this.plugin.completeAnnotationProcessingForPath(threadId, file.path);
     void refreshOpenMarkdownViews(this.plugin.app, file).catch((error) => {
       console.warn("Pi Agent: failed to refresh an externally changed Markdown file", error);
     });
-  }
-  scheduleEditorScrollRestore(e) {
-    let t = this.activeEditorScrollSnapshot;
-    if (!t || t.path !== e) return;
-    for (let n of [0, 50, 150])
-      window.setTimeout(() => {
-        this.restoreEditorScroll(t);
-      }, n);
-  }
-  restoreEditorScroll(e) {
-    let t = this.plugin.app.workspace.activeEditor,
-      n = t == null ? void 0 : t.file,
-      s = t == null ? void 0 : t.editor;
-    if (!n || !s || n.path !== e.path) return;
-    try {
-      s.scrollTo(e.left, e.top);
-    } catch (a) {
-      console.warn("Pi Agent: failed to restore editor scroll after external file change", a);
-    }
   }
   appendStreamingThinkingDelta(e) {
     if (!e) return;
@@ -1267,12 +1213,6 @@ function mimeForName(name) {
     }[extension] || ""
   );
 }
-function createAnnotationBatchId(threadId) {
-  return `annotation-${String(threadId || "thread")}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
-}
-
 function conciseAttachmentSummary(images, attachments) {
   const count = images.length + attachments.length;
   return `[${count} attached file${count === 1 ? "" : "s"}]`;

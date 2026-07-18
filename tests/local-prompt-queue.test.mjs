@@ -103,10 +103,11 @@ describe("local prompt queue", () => {
     ]);
 
     expect(normalized[0].annotations).toHaveLength(1);
-    expect(normalized[0].annotationBatchId).toBe("annotated");
+    expect(normalized[0]).not.toHaveProperty("annotationBatchId");
+    annotation.context = "mutated after enqueue";
+    expect(normalized[0].annotations[0].context).toBe("Rewrite this");
     const taken = takeLocalPrompt(normalized, "annotated");
     const restored = restoreLocalPrompt(taken.queue, taken.item, taken.index);
-    expect(restored[0].annotationBatchId).toBe("annotated");
     expect(restored[0].annotations[0]).toMatchObject({
       id: "annotation-1",
       path: "Note.md",

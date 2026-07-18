@@ -115,38 +115,6 @@ export function renderedPointToSourceOffset(mappings, key, offset) {
   return mapping.from + relative;
 }
 
-export function resolveAnnotationReplacementRange(annotation, source) {
-  const text = String(source ?? "");
-  const prefix = String(annotation?.prefix ?? "");
-  const suffix = String(annotation?.suffix ?? "");
-  const maxLength = ANNOTATION_LIMITS.quote * 2;
-  const starts = prefix ? occurrences(text, prefix).map((index) => index + prefix.length) : [0];
-  const candidates = [];
-  for (const from of starts) {
-    if (!suffix) {
-      if (text.length - from <= maxLength) candidates.push({ from, to: text.length });
-      continue;
-    }
-    let to = text.indexOf(suffix, from);
-    while (to >= 0 && to - from <= maxLength) {
-      candidates.push({ from, to });
-      to = text.indexOf(suffix, to + 1);
-    }
-  }
-  if (candidates.length !== 1 || candidates[0].to < candidates[0].from) return undefined;
-  return rangeFromOffsets(text, candidates[0].from, candidates[0].to);
-}
-
 export function rangesOverlap(first, second) {
   return first?.from < second?.to && second?.from < first?.to;
-}
-
-function occurrences(text, needle) {
-  const matches = [];
-  let index = text.indexOf(needle);
-  while (index >= 0) {
-    matches.push(index);
-    index = text.indexOf(needle, index + 1);
-  }
-  return matches;
 }

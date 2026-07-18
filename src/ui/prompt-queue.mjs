@@ -18,7 +18,6 @@ export function enqueuePrompt(
   images = [],
   attachments = [],
   annotations = [],
-  annotationBatchId,
   contextFilePath,
   includeActiveNote = true
 ) {
@@ -27,13 +26,11 @@ export function enqueuePrompt(
     images,
     attachments,
     annotations,
-    annotationBatchId,
     contextFilePath,
     includeActiveNote,
     threadId
   });
   if (!item) return;
-  this.plugin.beginAnnotationProcessing(item.annotationBatchId, item.annotations, item.threadId);
   this.promptQueue = this.plugin.getLocalPromptQueue();
   this.renderPromptQueue();
   this.syncCurrentRunFlags();
@@ -63,7 +60,6 @@ export function runNextQueuedPrompt() {
     item.id,
     item.attachments,
     item.annotations,
-    item.annotationBatchId,
     item.contextFilePath,
     item.includeActiveNote
   );
@@ -72,7 +68,7 @@ export function runNextQueuedPrompt() {
 export function removeQueuedPrompt(id) {
   const item = this.promptQueue.find((candidate) => candidate.id === id);
   if (!item || item.state !== "pending") return;
-  this.plugin.endAnnotationProcessing(item.annotationBatchId);
+  this.plugin.restoreConsumedAnnotations(item.annotations);
   this.promptQueue = removeLocalPrompt(this.promptQueue, id);
   this.plugin.replaceLocalPromptQueue(this.promptQueue);
   this.renderPromptQueue();
@@ -86,8 +82,6 @@ export function retrieveQueuedPrompt(id) {
   this.composerImages = item.images.map((image) => ({ ...image }));
   this.composerAttachments = item.attachments.map((attachment) => ({ ...attachment }));
   this.excludedContextPath = item.includeActiveNote === false ? item.contextFilePath : undefined;
-  this.plugin.endAnnotationProcessing(item.annotationBatchId);
-  this.plugin.restoreConsumedAnnotations(item.annotations);
   this.removeQueuedPrompt(id);
   this.renderComposerImages();
   this.resizeInput();
@@ -103,11 +97,6 @@ export async function steerQueuedPrompt(id) {
   this.plugin.replaceLocalPromptQueue(this.promptQueue);
   this.renderPromptQueue();
   try {
-    this.plugin.beginAnnotationProcessing(
-      taken.item.annotationBatchId,
-      taken.item.annotations,
-      taken.item.threadId
-    );
     const run = this.activeRuns.get(taken.item.threadId);
     if (!run) throw new Error("This run already settled; the message will run normally.");
     const delivery = await this.plugin.enrichPromptDelivery(taken.item, {
@@ -122,14 +111,11 @@ export async function steerQueuedPrompt(id) {
       : delivery.prompt;
     const steerPrompt = appendTextAttachmentContext(formattedPrompt, delivery.attachments);
     await run.runner.steer(steerPrompt, delivery.images);
+    if (this.activeRuns.get(taken.item.threadId) === run)
+      this.plugin.beginAnnotationProcessing(taken.item.threadId, taken.item.annotations);
     new f.Notice("Steering message sent to Pi.");
   } catch (error) {
     this.promptQueue = restoreLocalPrompt(this.promptQueue, taken.item, taken.index);
-    this.plugin.beginAnnotationProcessing(
-      taken.item.annotationBatchId,
-      taken.item.annotations,
-      taken.item.threadId
-    );
     this.plugin.replaceLocalPromptQueue(this.promptQueue);
     new f.Notice(error instanceof Error ? error.message : String(error));
   } finally {
@@ -165,7 +151,7 @@ export function renderPromptQueue() {
       });
       addTextAction(controls, "Discard all saved follow-ups", "Discard", () => {
         for (const item of this.promptQueue)
-          this.plugin.endAnnotationProcessing(item.annotationBatchId);
+          this.plugin.restoreConsumedAnnotations(item.annotations);
         this.promptQueue = [];
         this.plugin.resumeLocalPromptQueue();
         this.plugin.replaceLocalPromptQueue([]);

@@ -1341,24 +1341,6 @@ textarea.pi-agent-extension-input {
   }
 }
 
-.pi-agent-annotation-reveal-range {
-  animation: pi-agent-annotation-reveal 700ms ease-out both;
-  background: color-mix(in srgb, var(--interactive-accent) 18%, transparent);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-
-@keyframes pi-agent-annotation-reveal {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-
-  to {
-    background: transparent;
-    clip-path: inset(0 0 0 0);
-  }
-}
-
 .pi-agent-annotations-list {
   background: color-mix(in srgb, var(--background-primary) 94%, transparent);
   border: 1px solid var(--background-modifier-border);
@@ -1537,12 +1519,6 @@ textarea.pi-agent-extension-input {
   .pi-agent-annotation-processing-range {
     animation: none;
     background-image: none;
-  }
-
-  .pi-agent-annotation-reveal-range {
-    animation: none;
-    background: transparent;
-    clip-path: none;
   }
 }
 
