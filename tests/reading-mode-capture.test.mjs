@@ -4,7 +4,6 @@ import {
   mapRenderedChunksToSource,
   rangesOverlap,
   renderedPointToSourceOffset,
-  resolveAnnotationReplacementRange,
   resolveReadingModeCapture,
   resolveSectionRange
 } from "../src/annotations/reading-mode-capture.mjs";
@@ -71,24 +70,6 @@ describe("reading mode annotation capture", () => {
 
     expect(candidates).toHaveLength(2);
     expect(candidates.map((candidate) => candidate[0].from)).toEqual([0, 17]);
-  });
-
-  it("resolves one changed replacement only between unchanged anchor contexts", () => {
-    const annotation = {
-      quote: "old",
-      prefix: "before ",
-      suffix: " after",
-      range: { from: 7, to: 10 }
-    };
-    expect(resolveAnnotationReplacementRange(annotation, "before new words after")).toMatchObject({
-      from: 7,
-      to: 16,
-      start: { line: 0, ch: 7 },
-      end: { line: 0, ch: 16 }
-    });
-    expect(
-      resolveAnnotationReplacementRange(annotation, "before one after and before two after")
-    ).toBeUndefined();
   });
 
   it("recognizes only genuine range overlap", () => {

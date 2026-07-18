@@ -99,7 +99,6 @@ export function createQueuedPrompt({
   images = [],
   attachments = [],
   annotations = [],
-  annotationBatchId,
   threadId,
   id,
   createdAt
@@ -117,8 +116,6 @@ export function createQueuedPrompt({
     images: normalizedImages,
     attachments: normalizedAttachments,
     annotations: normalizedAnnotations,
-    annotationBatchId:
-      normalizedAnnotations.length > 0 ? String(annotationBatchId || normalizedId) : undefined,
     threadId: String(threadId || ""),
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
     state: "pending"

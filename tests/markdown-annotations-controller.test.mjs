@@ -455,9 +455,8 @@ describe("MarkdownAnnotationsController", () => {
     expect(event.stopPropagation).toHaveBeenCalled();
   });
 
-  it("tracks transient processing ranges and releases them by file or thread", () => {
+  it("tracks processing per thread and clears only the successfully mutated path", () => {
     const controller = new MarkdownAnnotationsController({});
-    controller.refresh = vi.fn();
     const attached = {
       id: "one",
       path: "Note.md",
@@ -471,65 +470,64 @@ describe("MarkdownAnnotationsController", () => {
       range: { from: 10, to: 15 }
     };
 
-    controller.beginProcessing("batch-one", [attached, detached], "thread-one");
+    controller.beginProcessing("thread-one", [
+      attached,
+      detached,
+      { ...attached, id: "two", path: "Other.md" }
+    ]);
     expect(controller.processingForPath("Note.md")).toEqual([attached]);
     expect(controller.processingForPath("Note.md")[0]).not.toBe(attached);
 
-    controller.beginProcessing(
-      "batch-two",
-      [{ ...attached, id: "two", path: "Other.md" }],
-      "thread-two"
-    );
-    expect(controller.endProcessingForPath("Note.md")).toBe(true);
+    expect(controller.completeProcessingForPath("thread-one", "Note.md")).toBe(true);
     expect(controller.processingForPath("Note.md")).toEqual([]);
     expect(controller.processingForPath("Other.md")).toHaveLength(1);
-    expect(controller.endProcessingForThread("thread-two")).toBe(true);
-    expect(controller.processingBatches.size).toBe(0);
+    expect(controller.endProcessingForThread("thread-one")).toBe(true);
+    expect(controller.processingByThread.size).toBe(0);
   });
 
-  it("releases a processing mask as soon as its Markdown file changes", () => {
-    const controller = new MarkdownAnnotationsController({});
-    controller.refresh = vi.fn();
-    controller.reanchorModifiedFile = vi.fn();
-    controller.beginProcessing(
-      "batch",
-      [{ path: "Note.md", status: "attached", range: { from: 0, to: 4 } }],
-      "thread"
-    );
-
-    const file = { path: "Note.md", extension: "md" };
-    controller.handleMarkdownFileModified(file);
-
-    expect(controller.processingForPath("Note.md")).toEqual([]);
-    expect(controller.reanchorModifiedFile).toHaveBeenCalledWith(file);
-  });
-
-  it("reveals only a confidently resolved replacement and clears it automatically", async () => {
-    vi.useFakeTimers();
+  it("does no work for an unannotated Markdown modification", () => {
+    const read = vi.fn();
+    const reanchorPath = vi.fn();
     const controller = new MarkdownAnnotationsController({
-      app: { vault: { read: vi.fn().mockResolvedValue("before new text after") } }
+      app: { vault: { read } },
+      annotationStore: { list: vi.fn(() => []), reanchorPath }
     });
+    controller.reanchorModifiedFile = vi.fn();
     controller.refresh = vi.fn();
+    controller.refreshPath = vi.fn();
+
+    controller.handleMarkdownFileModified({ path: "Note.md", extension: "md" });
+
+    expect(read).not.toHaveBeenCalled();
+    expect(reanchorPath).not.toHaveBeenCalled();
+    expect(controller.reanchorModifiedFile).not.toHaveBeenCalled();
+    expect(controller.refresh).not.toHaveBeenCalled();
+    expect(controller.refreshPath).not.toHaveBeenCalled();
+  });
+
+  it("debounces re-anchoring for an annotated Markdown path", async () => {
+    vi.useFakeTimers();
+    const read = vi.fn().mockResolvedValue("changed text");
+    const reanchorPath = vi.fn();
+    const controller = new MarkdownAnnotationsController({
+      app: { vault: { read } },
+      annotationStore: { list: vi.fn(() => [{ id: "one" }]), reanchorPath }
+    });
+    controller.refreshPath = vi.fn();
     const file = { path: "Note.md", extension: "md" };
 
-    await controller.prepareRevealForModifiedFile(file, [
-      {
-        path: "Note.md",
-        quote: "old",
-        prefix: "before ",
-        suffix: " after",
-        range: { from: 7, to: 10 }
-      }
-    ]);
-    await vi.advanceTimersByTimeAsync(50);
+    controller.handleMarkdownFileModified(file);
+    controller.handleMarkdownFileModified(file);
+    expect(read).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(150);
 
-    expect(controller.revealRanges.get("Note.md")).toMatchObject([{ from: 7, to: 15 }]);
-    await vi.advanceTimersByTimeAsync(850);
-    expect(controller.revealRanges.has("Note.md")).toBe(false);
+    expect(read).toHaveBeenCalledOnce();
+    expect(reanchorPath).toHaveBeenCalledWith("Note.md", "changed text");
+    expect(controller.refreshPath).toHaveBeenCalledWith("Note.md");
     vi.useRealTimers();
   });
 
-  it("ignores an in-flight modify after unload", async () => {
+  it("ignores an in-flight re-anchor after unload", async () => {
     let resolveRead;
     const read = new Promise((resolve) => {
       resolveRead = resolve;
@@ -537,16 +535,16 @@ describe("MarkdownAnnotationsController", () => {
     const reanchorPath = vi.fn();
     const controller = new MarkdownAnnotationsController({
       app: { vault: { read: () => read } },
-      annotationStore: { reanchorPath }
+      annotationStore: { list: vi.fn(() => [{ id: "one" }]), reanchorPath }
     });
-    const pending = controller.reanchorModifiedFile({ path: "Note.md" });
+    const pending = controller.reanchorFileNow({ path: "Note.md" });
 
     controller.destroy();
     resolveRead("changed text");
     await pending;
 
     expect(reanchorPath).not.toHaveBeenCalled();
-    expect(controller.modifyVersions.size).toBe(0);
+    expect(controller.modifyTimers.size).toBe(0);
   });
 
   it("keeps annotations scoped to their split Markdown leaf", () => {
