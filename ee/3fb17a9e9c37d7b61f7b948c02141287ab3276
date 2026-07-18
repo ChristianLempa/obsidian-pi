@@ -1,0 +1,94 @@
+styles.css
+  s_df13fa6e9c3709::t_27d5cdfb625bb1 907,968-975
+tests/native-chat-polish.test.mjs
+  s_df13fa6e9c3709::t_c6a0dcb0be6ecb 121-138,142-149
+  s_df13fa6e9c3709::t_50e94dde3e103c 139-141,173-176
+  s_df13fa6e9c3709::t_11876f888f8aaf 10-14,95,98-107,114,183,185,188-190,218-220,223-225
+main.js
+  s_df13fa6e9c3709::t_9bd70db25e5a70 3709-3713,3717-3720
+  s_df13fa6e9c3709::t_abbdff581ab12d 1877-1878,1909,5113-5181,5292-5304,8770,8798-8799,8803,9339-9340
+  s_df13fa6e9c3709::t_0ad6424b486c05 6712-6713,6759-6761,6771-6779,6781-6782,6789,6791-6799,6801,6809,6820-6826,6830,6844,6852,6857-6870,6883-6897,6906,7134-7135,7137,7140-7146,7786,8806,8823,8839-8840,8846
+  s_df13fa6e9c3709::t_a7d6bcc4c84ccd 7788-7789,8624,8741,8800-8802,8804-8805
+  s_df13fa6e9c3709::t_7c054abd4234f4 5305
+src/pi/events.mjs
+  s_df13fa6e9c3709::t_21bb71edba82e3 40-43
+  s_df13fa6e9c3709::t_d11364e496c939 39,47-50
+CHANGELOG.md
+  s_df13fa6e9c3709::t_13f631a6ebc2f8 5-7,9
+src/plugin/PiAgentPlugin.mjs
+  s_df13fa6e9c3709::t_46323485f590fd 25,146-147
+  s_df13fa6e9c3709::t_f70a083873a86d 148
+src/ui/PiAgentView.mjs
+  s_df13fa6e9c3709::t_f2bb9605108367 1085
+  s_df13fa6e9c3709::t_46375ada143006 38
+  s_df13fa6e9c3709::t_e6ee9aefd61b6e 70-71,905,1022,1081-1083,1086
+  s_df13fa6e9c3709::t_b076d4161fe9b9 68,1104,1120-1121,1127
+  s_df13fa6e9c3709::t_ba1e22b13e27ef 1080
+  s_df13fa6e9c3709::t_baaddd7cf3afe3 1084
+  s_df13fa6e9c3709::t_c0a58b81dc0e04 1051,1079
+  s_df13fa6e9c3709::t_c9a245049b5934 1087
+tests/settings.test.mjs
+  s_df13fa6e9c3709::t_354a0c0fb44de2 111-112,118
+TESTING.md
+  s_df13fa6e9c3709::t_9e9f7a490e849e 3,56-57,114-117,159
+src/ui/desktop-notifications.mjs
+  s_df13fa6e9c3709::t_79ef35ff21a67e 1-19
+  s_df13fa6e9c3709::t_1349d4f9513244 20-27
+  s_df13fa6e9c3709::t_1313ff2101df22 28-47,49-74
+  s_df13fa6e9c3709::t_8f0eb62e042cbf 48
+src/plugin/settings-tab.mjs
+  s_df13fa6e9c3709::t_4999436d5c100f 12,129-141
+  s_df13fa6e9c3709::t_06f42475710c5d 142-143
+README.md
+  s_df13fa6e9c3709::t_31bb5fc2a2bfd5 48
+  s_df13fa6e9c3709::t_ac4ac7f3d42876 1-2
+tests/desktop-notifications.test.mjs
+  s_df13fa6e9c3709::t_04385196cd0d47 1,7-23,54-105,116-122,124-125,127-129,133-156
+  s_df13fa6e9c3709::t_05baf87fe9ecab 2-3,5-6,106-115,123,126,130-132
+  s_df13fa6e9c3709::t_e51cde3d718fa0 4,24-53
+PRIVACY.md
+  s_df13fa6e9c3709::t_81a50a4495b752 27-28
+src/plugin/settings.mjs
+  s_df13fa6e9c3709::t_be9c8dde49581d 28-29,62
+src/ui/run-activity-state.mjs
+  s_df13fa6e9c3709::t_82717b4a82bc21 73-74,76,79-81,83-85
+  s_df13fa6e9c3709::t_50e94dde3e103c 82
+tests/events.test.mjs
+  s_df13fa6e9c3709::t_b72ae4ed7ef808 118-145
+tests/runner.test.mjs
+  s_df13fa6e9c3709::t_80d6098fd7c962 56
+  s_df13fa6e9c3709::t_158d5ef6f15d36 82-84
+src/ui/message-renderer.mjs
+  s_df13fa6e9c3709::t_058acba68729c4 11-12,73-78,81,83-84,91,93-96,99-102,111,125-131,135,151,160,165-170,173-178,192-198,201-206,216
+  s_df13fa6e9c3709::t_fde98d0131c336 59-61,79-80,98,103,124,171-172,199-200
+assets/pi-agent-obsidian.svg
+  s_9c8e4d770a6539::t_5f26d90e15d712 1-13
+assets/pi-agent-obsidian_black.svg
+  s_9c8e4d770a6539::t_61f85ca8a81af8 1-15
+assets/pi-agent-obsidian_white.svg
+  s_9c8e4d770a6539::t_aeda397df02622 1-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "ee3fb17a9e9c37d7b61f7b948c02141287ab3276",
+  "prompts": {},
+  "sessions": {
+    "s_9c8e4d770a6539": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7091-3f51-7fd4-ba22-cfda6a291a10",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_df13fa6e9c3709": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f744f-d011-73c8-a644-dbe572af1a47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
