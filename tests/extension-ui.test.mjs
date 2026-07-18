@@ -18,12 +18,15 @@ describe("Pi extension UI bridge", () => {
 
   it("cancels timed dialogs and aborts the host UI", async () => {
     let signal;
-    const handler = createExtensionUiHandler({
-      input: (request) => {
-        signal = request.signal;
-        return new Promise(() => {});
-      }
-    });
+    const handler = createExtensionUiHandler(
+      {
+        input: (request) => {
+          signal = request.signal;
+          return new Promise(() => {});
+        }
+      },
+      globalThis
+    );
 
     await expect(handler({ method: "input", timeout: 5 })).resolves.toEqual({
       cancelled: true

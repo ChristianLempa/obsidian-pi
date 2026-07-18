@@ -81,7 +81,12 @@ export function getLinkSourcePath() {
 
 export function revealLine(leaf, line) {
   if (!leaf || !Number.isInteger(line) || line < 1) return;
-  globalThis.setTimeout(() => {
+  const window =
+    leaf.view?.containerEl?.ownerDocument?.defaultView ??
+    this?.plugin?.app?.workspace?.containerEl?.ownerDocument?.defaultView ??
+    this?.activeWindow ??
+    resolveActiveWindow();
+  window?.setTimeout(() => {
     const editor = leaf.view?.editor;
     if (!editor) return;
     const position = { line: line - 1, ch: 0 };
@@ -89,6 +94,10 @@ export function revealLine(leaf, line) {
     editor.scrollIntoView?.({ from: position, to: position }, true);
     editor.focus?.();
   }, 50);
+}
+
+function resolveActiveWindow() {
+  return typeof window === "undefined" ? undefined : (window.activeWindow ?? window);
 }
 
 export async function openVaultPath(value, newLeaf = "tab") {

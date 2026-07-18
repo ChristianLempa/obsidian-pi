@@ -32,8 +32,9 @@ class AnnotationRenderChild extends MarkdownRenderChild {
 }
 
 export class MarkdownAnnotationsController {
-  constructor(plugin) {
+  constructor(plugin, hostWindow = resolveActiveWindow(plugin)) {
     this.plugin = plugin;
+    this.hostWindow = hostWindow;
     this.leaves = new Map();
     this.editorViews = new Set();
     this.renderedRecords = new Set();
@@ -55,17 +56,18 @@ export class MarkdownAnnotationsController {
     this.plugin.registerEvent(
       this.plugin.app.workspace.on("active-leaf-change", () => this.refresh())
     );
-    this.plugin.registerDomEvent(
-      document,
-      "keydown",
-      (event) => {
-        if (event.key !== "Escape" || !this.pickState) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        this.cancelPick();
-      },
-      { capture: true }
-    );
+    if (this.hostWindow?.document)
+      this.plugin.registerDomEvent(
+        this.hostWindow.document,
+        "keydown",
+        (event) => {
+          if (event.key !== "Escape" || !this.pickState) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          this.cancelPick();
+        },
+        { capture: true }
+      );
     this.plugin.registerEvent(
       this.plugin.app.vault.on("modify", (file) => this.handleMarkdownFileModified(file))
     );
@@ -90,7 +92,7 @@ export class MarkdownAnnotationsController {
 
   destroy() {
     this.destroyed = true;
-    for (const timer of this.modifyTimers.values()) globalThis.clearTimeout?.(timer);
+    for (const timer of this.modifyTimers.values()) this.hostWindow?.clearTimeout(timer);
     this.modifyTimers.clear();
     this.modifyGenerations.clear();
     this.processingByThread.clear();
@@ -262,7 +264,7 @@ export class MarkdownAnnotationsController {
     editorView.dom.classList.add("pi-agent-annotation-pick-mode");
     editorView.dom.setAttribute(
       "aria-label",
-      "Annotation pick mode. Hover or focus a paragraph, then click or press Enter."
+      "Annotation pick mode. Hover or focus a paragraph, then click or press enter."
     );
     state.view.editor.focus();
     requestAnnotationRefresh(editorView);
@@ -416,7 +418,8 @@ export class MarkdownAnnotationsController {
       event.stopPropagation();
       record.state.renderedSelectionPending = true;
       void this.captureRenderedSelection(selection).finally(() => {
-        globalThis.setTimeout?.(() => {
+        const window = record.element.ownerDocument?.defaultView ?? this.hostWindow;
+        window?.setTimeout(() => {
           record.state.renderedSelectionPending = false;
         }, 100);
       });
@@ -516,8 +519,7 @@ export class MarkdownAnnotationsController {
   }
 
   renderedSelectionForState(state) {
-    const selection =
-      state.view.containerEl.ownerDocument?.getSelection?.() ?? globalThis.getSelection?.();
+    const selection = state.view.containerEl.ownerDocument?.getSelection?.();
     if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return undefined;
     const liveRange = selection.getRangeAt?.(0);
     if (!liveRange) return { invalid: true };
@@ -712,7 +714,7 @@ export class MarkdownAnnotationsController {
     heading.createSpan({ text: `Annotations (${annotations.length})` });
     const sendButton = heading.createEl("button", {
       cls: "mod-cta pi-agent-annotations-send",
-      attr: { "aria-label": "Send annotations to Pi", type: "button" }
+      attr: { "aria-label": "Send annotations to pi", type: "button" }
     });
     const sendIcon = sendButton.createSpan({ cls: "pi-agent-annotations-send-icon" });
     setIcon(sendIcon, "send");
@@ -776,13 +778,14 @@ export class MarkdownAnnotationsController {
         new Notice("The annotated source block is not currently rendered.");
         return;
       }
-      const reduceMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      const window = record.element.ownerDocument?.defaultView ?? this.hostWindow;
+      const reduceMotion = window?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
       record.element.scrollIntoView({
         block: "center",
         behavior: reduceMotion ? "auto" : "smooth"
       });
       record.element.classList.add("pi-agent-annotation-navigated");
-      globalThis.setTimeout?.(
+      window?.setTimeout(
         () => record.element.classList.remove("pi-agent-annotation-navigated"),
         1600
       );
@@ -890,7 +893,7 @@ export class MarkdownAnnotationsController {
     this.clearModifyTimer(file.path);
     const generation = {};
     this.modifyGenerations.set(file.path, generation);
-    const timer = globalThis.setTimeout?.(() => {
+    const timer = this.hostWindow?.setTimeout(() => {
       this.modifyTimers.delete(file.path);
       void this.reanchorFileNow(file, generation);
     }, 150);
@@ -919,7 +922,7 @@ export class MarkdownAnnotationsController {
 
   clearModifyTimer(path) {
     const timer = this.modifyTimers.get(path);
-    if (timer !== undefined) globalThis.clearTimeout?.(timer);
+    if (timer !== undefined) this.hostWindow?.clearTimeout(timer);
     this.modifyTimers.delete(path);
   }
 
@@ -1110,9 +1113,17 @@ function mergeIntervals(intervals) {
 }
 
 function structuredCloneSafe(value) {
-  return typeof globalThis.structuredClone === "function"
-    ? globalThis.structuredClone(value)
+  const activeWindow = typeof window === "undefined" ? undefined : (window.activeWindow ?? window);
+  return typeof activeWindow?.structuredClone === "function"
+    ? activeWindow.structuredClone(value)
     : JSON.parse(JSON.stringify(value));
+}
+
+function resolveActiveWindow(plugin) {
+  return (
+    plugin?.app?.workspace?.containerEl?.ownerDocument?.defaultView ??
+    (typeof window === "undefined" ? undefined : (window.activeWindow ?? window))
+  );
 }
 
 function elementFromNode(node) {

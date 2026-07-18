@@ -183,7 +183,8 @@ export class AnnotationStore {
 }
 
 function structuredCloneSafe(value) {
-  return typeof globalThis.structuredClone === "function"
-    ? globalThis.structuredClone(value)
+  const activeWindow = typeof window === "undefined" ? undefined : (window.activeWindow ?? window);
+  return typeof activeWindow?.structuredClone === "function"
+    ? activeWindow.structuredClone(value)
     : JSON.parse(JSON.stringify(value));
 }
