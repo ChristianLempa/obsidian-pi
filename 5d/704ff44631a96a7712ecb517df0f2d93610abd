@@ -1,0 +1,43 @@
+src/ui/PiAgentView.mjs
+  s_23d07ac90458a0::t_b4205c17c0252f 821
+  s_23d07ac90458a0::t_1747740513dc9f 34-37,835,943,987,1006,1111-1114,1116
+main.js
+  s_23d07ac90458a0::t_1f3097de0e8b8e 8439
+  s_23d07ac90458a0::t_7bced36b14d1c3 824-826,855-858,864-865,873-876,1413,1574-1575,1585-1594,1596-1600,1603-1604,1606-1612,1616-1617,1623,1626-1637,1640-1645,1647,1650-1651,1654-1690,2188,2237,2239-2240,2323,5987,6028-6029,6067,7600-7624,7634,7637,7642-7653,8453,8561,8605,8624,8729-8732,8734,9957,9963,9966-9967,9969-9970
+src/annotations/markdown-annotations-controller.mjs
+  s_23d07ac90458a0::t_e6ac812a4be326 42-44,74-77,83-84,93-96,655,832-833,843-852,855-859,863-864,866-872,877-878,885,889-897,900-901,904-909,911,915-939,942-959
+src/context/context-builder.mjs
+  s_23d07ac90458a0::t_dab38fa93b5d85 136,182,184-185,274
+src/plugin/PiAgentPlugin.mjs
+  s_23d07ac90458a0::t_557bd21e15f4d3 861,867,870-871,873-874
+src/ui/editor-file-refresh.mjs
+  s_23d07ac90458a0::t_8db2126db8d0ed 1-26,38,41,46-61
+tests/annotation-processing.test.mjs
+  s_23d07ac90458a0::t_1cf47707a7a2a6 49-61,73,75,77-80,83-86,88
+tests/editor-file-refresh.test.mjs
+  s_23d07ac90458a0::t_26f89c1488bab6 2-5,19-64,84-98
+tests/local-prompt-queue.test.mjs
+  s_23d07ac90458a0::t_cdbe3ad80630db 106-108
+tests/markdown-annotations-controller.test.mjs
+  s_23d07ac90458a0::t_3b16d709cac18f 458,473-477,481,484-485,488-494,496-497,499,501-505,508,510-511,513-514,516,519-522,524-526,530,538,540,547
+src/ui/prompt-queue.mjs
+  s_23d07ac90458a0::t_21e893ebe18cae 71,114-115,154
+tests/context-builder.test.mjs
+  s_23d07ac90458a0::t_693a1e448a28ee 48-49,88-91,93-94,127-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "5d704ff44631a96a7712ecb517df0f2d93610abd",
+  "prompts": {},
+  "sessions": {
+    "s_23d07ac90458a0": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f742d-b813-7d10-bf9c-e01e7953dcc8",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
