@@ -35,6 +35,7 @@ import {
   getSuccessfulMarkdownMutationPath,
   refreshOpenMarkdownViews
 } from "./editor-file-refresh.mjs";
+import { openNotificationThread, showDesktopRunNotification } from "./desktop-notifications.mjs";
 
 export class PiAgentView extends f.ItemView {
   constructor(e, t) {
@@ -64,7 +65,10 @@ export class PiAgentView extends f.ItemView {
     this.thinkingDisclosureUserSet = false;
     this.completedThinkingExpansion = new Map();
     this.messageRenderComponents = [];
+    this.messageRenderComponentByElement = new WeakMap();
     this.activeRuns = new Map();
+    this.desktopNotificationRunIds = new Set();
+    this.nextDesktopNotificationRunId = 1;
     this.stickToBottom = !0;
   }
   getViewType() {
@@ -898,6 +902,7 @@ export class PiAgentView extends f.ItemView {
       canceling: false,
       runner: this.plugin.createPiRunner(t),
       accepted: false,
+      notificationRunId: `${t}:${this.nextDesktopNotificationRunId++}`,
       thinking: "",
       thinkingExpanded: false,
       thinkingUserSet: false,
@@ -1014,6 +1019,7 @@ export class PiAgentView extends f.ItemView {
         a.contextCompacted && this.invalidatedContextThreadIds.add(t),
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
+      this.notifyRunCompleted(n.notificationRunId, t);
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
       if (queuedId && !n.accepted) {
@@ -1042,6 +1048,7 @@ export class PiAgentView extends f.ItemView {
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()),
         new f.Notice(o));
+      this.notifyRunCompleted(n.notificationRunId, t, "Agent run failed. Click to open the chat.");
     } finally {
       (this.activeRuns.delete(t),
         this.syncCurrentRunFlags(),
@@ -1069,6 +1076,15 @@ export class PiAgentView extends f.ItemView {
         !skipQueueDrain && this.runNextQueuedPrompt());
     }
   }
+  notifyRunCompleted(runId, threadId, body = "Agent response completed. Click to open the chat.") {
+    if (!this.plugin.settings.desktopNotifications) return false;
+    return showDesktopRunNotification({
+      runId,
+      sentRunIds: this.desktopNotificationRunIds,
+      body,
+      onClick: () => openNotificationThread(this.plugin, threadId, T)
+    });
+  }
   handleSuccessfulToolMutation(event, threadId) {
     const path = getSuccessfulMarkdownMutationPath(event, this.plugin.getVaultBasePath());
     if (!path) return;
@@ -1085,7 +1101,7 @@ export class PiAgentView extends f.ItemView {
       this.renderMessages();
       return;
     }
-    this.liveThinkingTextEl.appendText(e);
+    this.renderPlainMessageContent(this.liveThinkingTextEl, this.streamingThinkingContent);
     if (this.messagesEl && this.stickToBottom)
       this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
@@ -1101,12 +1117,14 @@ export class PiAgentView extends f.ItemView {
   appendStreamingDelta(e) {
     if (e) {
       if (
-        ((this.activityText = ""),
+        ((this.activityText = "Responding"),
+        (this.activityKind = "answer"),
         (this.activityDetail = ""),
         (this.activityStickyUntil = 0),
         (this.pendingActivity = void 0),
         this.clearPendingActivityTimer(),
         (this.streamingAssistantContent += e),
+        this.updateActivityDom(),
         !this.streamingTextEl)
       ) {
         this.renderMessages();

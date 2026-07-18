@@ -835,28 +835,6 @@
   margin-bottom: 8px;
 }
 
-.pi-agent-inline-activity {
-  align-items: center;
-  color: var(--text-muted);
-  display: inline-flex;
-  font: inherit;
-  margin-left: 7px;
-  min-width: 0;
-  overflow: visible;
-}
-
-.pi-agent-activity-thinking,
-.pi-agent-activity-read,
-.pi-agent-activity-search,
-.pi-agent-activity-context,
-.pi-agent-activity-edit,
-.pi-agent-activity-shell,
-.pi-agent-activity-error,
-.pi-agent-activity-answer,
-.pi-agent-activity-finishing {
-  color: var(--text-muted);
-}
-
 .pi-agent-thinking-disclosure.is-live .pi-agent-thinking-label {
   animation: pi-agent-activity-flow 1.2s linear infinite;
   background:
@@ -893,14 +871,6 @@
   white-space: nowrap;
 }
 
-.pi-agent-inline-activity-text {
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--font-ui-smaller);
-  padding: 0 4px;
-  -webkit-text-fill-color: currentColor;
-}
-
 @keyframes pi-agent-activity-flow {
   0% {
     background-position:
@@ -934,6 +904,7 @@
 }
 
 .pi-agent-thinking-disclosure {
+  border-bottom: 1px solid var(--background-modifier-border);
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   margin: -4px -4px 6px;
@@ -941,7 +912,6 @@
 }
 
 .pi-agent-thinking-disclosure[open] {
-  border-bottom: 1px solid var(--background-modifier-border);
   padding-bottom: 6px;
 }
 
@@ -988,8 +958,6 @@
 }
 
 .pi-agent-thinking-content {
-  background: var(--background-primary-alt);
-  border-top: 1px solid var(--background-modifier-border);
   color: var(--text-muted);
   font-family: var(--font-interface);
   line-height: 1.5;
@@ -997,7 +965,14 @@
   overflow: auto;
   overflow-wrap: anywhere;
   padding: 7px 9px 8px;
-  white-space: pre-wrap;
+}
+
+.pi-agent-thinking-content > :first-child {
+  margin-top: 0;
+}
+
+.pi-agent-thinking-content > :last-child {
+  margin-bottom: 0;
 }
 
 .pi-agent-tool-error {

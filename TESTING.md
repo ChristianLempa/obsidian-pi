@@ -1,6 +1,6 @@
 # Pi Agent compatibility and pre-release checklist
 
-**Status: MANUAL VALIDATION PENDING.** Issue #43 must remain open and no release may be published until every applicable manual item below passes in the dedicated test vault:
+**Status: MANUAL VALIDATION PENDING FOR THE NEXT RELEASE.** Issue #43 must remain open until every applicable manual item below passes in the dedicated test vault:
 
 ```text
 /Users/xcad/Obsidian/ObsidianTesting
@@ -53,6 +53,8 @@ Then open `ObsidianTesting`, reload or disable/re-enable Pi Agent, and keep the 
 - [ ] **Pending:** Terminate the Pi subprocess; confirm a visible failure and clean restart on the next send.
 - [ ] **Pending:** Trigger/simulate a transient retry; confirm retry start/end activity and cancellation of retry.
 - [ ] **Pending:** Run `/compact` and `/compact keep decisions and file names`; verify completion, session continuity, and context usage becoming unknown until fresh usage arrives.
+- [ ] **Pending:** While Obsidian is focused, complete a run and confirm no desktop notification appears. Then unfocus Obsidian, complete one run, and confirm exactly one generic Pi Agent notification appears without disabling extension commands/tools.
+- [ ] **Pending:** Click the completion notification and confirm Obsidian focuses and opens the originating chat. Deny notification permission, where the platform exposes it, and confirm runs still complete without errors or repeated permission prompts.
 
 ## Tool modes, resources, and extensions
 
@@ -109,9 +111,10 @@ Use non-sensitive PNG, JPEG, and WebP files.
 
 ## Thinking, activity, and run controls
 
-- [ ] **Pending:** Stream reasoning and confirm the existing live activity preview expands automatically without duplicating final-answer text.
-- [ ] **Pending:** On completion, confirm a collapsed **Thinking** disclosure appears immediately before its answer when reasoning exists and preserves the user's expansion state.
-- [ ] **Pending:** Confirm there is no standalone **Tools** badge/button or permanent ordinary tool argument/result panel; concise current tool status may appear only in live activity.
+- [ ] **Pending:** Stream reasoning and confirm the live response disclosure expands automatically without duplicating final-answer text. Markdown such as `**bold**`, lists, links, and code must render inside thinking content.
+- [ ] **Pending:** Confirm **THINKING**, **READING**, **EDITING**, and other live status text appears only inside the response disclosure, never beside the **Agent** heading. On completion, confirm a collapsed **THINKING** disclosure appears immediately before its answer when reasoning exists and preserves the user's expansion state.
+- [ ] **Pending:** Confirm thinking content uses the same background as the assistant response and only a separator distinguishes it from the answer.
+- [ ] **Pending:** Confirm there is no standalone **Tools** badge/button or permanent ordinary tool argument/result panel; concise current tool status may appear only in the live response disclosure.
 - [ ] **Pending:** Trigger a tool error and confirm it remains visible and actionable without exposing values whose keys contain token, secret, password, API key, or authorization.
 - [ ] **Pending:** Exercise idle Send, active-run queue, Cancel, and Canceling states; confirm they are visually distinct and usable in compact layouts.
 
@@ -153,4 +156,4 @@ Use non-sensitive PNG, JPEG, and WebP files.
 - [ ] **Pending:** `npm run ci` passes from a clean install.
 - [ ] **Pending:** The complete manual checklist above passes in `ObsidianTesting`.
 - [ ] **Pending:** Open issues are updated with actual validation results but remain open until explicitly accepted.
-- [x] Release candidate version files are aligned at `0.0.9`; no tag or GitHub release is created until final confirmation.
+- [x] Current published/versioned files are aligned at `0.0.10`; no subsequent release is created until final confirmation.

@@ -108,12 +108,14 @@ describe("plugin settings helpers", () => {
       ignoredFolders: [".git"],
       piExecutablePath: "/custom/bin/pi",
       includeDefaultSkills: true,
-      dismissedPiSetup: true
+      dismissedPiSetup: true,
+      desktopNotifications: true
     });
     expect(settings).not.toHaveProperty("maxSearchResults");
     expect(settings).not.toHaveProperty("maxSearchFiles");
     expect(settings).not.toHaveProperty("maxFileChars");
     expect(settings).not.toHaveProperty("maxChangeSnapshotFiles");
+    expect(normalizeSettings({ desktopNotifications: false }).desktopNotifications).toBe(false);
   });
 
   it("finds custom selected model info and exposes tool modes", () => {

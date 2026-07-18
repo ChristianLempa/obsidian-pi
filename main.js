@@ -1874,7 +1874,8 @@ var DEFAULT_SETTINGS = {
   additionalSkillFolders: [],
   effectiveModel: "",
   effectiveReasoning: "",
-  dismissedPiSetup: false
+  dismissedPiSetup: false,
+  desktopNotifications: true
 };
 function normalizeSettings(rawSettings = {}) {
   const {
@@ -1905,6 +1906,7 @@ function normalizeSettings(rawSettings = {}) {
   settings.effectiveModel = normalizeString(settings.effectiveModel);
   settings.effectiveReasoning = normalizeString(settings.effectiveReasoning);
   settings.dismissedPiSetup = settings.dismissedPiSetup === true;
+  settings.desktopNotifications = settings.desktopNotifications !== false;
   return settings;
 }
 function getReasoningOptions(settings) {
@@ -3704,13 +3706,18 @@ function handlePiJsonEventLine(line, callbacks, events, appendText, updateRunSta
     return;
   }
   if (type === "tool_execution_end") {
+    const toolCallId = String(event.toolCallId ?? "");
+    const startedTool = events
+      .slice()
+      .reverse()
+      .find((candidate) => candidate.type === "tool_start" && candidate.toolCallId === toolCallId);
     emit({
       type: "tool_end",
       raw: event,
-      message: String(event.toolName ?? "tool"),
-      toolName: String(event.toolName ?? "tool"),
-      toolCallId: String(event.toolCallId ?? ""),
-      toolArgs: event.args ?? {},
+      message: String(event.toolName ?? startedTool?.toolName ?? "tool"),
+      toolName: String(event.toolName ?? startedTool?.toolName ?? "tool"),
+      toolCallId,
+      toolArgs: event.args ?? startedTool?.toolArgs ?? {},
       isError: event.isError === true,
       errorMessage:
         event.isError === true
@@ -5103,6 +5110,75 @@ function formatReasoningLabel(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+// src/ui/desktop-notifications.mjs
+async function requestDesktopNotificationPermission(NotificationApi = globalThis.Notification) {
+  if (typeof NotificationApi !== "function") return false;
+  if (NotificationApi.permission === "granted") return true;
+  if (
+    NotificationApi.permission !== "default" ||
+    typeof NotificationApi.requestPermission !== "function"
+  )
+    return false;
+  try {
+    return (await NotificationApi.requestPermission()) === "granted";
+  } catch (error) {
+    console.warn("Pi Agent: desktop notification permission request failed", error);
+    return false;
+  }
+}
+async function openNotificationThread(plugin, threadId, viewType) {
+  if (!plugin?.switchThread?.(threadId)) return false;
+  await plugin.activateView?.();
+  const leaf = plugin.app?.workspace?.getLeavesOfType?.(viewType)?.[0];
+  leaf?.view?.renderChatView?.();
+  return true;
+}
+function showDesktopRunNotification({
+  runId,
+  sentRunIds,
+  body,
+  onClick,
+  NotificationApi = globalThis.Notification,
+  documentRef = globalThis.document,
+  windowRef = globalThis.window
+}) {
+  if (!runId || !(sentRunIds instanceof Set) || sentRunIds.has(runId)) return false;
+  if (!isDocumentUnfocused(documentRef)) return false;
+  if (typeof NotificationApi !== "function" || NotificationApi.permission !== "granted")
+    return false;
+  try {
+    const notification = new NotificationApi("Pi Agent", {
+      body: String(body || "Agent response completed."),
+      silent: false
+    });
+    sentRunIds.add(runId);
+    if (sentRunIds.size > 200) sentRunIds.delete(sentRunIds.values().next().value);
+    notification.onclick = () => {
+      try {
+        windowRef?.focus?.();
+        notification.close?.();
+        const clickResult = onClick?.();
+        clickResult?.catch?.((error) =>
+          console.warn("Pi Agent: notification click action failed", error)
+        );
+      } catch (error) {
+        console.warn("Pi Agent: notification click action failed", error);
+      }
+    };
+    return true;
+  } catch (error) {
+    console.warn("Pi Agent: desktop notification failed", error);
+    return false;
+  }
+}
+function isDocumentUnfocused(documentRef) {
+  try {
+    return typeof documentRef?.hasFocus === "function" && !documentRef.hasFocus();
+  } catch {
+    return false;
+  }
+}
+
 // src/plugin/settings-tab.mjs
 var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
   constructor(app, plugin) {
@@ -5212,6 +5288,20 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
             }
             await this.plugin.saveSettings();
           })
+      );
+    new import_obsidian6.Setting(containerEl)
+      .setName("Desktop completion notifications")
+      .setDesc("Notify when an agent run finishes while Obsidian is unfocused.")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.desktopNotifications).onChange(async (value) => {
+          if (value && !(await requestDesktopNotificationPermission())) {
+            new import_obsidian6.Notice(
+              "Desktop notifications are unavailable or not permitted. You can enable them in your operating-system notification settings."
+            );
+          }
+          this.plugin.settings.desktopNotifications = value;
+          await this.plugin.saveSettings();
+        })
       );
     new import_obsidian6.Setting(containerEl)
       .setName("Custom instructions")
@@ -6619,8 +6709,8 @@ function renderMessages() {
     n = e.scrollTop;
   ((this.isRenderingMessages = true),
     (this.activityItemEl = void 0),
-    (this.activityInlineEl = void 0),
-    (this.activityInlineTextEl = void 0),
+    (this.activityDetailsEl = void 0),
+    (this.activityLabelEl = void 0),
     (this.liveThinkingDetailsEl = void 0),
     (this.liveThinkingTextEl = void 0),
     (this.liveThinkingSetExpanded = void 0),
@@ -6666,7 +6756,9 @@ function renderMessage(e, t) {
       e.thinking,
       this.completedThinkingExpansion.get(key) === true,
       (expanded) => this.completedThinkingExpansion.set(key, expanded),
-      false
+      false,
+      "Thinking",
+      (container, content) => this.renderPlainMessageContent(container, content)
     );
     answer = response.createDiv({ cls: "pi-agent-message-answer" });
   }
@@ -6676,21 +6768,37 @@ function renderToolErrors(container, errors) {
   for (const error of Array.isArray(errors) ? errors : [])
     container.createDiv({ cls: "pi-agent-tool-error", text: error });
 }
-function renderThinkingDisclosure(container, thinking, expanded, onToggle, live = false) {
+function renderThinkingDisclosure(
+  container,
+  thinking,
+  expanded,
+  onToggle,
+  live = false,
+  activityLabel = "Thinking",
+  renderMarkdown
+) {
   const details = container.createEl("details", {
-    cls: `pi-agent-thinking-disclosure${live ? " is-live" : ""}`
+    cls: `pi-agent-thinking-disclosure${live ? " is-live" : ""}`,
+    attr: { title: activityLabel }
   });
   let knownExpanded = expanded;
   details.toggleAttribute("open", expanded);
   const summary = details.createEl("summary");
   const chevron = summary.createSpan({ cls: "pi-agent-thinking-chevron" });
   (0, f3.setIcon)(chevron, "chevron-right");
-  summary.createSpan({
+  const label = summary.createSpan({
     cls: "pi-agent-thinking-label",
-    text: "THINKING",
-    attr: live ? { role: "status", "aria-label": "Thinking in progress" } : void 0
+    text: String(activityLabel || "Thinking").toUpperCase(),
+    attr: live
+      ? { role: "status", "aria-label": `${activityLabel || "Thinking"} in progress` }
+      : void 0
   });
-  const text = details.createDiv({ cls: "pi-agent-thinking-content", text: thinking });
+  const canRenderMarkdown = Boolean(thinking && renderMarkdown);
+  const text = details.createDiv({
+    cls: "pi-agent-thinking-content",
+    text: canRenderMarkdown ? void 0 : thinking
+  });
+  if (canRenderMarkdown) renderMarkdown(text, thinking);
   details.addEventListener("toggle", () => {
     if (details.open === knownExpanded) return;
     knownExpanded = details.open;
@@ -6698,6 +6806,7 @@ function renderThinkingDisclosure(container, thinking, expanded, onToggle, live 
   });
   return {
     details,
+    label,
     text,
     setExpanded(nextExpanded) {
       knownExpanded = nextExpanded;
@@ -6708,9 +6817,17 @@ function renderThinkingDisclosure(container, thinking, expanded, onToggle, live 
 function renderPlainMessageContent(container, content) {
   container.empty();
   container.addClass("markdown-rendered");
+  this.messageRenderComponentByElement ??= /* @__PURE__ */ new WeakMap();
+  const previousComponent = this.messageRenderComponentByElement.get(container);
+  if (previousComponent) {
+    previousComponent.unload();
+    const previousIndex = this.messageRenderComponents.indexOf(previousComponent);
+    if (previousIndex !== -1) this.messageRenderComponents.splice(previousIndex, 1);
+  }
   const component = new f3.Component();
   component.load();
   this.messageRenderComponents.push(component);
+  this.messageRenderComponentByElement.set(container, component);
   f3.MarkdownRenderer.render(
     this.plugin.app,
     content || "",
@@ -6724,6 +6841,7 @@ function renderPlainMessageContent(container, content) {
 }
 function unloadMessageRenderComponents() {
   for (const component of this.messageRenderComponents.splice(0)) component.unload();
+  this.messageRenderComponentByElement = /* @__PURE__ */ new WeakMap();
 }
 function renderStreamingAssistantMessage() {
   if (!this.messagesEl) return;
@@ -6731,22 +6849,25 @@ function renderStreamingAssistantMessage() {
     cls: "pi-agent-message pi-agent-message-assistant pi-agent-message-streaming"
   });
   this.streamingItemEl = item;
+  this.activityItemEl = item;
   this.renderRoleLabel(item, "pi");
   const response = item.createDiv({
     cls: "pi-agent-message-content pi-agent-message-content-streaming"
   });
-  if (this.streamingThinkingContent) {
-    const rendered = this.renderThinkingDisclosure(
-      response,
-      this.streamingThinkingContent,
-      this.thinkingDisclosureExpanded,
-      (expanded) => this.setLiveThinkingExpanded(expanded),
-      true
-    );
-    this.liveThinkingDetailsEl = rendered.details;
-    this.liveThinkingTextEl = rendered.text;
-    this.liveThinkingSetExpanded = rendered.setExpanded;
-  }
+  const rendered = this.renderThinkingDisclosure(
+    response,
+    this.streamingThinkingContent,
+    this.thinkingDisclosureExpanded,
+    (expanded) => this.setLiveThinkingExpanded(expanded),
+    true,
+    this.activityText || "Responding",
+    (container, content) => this.renderPlainMessageContent(container, content)
+  );
+  this.activityDetailsEl = rendered.details;
+  this.activityLabelEl = rendered.label;
+  this.liveThinkingDetailsEl = rendered.details;
+  this.liveThinkingTextEl = rendered.text;
+  this.liveThinkingSetExpanded = rendered.setExpanded;
   const answer = response.createDiv({ cls: "pi-agent-message-answer" });
   this.streamingTextEl = answer.createSpan({ cls: "pi-agent-streaming-text" });
   this.streamingTextEl.setText(this.streamingAssistantContent);
@@ -6759,19 +6880,21 @@ function renderActivityMessage() {
   });
   this.activityItemEl = item;
   this.renderRoleLabel(item, "pi");
-  if (this.streamingThinkingContent || this.activityKind === "thinking") {
-    const response = item.createDiv({ cls: "pi-agent-message-content" });
-    const rendered = this.renderThinkingDisclosure(
-      response,
-      this.streamingThinkingContent,
-      this.streamingThinkingContent ? this.thinkingDisclosureExpanded : false,
-      (expanded) => this.setLiveThinkingExpanded(expanded),
-      true
-    );
-    this.liveThinkingDetailsEl = rendered.details;
-    this.liveThinkingTextEl = rendered.text;
-    this.liveThinkingSetExpanded = rendered.setExpanded;
-  }
+  const response = item.createDiv({ cls: "pi-agent-message-content" });
+  const rendered = this.renderThinkingDisclosure(
+    response,
+    this.streamingThinkingContent,
+    this.streamingThinkingContent ? this.thinkingDisclosureExpanded : false,
+    (expanded) => this.setLiveThinkingExpanded(expanded),
+    true,
+    this.activityText || "Thinking",
+    (container, content) => this.renderPlainMessageContent(container, content)
+  );
+  this.activityDetailsEl = rendered.details;
+  this.activityLabelEl = rendered.label;
+  this.liveThinkingDetailsEl = rendered.details;
+  this.liveThinkingTextEl = rendered.text;
+  this.liveThinkingSetExpanded = rendered.setExpanded;
 }
 function renderRoleLabel(e, t, n, s) {
   let a = e.createDiv({ cls: "pi-agent-message-role" }),
@@ -6780,21 +6903,7 @@ function renderRoleLabel(e, t, n, s) {
       cls: `pi-agent-role-icon pi-agent-role-icon-${t}`
     });
   if (t === "user") ((0, f3.setIcon)(l, "user"), o.createSpan({ text: "You" }));
-  else if (
-    (this.renderPiIcon(l),
-    o.createSpan({ text: "Agent" }),
-    !n && this.running && this.activityText && this.activityKind !== "thinking")
-  ) {
-    let h = o.createSpan({
-      cls: `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
-      attr: { title: this.activityDetail || this.activityText }
-    });
-    ((this.activityInlineEl = h),
-      (this.activityInlineTextEl = h.createSpan({
-        cls: "pi-agent-inline-activity-text",
-        text: this.activityText
-      })));
-  }
+  else (this.renderPiIcon(l), o.createSpan({ text: "Agent" }));
   if (n && s !== void 0) {
     let u = a.createEl("button", {
       cls: "clickable-icon pi-agent-message-actions",
@@ -7020,21 +7129,21 @@ function flushPendingActivity() {
 function updateActivityDom() {
   if (
     !this.running ||
-    this.streamingAssistantContent ||
     !this.activityText ||
     !this.activityItemEl ||
-    !this.activityInlineEl ||
-    !this.activityInlineTextEl ||
+    !this.activityDetailsEl ||
+    !this.activityLabelEl ||
     !this.activityItemEl.isConnected ||
-    !this.activityInlineEl.isConnected
+    !this.activityDetailsEl.isConnected
   )
     return false;
-  let e = `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
-    t = this.activityDetail;
-  (this.activityInlineEl.getAttribute("class") !== e && this.activityInlineEl.setAttr("class", e),
-    this.activityInlineEl.getAttribute("title") !== t && this.activityInlineEl.setAttr("title", t),
-    this.activityInlineTextEl.textContent !== this.activityText &&
-      this.activityInlineTextEl.setText(this.activityText));
+  const label = this.activityText.toUpperCase();
+  const title = this.activityDetail || this.activityText;
+  (this.activityDetailsEl.getAttribute("title") !== title &&
+    this.activityDetailsEl.setAttr("title", title),
+    this.activityLabelEl.getAttribute("aria-label") !== `${this.activityText} in progress` &&
+      this.activityLabelEl.setAttr("aria-label", `${this.activityText} in progress`),
+    this.activityLabelEl.textContent !== label && this.activityLabelEl.setText(label));
   return true;
 }
 function captureContextUsage(e) {
@@ -7674,7 +7783,10 @@ var PiAgentView = class extends f4.ItemView {
     this.thinkingDisclosureUserSet = false;
     this.completedThinkingExpansion = /* @__PURE__ */ new Map();
     this.messageRenderComponents = [];
+    this.messageRenderComponentByElement = /* @__PURE__ */ new WeakMap();
     this.activeRuns = /* @__PURE__ */ new Map();
+    this.desktopNotificationRunIds = /* @__PURE__ */ new Set();
+    this.nextDesktopNotificationRunId = 1;
     this.stickToBottom = true;
   }
   getViewType() {
@@ -8509,6 +8621,7 @@ var PiAgentView = class extends f4.ItemView {
       canceling: false,
       runner: this.plugin.createPiRunner(t),
       accepted: false,
+      notificationRunId: `${t}:${this.nextDesktopNotificationRunId++}`,
       thinking: "",
       thinkingExpanded: false,
       thinkingUserSet: false,
@@ -8625,6 +8738,7 @@ var PiAgentView = class extends f4.ItemView {
         a.contextCompacted && this.invalidatedContextThreadIds.add(t),
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
+      this.notifyRunCompleted(n.notificationRunId, t);
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
       if (queuedId && !n.accepted) {
@@ -8653,6 +8767,7 @@ var PiAgentView = class extends f4.ItemView {
         this.isCurrentThread(t) &&
           (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()),
         new f4.Notice(o));
+      this.notifyRunCompleted(n.notificationRunId, t, "Agent run failed. Click to open the chat.");
     } finally {
       (this.activeRuns.delete(t),
         this.syncCurrentRunFlags(),
@@ -8680,6 +8795,15 @@ var PiAgentView = class extends f4.ItemView {
         !skipQueueDrain && this.runNextQueuedPrompt());
     }
   }
+  notifyRunCompleted(runId, threadId, body = "Agent response completed. Click to open the chat.") {
+    if (!this.plugin.settings.desktopNotifications) return false;
+    return showDesktopRunNotification({
+      runId,
+      sentRunIds: this.desktopNotificationRunIds,
+      body,
+      onClick: () => openNotificationThread(this.plugin, threadId, PI_AGENT_VIEW_TYPE)
+    });
+  }
   handleSuccessfulToolMutation(event, threadId) {
     const path4 = getSuccessfulMarkdownMutationPath(event, this.plugin.getVaultBasePath());
     if (!path4) return;
@@ -8696,7 +8820,7 @@ var PiAgentView = class extends f4.ItemView {
       this.renderMessages();
       return;
     }
-    this.liveThinkingTextEl.appendText(e);
+    this.renderPlainMessageContent(this.liveThinkingTextEl, this.streamingThinkingContent);
     if (this.messagesEl && this.stickToBottom)
       this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
@@ -8712,12 +8836,14 @@ var PiAgentView = class extends f4.ItemView {
   appendStreamingDelta(e) {
     if (e) {
       if (
-        ((this.activityText = ""),
+        ((this.activityText = "Responding"),
+        (this.activityKind = "answer"),
         (this.activityDetail = ""),
         (this.activityStickyUntil = 0),
         (this.pendingActivity = void 0),
         this.clearPendingActivityTimer(),
         (this.streamingAssistantContent += e),
+        this.updateActivityDom(),
         !this.streamingTextEl)
       ) {
         this.renderMessages();
@@ -9210,6 +9336,8 @@ var PiAgentPlugin = class extends P.Plugin {
       new P.Notice("Pi Agent is desktop-only.");
       return;
     }
+    if (this.settings.desktopNotifications)
+      void requestDesktopNotificationPermission().catch(() => {});
     (0, P.addIcon)(PI_AGENT_ICON_ID, PI_AGENT_ICON_SVG);
     this.extensionStatusEl = this.addStatusBarItem();
     this.rebuildServices();
