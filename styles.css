@@ -316,8 +316,13 @@
   user-select: text;
 }
 
-.pi-agent-message-content.markdown-rendered {
+.pi-agent-message-content.markdown-rendered,
+.pi-agent-message-answer.markdown-rendered {
   white-space: normal;
+}
+
+.pi-agent-message-answer {
+  min-width: 0;
 }
 
 .pi-agent-message-content-streaming {
@@ -327,7 +332,8 @@
   white-space: pre-wrap;
 }
 
-.pi-agent-message-content.markdown-rendered table {
+.pi-agent-message-content.markdown-rendered table,
+.pi-agent-message-answer.markdown-rendered table {
   border-collapse: collapse;
   margin: 8px 0;
   width: 100%;
@@ -335,23 +341,28 @@
 }
 
 .pi-agent-message-content.markdown-rendered th,
-.pi-agent-message-content.markdown-rendered td {
+.pi-agent-message-content.markdown-rendered td,
+.pi-agent-message-answer.markdown-rendered th,
+.pi-agent-message-answer.markdown-rendered td {
   border: 1px solid var(--background-modifier-border);
   padding: 4px 8px;
   text-align: left;
   overflow-wrap: anywhere;
 }
 
-.pi-agent-message-content.markdown-rendered th {
+.pi-agent-message-content.markdown-rendered th,
+.pi-agent-message-answer.markdown-rendered th {
   background: var(--background-modifier-hover);
   font-weight: 600;
 }
 
-.pi-agent-message-content.markdown-rendered tr:nth-child(even) {
+.pi-agent-message-content.markdown-rendered tr:nth-child(even),
+.pi-agent-message-answer.markdown-rendered tr:nth-child(even) {
   background: color-mix(in srgb, var(--background-modifier-hover) 30%, transparent);
 }
 
-.pi-agent-message-content.markdown-rendered pre {
+.pi-agent-message-content.markdown-rendered pre,
+.pi-agent-message-answer.markdown-rendered pre {
   padding: 0.6rem 0.9rem;
   margin: 8px 0;
   max-width: 100%;
@@ -360,7 +371,8 @@
   border-radius: 4px;
 }
 
-.pi-agent-message-content.markdown-rendered :not(pre) > code {
+.pi-agent-message-content.markdown-rendered :not(pre) > code,
+.pi-agent-message-answer.markdown-rendered :not(pre) > code {
   background: var(--background-modifier-border);
   padding: 1px 5px;
   border-radius: 3px;
@@ -368,7 +380,8 @@
   word-break: break-all;
 }
 
-.pi-agent-message-content.markdown-rendered blockquote {
+.pi-agent-message-content.markdown-rendered blockquote,
+.pi-agent-message-answer.markdown-rendered blockquote {
   border-left: 3px solid var(--interactive-accent);
   padding-inline-start: 1rem;
   margin: 8px 0;
@@ -439,6 +452,56 @@
 
 .pi-agent-tool-badge.is-enabled {
   color: var(--text-muted);
+}
+
+.pi-agent-context-badges {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pi-agent-context-badges:empty {
+  display: none;
+}
+
+.pi-agent-context-badge {
+  align-items: center;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  display: inline-flex;
+  gap: 2px;
+  max-width: min(220px, 100%);
+  min-height: 22px;
+  padding: 1px 2px 1px 7px;
+}
+
+.pi-agent-context-badge-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pi-agent-context-badge-remove {
+  background: transparent;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  height: 18px;
+  padding: 2px;
+  width: 18px;
+}
+
+.pi-agent-context-badge-remove:hover,
+.pi-agent-context-badge-remove:focus-visible {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.pi-agent-context-badge-remove svg {
+  height: 12px;
+  width: 12px;
 }
 
 .pi-agent-tool-badge-context {
@@ -862,13 +925,15 @@
 }
 
 .pi-agent-thinking-disclosure {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-s);
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
-  margin: 4px 0 8px;
+  margin: -4px -4px 6px;
   overflow: hidden;
+}
+
+.pi-agent-thinking-disclosure[open] {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 6px;
 }
 
 .pi-agent-thinking-disclosure summary {
@@ -909,10 +974,16 @@
 
 .pi-agent-thinking-label {
   color: var(--text-normal);
-  font-weight: var(--font-medium);
+  font-weight: var(--font-semibold);
+}
+
+.pi-agent-thinking-disclosure.is-live .pi-agent-thinking-label {
+  font-weight: var(--font-bold);
+  letter-spacing: 0.04em;
 }
 
 .pi-agent-thinking-content {
+  background: var(--background-primary-alt);
   border-top: 1px solid var(--background-modifier-border);
   color: var(--text-muted);
   font-family: var(--font-interface);
@@ -1381,29 +1452,15 @@ textarea.pi-agent-extension-input {
   width: 25px;
 }
 
-.pi-agent-annotation-modal label,
-.pi-agent-annotation-modal legend {
+.pi-agent-annotation-modal label {
   color: var(--text-normal);
   font-size: var(--font-ui-small);
   font-weight: var(--font-semibold);
 }
 
-.pi-agent-annotation-modal-quote {
-  color: var(--text-muted);
-  margin: 0 0 6px;
-  max-height: 7em;
-  overflow: auto;
-}
-
-.pi-agent-annotation-anchor-label {
-  color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
-  margin-bottom: 14px;
-}
-
 .pi-agent-annotation-context {
   display: block;
-  margin: 6px 0 14px;
+  margin: 6px 0 10px;
   resize: vertical;
   width: 100%;
 }
@@ -1416,10 +1473,6 @@ textarea.pi-agent-extension-input {
   padding: 0;
 }
 
-.pi-agent-annotation-intents legend {
-  margin-bottom: 6px;
-}
-
 .pi-agent-annotation-intent {
   align-items: center;
   background: var(--background-secondary);
@@ -1429,17 +1482,30 @@ textarea.pi-agent-extension-input {
   display: inline-flex;
   gap: 5px;
   padding: 5px 9px;
+  position: relative;
+}
+
+.pi-agent-annotation-intent input {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
 }
 
 .pi-agent-annotation-intent:has(input:checked) {
+  background: var(--interactive-accent);
   border-color: var(--interactive-accent);
-  color: var(--text-accent);
+  color: var(--text-on-accent);
 }
 
 .pi-agent-annotation-error {
   color: var(--text-error);
   font-size: var(--font-ui-smaller);
-  min-height: 20px;
+  margin-bottom: 8px;
+}
+
+.pi-agent-annotation-error:empty {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

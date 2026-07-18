@@ -49,9 +49,18 @@ describe("prompt image payloads", () => {
   });
 
   it("allows image-only queued prompts and rejects empty payloads", () => {
-    expect(createQueuedPrompt({ images: [image], threadId: "thread" })).toMatchObject({
+    expect(
+      createQueuedPrompt({
+        images: [image],
+        threadId: "thread",
+        contextFilePath: "Pinned.md",
+        includeActiveNote: false
+      })
+    ).toMatchObject({
       prompt: "",
       threadId: "thread",
+      contextFilePath: "Pinned.md",
+      includeActiveNote: false,
       state: "pending"
     });
     expect(createQueuedPrompt({ prompt: "  ", images: [] })).toBeUndefined();

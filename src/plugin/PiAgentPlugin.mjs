@@ -278,6 +278,7 @@ export class PiAgentPlugin extends P.Plugin {
       (this.annotationStore = new AnnotationStore(annotationData, () => {
         this.saveAnnotations();
         this.annotationController?.refresh();
+        this.refreshAnnotationBadges();
       })));
     (this.syncCurrentThreadState(),
       this.settings.model &&
@@ -649,6 +650,9 @@ export class PiAgentPlugin extends P.Plugin {
       leaf.updateHeader?.();
     }
   }
+  refreshAnnotationBadges() {
+    for (const leaf of this.app.workspace.getLeavesOfType(T)) leaf.view?.renderToolBadges?.();
+  }
   async activateView() {
     var n;
     let t = (n = this.app.workspace.getLeavesOfType(T)[0]) != null ? n : null;
@@ -723,7 +727,11 @@ export class PiAgentPlugin extends P.Plugin {
     const promptContext = await this.contextBuilder.build(
       enriched.prompt,
       this.getEditorSelection(),
-      hasAnnotationSnapshot ? { annotations: enriched.annotations } : undefined
+      {
+        ...(hasAnnotationSnapshot ? { annotations: enriched.annotations } : {}),
+        activeNotePath: enriched.contextFilePath,
+        includeActiveNote: enriched.includeActiveNote !== false
+      }
     );
     return { ...enriched, promptContext };
   }

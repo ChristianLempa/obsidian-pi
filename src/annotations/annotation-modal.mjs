@@ -1,34 +1,6 @@
 import { Modal } from "obsidian";
 import { ANNOTATION_LIMITS } from "./annotation-model.mjs";
 
-export class AnnotationDeleteModal extends Modal {
-  constructor(app, onConfirm) {
-    super(app);
-    this.onConfirm = onConfirm;
-  }
-
-  onOpen() {
-    this.titleEl.setText("Delete annotation?");
-    this.contentEl.empty();
-    this.contentEl.createEl("p", {
-      text: "This removes this annotation only. The note text is not changed."
-    });
-    const actions = this.contentEl.createDiv({ cls: "pi-agent-modal-actions" });
-    const cancel = actions.createEl("button", { text: "Cancel" });
-    cancel.addEventListener("click", () => this.close());
-    const remove = actions.createEl("button", { text: "Delete", cls: "mod-warning" });
-    remove.addEventListener("click", () => {
-      this.onConfirm();
-      this.close();
-    });
-    window.setTimeout(() => cancel.focus(), 0);
-  }
-
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
 export class AnnotationModal extends Modal {
   constructor(app, options) {
     super(app);
@@ -37,33 +9,20 @@ export class AnnotationModal extends Modal {
   }
 
   onOpen() {
-    this.titleEl.setText("Annotations");
+    this.titleEl.setText(this.options.annotation ? "Edit annotation" : "Add annotation");
     this.contentEl.empty();
     this.modalEl.addClass("pi-agent-annotation-modal");
 
-    const displayText = this.options.anchor.renderedText || this.options.anchor.quote;
-    const quote = this.contentEl.createEl("blockquote", {
-      cls: "pi-agent-annotation-modal-quote",
-      text: truncate(displayText, 240)
-    });
-    quote.setAttr("aria-label", "Annotated text");
-    if (this.options.anchor.anchorLabel) {
-      this.contentEl.createDiv({
-        cls: "pi-agent-annotation-anchor-label",
-        text: this.options.anchor.anchorLabel
-      });
-    }
-
     const controlId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const contextId = `pi-agent-annotation-context-${controlId}`;
-    this.contentEl.createEl("label", { text: "Context", attr: { for: contextId } });
+    this.contentEl.createEl("label", { text: "Request", attr: { for: contextId } });
     this.contextEl = this.contentEl.createEl("textarea", {
       cls: "pi-agent-annotation-context",
       attr: {
         id: contextId,
-        rows: "5",
+        rows: "4",
         maxlength: String(ANNOTATION_LIMITS.context),
-        placeholder: "Describe the change or question"
+        placeholder: "Describe the change or ask a question"
       }
     });
     this.contextEl.value = this.options.annotation?.context ?? "";
@@ -73,9 +32,9 @@ export class AnnotationModal extends Modal {
     });
 
     const fieldset = this.contentEl.createEl("fieldset", {
-      cls: "pi-agent-annotation-intents"
+      cls: "pi-agent-annotation-intents",
+      attr: { "aria-label": "Annotation intent" }
     });
-    fieldset.createEl("legend", { text: "Intent" });
     for (const intent of ["change", "question"]) {
       const option = fieldset.createEl("label", { cls: "pi-agent-annotation-intent" });
       const input = option.createEl("input", {
@@ -88,14 +47,16 @@ export class AnnotationModal extends Modal {
       option.createSpan({ text: intent === "change" ? "Change" : "Question" });
     }
 
+    const errorId = `pi-agent-annotation-error-${controlId}`;
+    this.contextEl.setAttr("aria-describedby", errorId);
     this.errorEl = this.contentEl.createDiv({
       cls: "pi-agent-annotation-error",
-      attr: { role: "alert", "aria-live": "polite" }
+      attr: { id: errorId, role: "alert", "aria-live": "polite" }
     });
     const actions = this.contentEl.createDiv({ cls: "pi-agent-modal-actions" });
     actions.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
     this.saveButton = actions.createEl("button", {
-      text: this.options.annotation ? "Save changes" : "Save annotation",
+      text: "Save",
       cls: "mod-cta"
     });
     this.saveButton.addEventListener("click", () => this.submit());
@@ -112,7 +73,7 @@ export class AnnotationModal extends Modal {
     if (this.submitting) return;
     const context = this.contextEl?.value.trim() ?? "";
     if (!context) {
-      this.errorEl?.setText("Context is required.");
+      this.errorEl?.setText("Request is required.");
       this.contextEl?.setAttr("aria-invalid", "true");
       this.contextEl?.focus();
       return;
@@ -134,11 +95,4 @@ export class AnnotationModal extends Modal {
   onClose() {
     this.contentEl.empty();
   }
-}
-
-function truncate(value, limit) {
-  const text = String(value ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }

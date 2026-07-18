@@ -22,7 +22,6 @@ import {
   bytesToPromptImage,
   createPromptTextAttachment,
   fileToPromptImage,
-  imagePreviewUrl,
   isSupportedTextFile,
   modelSupportsImages,
   SUPPORTED_IMAGE_MIME_TYPES,
@@ -58,6 +57,7 @@ export class PiAgentView extends f.ItemView {
     this.promptQueue = this.plugin.getLocalPromptQueue();
     this.composerImages = [];
     this.composerAttachments = [];
+    this.excludedContextPath = undefined;
     this.nativePiQueue = undefined;
     this.steeringPromptIds = new Set();
     this.streamingThinkingContent = "";
@@ -225,7 +225,6 @@ export class PiAgentView extends f.ItemView {
       (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
       this.renderPromptQueue(),
       (this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
-      (this.composerImagesEl = d.createDiv({ cls: "pi-agent-composer-images" })),
       this.renderComposerImages(),
       (this.inputEl = d.createEl("textarea", {
         placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
@@ -308,9 +307,9 @@ export class PiAgentView extends f.ItemView {
       (this.promptQueueEl = void 0),
       (this.extensionWidgetsAboveEl = void 0),
       (this.extensionWidgetsBelowEl = void 0),
-      (this.composerImagesEl = void 0),
       (this.composerImages = []),
       (this.composerAttachments = []),
+      (this.excludedContextPath = void 0),
       (this.imageInputEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
@@ -350,23 +349,68 @@ export class PiAgentView extends f.ItemView {
     this.inputEl.focus();
   }
   renderToolBadges() {
-    let e = this.toolBadgesEl;
-    if (!e) return;
-    e.empty();
-    let t = this.plugin.getCurrentContextFile(),
-      n = t
-        ? { label: `Current: ${t.basename}`, enabled: !0, title: t.path }
-        : {
-            label: "No current note",
-            enabled: !1,
-            title: "Open a markdown note to attach it automatically"
-          };
-    e.createSpan({
-      cls: `pi-agent-tool-badge${n.enabled ? " is-enabled" : ""}`,
-      text: n.label,
-      attr: { title: n.title }
+    const root = this.toolBadgesEl;
+    if (!root) return;
+    root.empty();
+    const badges = root.createDiv({
+      cls: "pi-agent-context-badges",
+      attr: { role: "list", "aria-label": "Pending prompt context" }
     });
-    this.renderToolBadgesContextUsage(e);
+    const contextFile = this.plugin.getCurrentContextFile();
+    if (this.excludedContextPath && this.excludedContextPath !== contextFile?.path)
+      this.excludedContextPath = undefined;
+    const includeActiveNote = !!contextFile && this.excludedContextPath !== contextFile.path;
+    if (includeActiveNote)
+      this.renderPendingBadge(
+        badges,
+        contextFile.name,
+        `Remove ${contextFile.name}`,
+        () => {
+          this.excludedContextPath = contextFile.path;
+          this.renderToolBadges();
+        },
+        contextFile.path
+      );
+    for (const image of this.composerImages)
+      this.renderPendingBadge(
+        badges,
+        image.fileName || "image",
+        `Remove ${image.fileName || "image"}`,
+        () => {
+          this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
+          this.renderComposerImages();
+        }
+      );
+    for (const attachment of this.composerAttachments)
+      this.renderPendingBadge(badges, attachment.fileName, `Remove ${attachment.fileName}`, () => {
+        this.composerAttachments = this.composerAttachments.filter(
+          (item) => item.id !== attachment.id
+        );
+        this.renderComposerImages();
+      });
+    const annotations = contextFile ? this.plugin.annotationStore.list(contextFile.path) : [];
+    if (annotations.length > 0) {
+      const label = `${annotations.length} annotation${annotations.length === 1 ? "" : "s"}`;
+      this.renderPendingBadge(badges, label, `Clear ${label}`, () => {
+        this.plugin.annotationController?.cancelPick();
+        this.plugin.annotationStore.deletePath(contextFile.path);
+        this.renderToolBadges();
+      });
+    }
+    this.renderToolBadgesContextUsage(root);
+  }
+  renderPendingBadge(parent, label, removeLabel, onRemove, title = label) {
+    const badge = parent.createSpan({
+      cls: "pi-agent-tool-badge pi-agent-context-badge is-enabled",
+      attr: { title, role: "listitem" }
+    });
+    badge.createSpan({ cls: "pi-agent-context-badge-label", text: label });
+    const remove = badge.createEl("button", {
+      cls: "clickable-icon pi-agent-context-badge-remove",
+      attr: { type: "button", "aria-label": removeLabel, title: removeLabel }
+    });
+    (0, f.setIcon)(remove, "x");
+    remove.addEventListener("click", onRemove);
   }
   renderToolBadgesContextUsage(e) {
     let t = this.getDisplayedContextUsage(),
@@ -463,6 +507,9 @@ export class PiAgentView extends f.ItemView {
     let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
     let images = this.composerImages.map((image) => ({ ...image }));
     let attachments = this.composerAttachments.map((attachment) => ({ ...attachment }));
+    const contextFile = this.plugin.getCurrentContextFile();
+    const contextFilePath = contextFile?.path;
+    const includeActiveNote = !!contextFile && this.excludedContextPath !== contextFilePath;
     if (!e && images.length === 0 && attachments.length === 0) return;
     if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
     if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
@@ -472,11 +519,21 @@ export class PiAgentView extends f.ItemView {
     (this.inputEl && (this.inputEl.value = ""),
       (this.composerImages = []),
       (this.composerAttachments = []),
+      (this.excludedContextPath = undefined),
       this.renderComposerImages(),
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
-      this.runPrompt(e, undefined, images, undefined, attachments),
+      this.runPrompt(
+        e,
+        undefined,
+        images,
+        undefined,
+        attachments,
+        undefined,
+        contextFilePath,
+        includeActiveNote
+      ),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
@@ -716,47 +773,7 @@ export class PiAgentView extends f.ItemView {
     this.addLocalFiles(files);
   }
   renderComposerImages() {
-    if (!this.composerImagesEl) return;
-    this.composerImagesEl.empty();
-    this.composerImagesEl.toggleClass(
-      "is-empty",
-      this.composerImages.length === 0 && this.composerAttachments.length === 0
-    );
-    for (const image of this.composerImages) {
-      const preview = this.composerImagesEl.createDiv({ cls: "pi-agent-composer-image" });
-      preview.createEl("img", {
-        attr: { src: imagePreviewUrl(image), alt: image.fileName || "Attached image" }
-      });
-      const remove = preview.createEl("button", {
-        cls: "clickable-icon",
-        attr: { "aria-label": `Remove ${image.fileName || "image"}`, title: "Remove image" }
-      });
-      f.setIcon(remove, "x");
-      remove.addEventListener("click", () => {
-        this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
-        this.renderComposerImages();
-      });
-      renderAttachmentMetadata(preview, image, "image");
-    }
-    for (const attachment of this.composerAttachments) {
-      const preview = this.composerImagesEl.createDiv({
-        cls: "pi-agent-composer-image pi-agent-composer-file"
-      });
-      const icon = preview.createSpan({ cls: "pi-agent-attachment-icon" });
-      f.setIcon(icon, "file-text");
-      renderAttachmentMetadata(preview, attachment, "text");
-      const remove = preview.createEl("button", {
-        cls: "clickable-icon",
-        attr: { "aria-label": `Remove ${attachment.fileName}`, title: "Remove file" }
-      });
-      f.setIcon(remove, "x");
-      remove.addEventListener("click", () => {
-        this.composerAttachments = this.composerAttachments.filter(
-          (item) => item.id !== attachment.id
-        );
-        this.renderComposerImages();
-      });
-    }
+    this.renderToolBadges();
   }
   resizeInput() {
     if (!this.inputEl) return;
@@ -801,7 +818,7 @@ export class PiAgentView extends f.ItemView {
     this.showingThreadList && this.renderThreadList();
   }
   runAnnotationPrompt(prompt, sourcePath) {
-    return this.runPrompt(prompt, undefined, [], undefined, [], undefined, undefined, sourcePath);
+    return this.runPrompt(prompt, undefined, [], undefined, [], undefined, sourcePath);
   }
   async runPrompt(
     e,
@@ -810,7 +827,8 @@ export class PiAgentView extends f.ItemView {
     queuedId,
     attachments = [],
     annotations,
-    annotationSourcePath
+    annotationSourcePath,
+    includeActiveNote = true
   ) {
     if (annotations === undefined) {
       try {
@@ -831,14 +849,29 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments, annotations);
+        this.enqueuePrompt(
+          e,
+          t,
+          images,
+          attachments,
+          annotations,
+          annotationSourcePath,
+          includeActiveNote
+        );
       }
       return;
     }
     let delivery;
     try {
       delivery = await this.plugin.enrichPromptDelivery(
-        { prompt: e, images, attachments, annotations },
+        {
+          prompt: e,
+          images,
+          attachments,
+          annotations,
+          contextFilePath: annotationSourcePath,
+          includeActiveNote
+        },
         { mode: "prompt", threadId: t }
       );
     } catch (error) {
@@ -888,7 +921,15 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments, annotations);
+        this.enqueuePrompt(
+          e,
+          t,
+          images,
+          attachments,
+          annotations,
+          annotationSourcePath,
+          includeActiveNote
+        );
       }
       return;
     }
@@ -968,7 +1009,10 @@ export class PiAgentView extends f.ItemView {
             this.thinkingDisclosureExpanded = n.thinkingExpanded;
             this.thinkingDisclosureUserSet = n.thinkingUserSet;
             this.handleRunEvent(o);
-            if (thinkingDelta) this.appendStreamingThinkingDelta(thinkingDelta);
+            if (thinkingDelta) {
+              this.liveThinkingSetExpanded?.(n.thinkingExpanded);
+              this.appendStreamingThinkingDelta(thinkingDelta);
+            }
           },
           onTextDelta: (o) => {
             if (!n.thinkingUserSet) n.thinkingExpanded = false;
@@ -1168,16 +1212,6 @@ function mimeForName(name) {
       py: "text/x-python"
     }[extension] || ""
   );
-}
-function formatAttachmentBytes(bytes) {
-  if (!Number.isFinite(bytes)) return "unknown size";
-  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KiB`;
-}
-function renderAttachmentMetadata(parent, attachment, kind) {
-  parent.createSpan({
-    cls: "pi-agent-attachment-metadata",
-    text: `${attachment.fileName} · ${attachment.mimeType || kind} · ${formatAttachmentBytes(attachment.originalSize ?? attachment.size)}${attachment.truncated ? " · truncated" : ""}`
-  });
 }
 function conciseAttachmentSummary(images, attachments) {
   const count = images.length + attachments.length;
