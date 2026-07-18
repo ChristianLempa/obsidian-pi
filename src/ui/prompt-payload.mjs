@@ -1,4 +1,8 @@
+import { TextDecoder, TextEncoder } from "node:util";
 import { ANNOTATION_LIMITS, normalizeAnnotation } from "../annotations/annotation-model.mjs";
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder("utf-8");
 
 export const SUPPORTED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
 export const MAX_PROMPT_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -170,10 +174,10 @@ export function normalizeTextAttachments(
       .toLowerCase()
       .split(";")[0];
     if (!isSupportedTextFile(fileName, mimeType) || attachment.content.includes("\0")) continue;
-    const bytes = new globalThis.TextEncoder().encode(attachment.content);
+    const bytes = textEncoder.encode(attachment.content);
     const limit = Math.min(MAX_TEXT_ATTACHMENT_BYTES, remaining);
     const content = decodeUtf8Prefix(bytes, limit);
-    const includedBytes = new globalThis.TextEncoder().encode(content).length;
+    const includedBytes = textEncoder.encode(content).length;
     if (includedBytes === 0 && bytes.length > 0) continue;
     const originalSize = Number.isFinite(attachment.originalSize)
       ? Math.max(attachment.originalSize, bytes.length)
@@ -256,14 +260,14 @@ export function createPromptTextAttachment(
   ) {
     try {
       decodeBytes = trim === 0 ? data : data.slice(0, -trim);
-      decoded = new globalThis.TextDecoder("utf-8", { fatal: true }).decode(decodeBytes);
+      decoded = new TextDecoder("utf-8", { fatal: true }).decode(decodeBytes);
       break;
     } catch {
       /* A bounded prefix may end midway through one UTF-8 code point. */
     }
   }
   if (decoded === undefined) throw new Error(`${fileName || "This file"} is not valid UTF-8 text.`);
-  const content = decodeUtf8Prefix(new globalThis.TextEncoder().encode(decoded), allowed);
+  const content = decodeUtf8Prefix(textEncoder.encode(decoded), allowed);
   return normalizeTextAttachments(
     [
       {
@@ -344,7 +348,7 @@ export function bytesToPromptImage({ bytes, fileName, mimeType, source = "vault"
     id: createId(),
     fileName: fileName || "image",
     mimeType,
-    data: globalThis.btoa(binary),
+    data: encodeBase64(binary),
     size: data.length,
     source,
     path
@@ -386,10 +390,10 @@ function createAttachmentBoundary(content, index) {
 }
 
 function decodeUtf8Prefix(bytes, limit) {
-  if (bytes.length <= limit) return new globalThis.TextDecoder("utf-8").decode(bytes);
+  if (bytes.length <= limit) return textDecoder.decode(bytes);
   let end = limit;
   while (end > 0 && (bytes[end] & 0xc0) === 0x80) end -= 1;
-  return new globalThis.TextDecoder("utf-8").decode(bytes.slice(0, end));
+  return textDecoder.decode(bytes.slice(0, end));
 }
 function stripDataUrlPrefix(data) {
   const comma = data.indexOf(",");
@@ -399,14 +403,31 @@ function estimateBase64Bytes(data) {
   const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
   return Math.max(0, Math.floor((data.length * 3) / 4) - padding);
 }
+function encodeBase64(binary) {
+  const activeWindow = resolveActiveWindow();
+  return activeWindow?.btoa
+    ? activeWindow.btoa(binary)
+    : Buffer.from(binary, "binary").toString("base64");
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
-    const reader = new globalThis.FileReader();
+    const FileReader = resolveActiveWindow()?.FileReader;
+    if (!FileReader) {
+      reject(new Error("Could not read image."));
+      return;
+    }
+    const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(reader.error || new Error("Could not read image."));
     reader.readAsDataURL(file);
   });
 }
+
+function resolveActiveWindow() {
+  return typeof window === "undefined" ? undefined : (window.activeWindow ?? window);
+}
+
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
