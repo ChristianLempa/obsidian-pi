@@ -1,0 +1,74 @@
+src/context/context-builder.mjs
+  s_9595a762899763::t_653e4e68d0fd92 124,170,172-173,262
+tests/markdown-annotations-controller.test.mjs
+  s_9595a762899763::t_20ecf01e071a9e 458,473-477,481,484-485,488-494,499,501-503,508,510-511,513-514,516,519-522,524-526,530,538,540,547
+  s_9595a762899763::t_ff33091224a5a2 496-497,504-505
+tests/annotation-processing.test.mjs
+  s_9595a762899763::t_f84d915a072024 49-54,73,75,77-80,83-86,88
+  s_9595a762899763::t_ca064723da96a4 57-61
+  s_9c8e4d770a6539::t_bd64b5fa9db967 55-56
+src/ui/editor-file-refresh.mjs
+  s_9595a762899763::t_36120993be6b5f 2-7,25-26,38,41,46-61
+  s_9595a762899763::t_fff4fd7884910d 1,8-24
+src/ui/prompt-queue.mjs
+  s_9595a762899763::t_a0c37a59380fce 20,58,65,147
+  s_9595a762899763::t_b834d63076d9cb 107-108
+src/ui/PiAgentView.mjs
+  s_9595a762899763::t_54e8609b9ed88d 35-38,817,946,965,1067,1069-1070,1072
+  s_9595a762899763::t_732070749db714 834,891
+  s_9595a762899763::t_e03f481555eb6e 1068
+  s_9595a762899763::t_e8f580d284db5c 902
+main.js
+  s_9595a762899763::t_6315da827d946c 865-867,896-899,905-906,914-917,1454,1617-1618,1628-1637,1639-1643,1646-1647,1649-1655,1659-1660,1666,1669-1680,1683-1688,1690,1693-1694,1697-1733,2220,2269,2271-2272,2355,5966,6003,6009,6049-6050,6088,7623-7647,7657,7660,7665-7676,8457,8474,8531,8542,8586,8605,8707-8710,8712,9936,9942,9945-9946,9948-9949
+tests/local-prompt-queue.test.mjs
+  s_9595a762899763::t_8464b704b274b3 106-108
+src/annotations/markdown-annotations-controller.mjs
+  s_9595a762899763::t_b828db2b7ffcf6 948-949
+  s_9595a762899763::t_855ae7129727c4 42,44,74-75,83,93-94,96,834-835,846,857-861,865-866,868-874,879-880,887,891-892,895-896,898-899,903,913,919-920,922-941,944-947,950-961
+  s_9595a762899763::t_de61b24421a33e 845,847-854
+  s_9595a762899763::t_2d7c93a91c0861 43,76-77,84,95,893-894,897,902,906-911,917-918
+  s_9595a762899763::t_66efad0be5b4c0 655
+  s_3234ee60809ff1::t_c6fa4c20a56d73 921
+src/plugin/PiAgentPlugin.mjs
+  s_9595a762899763::t_ca3262a3b08706 853,859,862-863,865-866
+tests/editor-file-refresh.test.mjs
+  s_9595a762899763::t_628db19dbe6f27 2-5,19-34,55-64,84-97
+  s_9595a762899763::t_6ff3a828a276ab 35-54
+  s_9c8e4d770a6539::t_523ffb17ca0170 98
+tests/context-builder.test.mjs
+  s_9595a762899763::t_b828db2b7ffcf6 106
+  s_9595a762899763::t_9a874bed8138b9 48-49,88-91,93-94,98-105,107
+  s_9595a762899763::t_759f5dd245697f 108-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "c1415bdd1fcd08e3aab5e700dbd1f24b95e6b9e6",
+  "prompts": {},
+  "sessions": {
+    "s_3234ee60809ff1": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7422-a6b1-78a5-9bda-a4e9354c1b8f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_9595a762899763": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f742c-25b0-78a7-b489-afbe46e29ba6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_9c8e4d770a6539": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7091-3f51-7fd4-ba22-cfda6a291a10",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
