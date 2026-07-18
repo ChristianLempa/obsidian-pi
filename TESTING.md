@@ -156,4 +156,4 @@ Use non-sensitive PNG, JPEG, and WebP files.
 - [ ] **Pending:** `npm run ci` passes from a clean install.
 - [ ] **Pending:** The complete manual checklist above passes in `ObsidianTesting`.
 - [ ] **Pending:** Open issues are updated with actual validation results but remain open until explicitly accepted.
-- [x] Current published/versioned files are aligned at `0.0.10`; no subsequent release is created until final confirmation.
+- [x] Release-candidate files are aligned at `0.0.11`; no tag or GitHub release is created until final confirmation.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.11
+
 - Moved live **THINKING**, **EDITING**, **READING**, and other run activity out of the Agent heading and into the response disclosure; thinking now renders as Markdown, shares the response bubble background, and uses a separator before the answer.
 - Added deduplicated native desktop completion notifications for settled runs while Obsidian is unfocused. Notification clicks focus Obsidian and reopen the originating chat without disabling Pi extensions; unsupported or denied notification environments fail gracefully. (#57)
 - Fixed open Markdown notes not refreshing after Pi edits by carrying tool arguments from Pi's start event into completion handling, then reloading every open split while preserving scroll position.

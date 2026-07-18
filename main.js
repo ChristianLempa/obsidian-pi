@@ -5111,7 +5111,9 @@ function formatReasoningLabel(value) {
 }
 
 // src/ui/desktop-notifications.mjs
-async function requestDesktopNotificationPermission(NotificationApi = globalThis.Notification) {
+async function requestDesktopNotificationPermission(
+  NotificationApi = typeof window === "undefined" ? void 0 : window.Notification
+) {
   if (typeof NotificationApi !== "function") return false;
   if (NotificationApi.permission === "granted") return true;
   if (
@@ -5138,9 +5140,9 @@ function showDesktopRunNotification({
   sentRunIds,
   body,
   onClick,
-  NotificationApi = globalThis.Notification,
-  documentRef = globalThis.document,
-  windowRef = globalThis.window
+  NotificationApi = typeof window === "undefined" ? void 0 : window.Notification,
+  documentRef = typeof window === "undefined" ? void 0 : window.document,
+  windowRef = typeof window === "undefined" ? void 0 : window
 }) {
   if (!runId || !(sentRunIds instanceof Set) || sentRunIds.has(runId)) return false;
   if (!isDocumentUnfocused(documentRef)) return false;

@@ -1,5 +1,5 @@
 export async function requestDesktopNotificationPermission(
-  NotificationApi = globalThis.Notification
+  NotificationApi = typeof window === "undefined" ? undefined : window.Notification
 ) {
   if (typeof NotificationApi !== "function") return false;
   if (NotificationApi.permission === "granted") return true;
@@ -30,9 +30,9 @@ export function showDesktopRunNotification({
   sentRunIds,
   body,
   onClick,
-  NotificationApi = globalThis.Notification,
-  documentRef = globalThis.document,
-  windowRef = globalThis.window
+  NotificationApi = typeof window === "undefined" ? undefined : window.Notification,
+  documentRef = typeof window === "undefined" ? undefined : window.document,
+  windowRef = typeof window === "undefined" ? undefined : window
 }) {
   if (!runId || !(sentRunIds instanceof Set) || sentRunIds.has(runId)) return false;
   if (!isDocumentUnfocused(documentRef)) return false;
