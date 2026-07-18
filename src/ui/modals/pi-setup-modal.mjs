@@ -27,7 +27,7 @@ export class PiSetupModal extends Modal {
       : `${INSTALL_COMMAND}\npi --version`;
     contentEl.createEl("pre", { text: commandText });
     contentEl.createEl("p", {
-      text: "Start in Chat or Review mode. Only enable Edit or Full agent in vaults you are comfortable letting Pi modify."
+      text: "Start in chat or review mode. Only enable edit or full agent in vaults you are comfortable letting Pi modify."
     });
 
     const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });

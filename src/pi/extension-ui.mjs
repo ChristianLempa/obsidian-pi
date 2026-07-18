@@ -11,7 +11,7 @@ const FIRE_AND_FORGET_METHODS = new Set([
  * Converts Pi's extension UI protocol into calls supplied by the host UI.
  * Dialog failures always resolve as cancellations so an extension cannot leave RPC blocked.
  */
-export function createExtensionUiHandler(handlers = {}) {
+export function createExtensionUiHandler(handlers = {}, hostWindow) {
   return async (request) => {
     const method = String(request?.method ?? "");
     if (!DIALOG_METHODS.has(method) && !FIRE_AND_FORGET_METHODS.has(method)) {
@@ -30,7 +30,8 @@ export function createExtensionUiHandler(handlers = {}) {
     }
 
     const timeout = normalizeTimeout(request?.timeout);
-    const controller = timeout ? new globalThis.AbortController() : undefined;
+    const window = hostWindow ?? resolveActiveWindow();
+    const controller = timeout ? new window.AbortController() : undefined;
     const handlerPromise = Promise.resolve(
       handler(controller ? { ...request, signal: controller.signal } : request)
     );
@@ -38,11 +39,11 @@ export function createExtensionUiHandler(handlers = {}) {
       ? await Promise.race([
           handlerPromise,
           new Promise((resolve) => {
-            const timer = setTimeout(() => {
+            const timer = window.setTimeout(() => {
               controller.abort();
               resolve(undefined);
             }, timeout);
-            handlerPromise.finally(() => clearTimeout(timer)).catch(() => {});
+            handlerPromise.finally(() => window.clearTimeout(timer)).catch(() => {});
           })
         ])
       : await handlerPromise;
@@ -50,6 +51,10 @@ export function createExtensionUiHandler(handlers = {}) {
     if (method === "confirm") return { confirmed: value === true };
     return { value: String(value) };
   };
+}
+
+function resolveActiveWindow() {
+  return typeof window === "undefined" ? undefined : (window.activeWindow ?? window);
 }
 
 function normalizeTimeout(timeout) {

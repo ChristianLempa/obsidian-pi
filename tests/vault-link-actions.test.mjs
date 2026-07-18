@@ -16,6 +16,7 @@ beforeAll(async () => {
   const methods = await import("../src/ui/vault-link-actions.mjs");
   ({ classifyVaultLinkTarget } = methods);
   createView = (workspace, contextPath = "Projects/Current Note.md") => ({
+    activeWindow: globalThis,
     plugin: {
       app: { workspace },
       getCurrentContextFile: () => (contextPath ? { path: contextPath } : undefined)

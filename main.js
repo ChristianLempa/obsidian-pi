@@ -214,16 +214,15 @@ function normalizeTimestamp(value, fallback = /* @__PURE__ */ new Date(0).toISOS
   return new Date(value).toISOString();
 }
 function createId() {
+  const activeWindow = typeof window === "undefined" ? void 0 : (window.activeWindow ?? window);
   return (
-    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    activeWindow?.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
   );
 }
 function annotationDataBytes(data) {
   return utf8Bytes(JSON.stringify(data));
 }
 function utf8Bytes(value) {
-  if (typeof globalThis.TextEncoder === "function")
-    return new globalThis.TextEncoder().encode(value).length;
   let bytes = 0;
   for (const character of value) {
     const codePoint = character.codePointAt(0);
@@ -444,8 +443,9 @@ var AnnotationStore = class {
   }
 };
 function structuredCloneSafe(value) {
-  return typeof globalThis.structuredClone === "function"
-    ? globalThis.structuredClone(value)
+  const activeWindow = typeof window === "undefined" ? void 0 : (window.activeWindow ?? window);
+  return typeof activeWindow?.structuredClone === "function"
+    ? activeWindow.structuredClone(value)
     : JSON.parse(JSON.stringify(value));
 }
 
@@ -724,7 +724,10 @@ function createMarkdownAnnotationExtension(controller) {
         },
         mouseup(_event, view) {
           if (!controller.isPicking(view) || view.state.selection.main.empty) return false;
-          globalThis.queueMicrotask?.(() => controller.chooseEditorSelection(view));
+          const activeWindow = view.dom?.ownerDocument?.defaultView;
+          if (typeof activeWindow?.queueMicrotask === "function")
+            activeWindow.queueMicrotask(() => controller.chooseEditorSelection(view));
+          else void Promise.resolve().then(() => controller.chooseEditorSelection(view));
           return false;
         },
         click(event, view) {
@@ -814,8 +817,9 @@ var AnnotationRenderChild = class extends import_obsidian2.MarkdownRenderChild {
   }
 };
 var MarkdownAnnotationsController = class {
-  constructor(plugin) {
+  constructor(plugin, hostWindow = resolveActiveWindow(plugin)) {
     this.plugin = plugin;
+    this.hostWindow = hostWindow;
     this.leaves = /* @__PURE__ */ new Map();
     this.editorViews = /* @__PURE__ */ new Set();
     this.renderedRecords = /* @__PURE__ */ new Set();
@@ -836,17 +840,18 @@ var MarkdownAnnotationsController = class {
     this.plugin.registerEvent(
       this.plugin.app.workspace.on("active-leaf-change", () => this.refresh())
     );
-    this.plugin.registerDomEvent(
-      document,
-      "keydown",
-      (event) => {
-        if (event.key !== "Escape" || !this.pickState) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        this.cancelPick();
-      },
-      { capture: true }
-    );
+    if (this.hostWindow?.document)
+      this.plugin.registerDomEvent(
+        this.hostWindow.document,
+        "keydown",
+        (event) => {
+          if (event.key !== "Escape" || !this.pickState) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          this.cancelPick();
+        },
+        { capture: true }
+      );
     this.plugin.registerEvent(
       this.plugin.app.vault.on("modify", (file) => this.handleMarkdownFileModified(file))
     );
@@ -870,7 +875,7 @@ var MarkdownAnnotationsController = class {
   }
   destroy() {
     this.destroyed = true;
-    for (const timer of this.modifyTimers.values()) globalThis.clearTimeout?.(timer);
+    for (const timer of this.modifyTimers.values()) this.hostWindow?.clearTimeout(timer);
     this.modifyTimers.clear();
     this.modifyGenerations.clear();
     this.processingByThread.clear();
@@ -1033,7 +1038,7 @@ var MarkdownAnnotationsController = class {
     editorView.dom.classList.add("pi-agent-annotation-pick-mode");
     editorView.dom.setAttribute(
       "aria-label",
-      "Annotation pick mode. Hover or focus a paragraph, then click or press Enter."
+      "Annotation pick mode. Hover or focus a paragraph, then click or press enter."
     );
     state.view.editor.focus();
     requestAnnotationRefresh(editorView);
@@ -1179,7 +1184,8 @@ var MarkdownAnnotationsController = class {
       event.stopPropagation();
       record.state.renderedSelectionPending = true;
       void this.captureRenderedSelection(selection).finally(() => {
-        globalThis.setTimeout?.(() => {
+        const window2 = record.element.ownerDocument?.defaultView ?? this.hostWindow;
+        window2?.setTimeout(() => {
           record.state.renderedSelectionPending = false;
         }, 100);
       });
@@ -1272,8 +1278,7 @@ var MarkdownAnnotationsController = class {
     );
   }
   renderedSelectionForState(state) {
-    const selection =
-      state.view.containerEl.ownerDocument?.getSelection?.() ?? globalThis.getSelection?.();
+    const selection = state.view.containerEl.ownerDocument?.getSelection?.();
     if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return void 0;
     const liveRange = selection.getRangeAt?.(0);
     if (!liveRange) return { invalid: true };
@@ -1464,7 +1469,7 @@ var MarkdownAnnotationsController = class {
     heading.createSpan({ text: `Annotations (${annotations.length})` });
     const sendButton = heading.createEl("button", {
       cls: "mod-cta pi-agent-annotations-send",
-      attr: { "aria-label": "Send annotations to Pi", type: "button" }
+      attr: { "aria-label": "Send annotations to pi", type: "button" }
     });
     const sendIcon = sendButton.createSpan({ cls: "pi-agent-annotations-send-icon" });
     (0, import_obsidian2.setIcon)(sendIcon, "send");
@@ -1525,13 +1530,14 @@ var MarkdownAnnotationsController = class {
         new import_obsidian2.Notice("The annotated source block is not currently rendered.");
         return;
       }
-      const reduceMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      const window2 = record.element.ownerDocument?.defaultView ?? this.hostWindow;
+      const reduceMotion = window2?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
       record.element.scrollIntoView({
         block: "center",
         behavior: reduceMotion ? "auto" : "smooth"
       });
       record.element.classList.add("pi-agent-annotation-navigated");
-      globalThis.setTimeout?.(
+      window2?.setTimeout(
         () => record.element.classList.remove("pi-agent-annotation-navigated"),
         1600
       );
@@ -1627,7 +1633,7 @@ var MarkdownAnnotationsController = class {
     this.clearModifyTimer(file.path);
     const generation = {};
     this.modifyGenerations.set(file.path, generation);
-    const timer = globalThis.setTimeout?.(() => {
+    const timer = this.hostWindow?.setTimeout(() => {
       this.modifyTimers.delete(file.path);
       void this.reanchorFileNow(file, generation);
     }, 150);
@@ -1653,7 +1659,7 @@ var MarkdownAnnotationsController = class {
   }
   clearModifyTimer(path4) {
     const timer = this.modifyTimers.get(path4);
-    if (timer !== void 0) globalThis.clearTimeout?.(timer);
+    if (timer !== void 0) this.hostWindow?.clearTimeout(timer);
     this.modifyTimers.delete(path4);
   }
   refreshPaths(paths) {
@@ -1833,9 +1839,16 @@ function mergeIntervals(intervals) {
   return merged;
 }
 function structuredCloneSafe2(value) {
-  return typeof globalThis.structuredClone === "function"
-    ? globalThis.structuredClone(value)
+  const activeWindow = typeof window === "undefined" ? void 0 : (window.activeWindow ?? window);
+  return typeof activeWindow?.structuredClone === "function"
+    ? activeWindow.structuredClone(value)
     : JSON.parse(JSON.stringify(value));
+}
+function resolveActiveWindow(plugin) {
+  return (
+    plugin?.app?.workspace?.containerEl?.ownerDocument?.defaultView ??
+    (typeof window === "undefined" ? void 0 : (window.activeWindow ?? window))
+  );
 }
 function elementFromNode(node) {
   return node?.nodeType === 1 ? node : node?.parentElement;
@@ -1867,7 +1880,7 @@ var DEFAULT_SETTINGS = {
   acknowledgedToolRisk: false,
   availableModels: [],
   dryRun: false,
-  ignoredFolders: [".obsidian", ".git", "node_modules", "Templates"],
+  ignoredFolders: [".git", "node_modules", "Templates"],
   customInstructions: "",
   piExecutablePath: "",
   includeDefaultSkills: true,
@@ -3137,6 +3150,7 @@ function compareVersions(left, right) {
 // src/pi/rpc-client.mjs
 var import_node_child_process2 = require("node:child_process");
 var import_node_string_decoder = require("node:string_decoder");
+var import_node_timers = require("node:timers");
 
 // src/pi/extension-ui.mjs
 var DIALOG_METHODS = /* @__PURE__ */ new Set(["select", "confirm", "input", "editor"]);
@@ -3147,7 +3161,7 @@ var FIRE_AND_FORGET_METHODS = /* @__PURE__ */ new Set([
   "setTitle",
   "set_editor_text"
 ]);
-function createExtensionUiHandler(handlers = {}) {
+function createExtensionUiHandler(handlers = {}, hostWindow) {
   return async (request) => {
     const method = String(request?.method ?? "");
     if (!DIALOG_METHODS.has(method) && !FIRE_AND_FORGET_METHODS.has(method)) {
@@ -3163,7 +3177,8 @@ function createExtensionUiHandler(handlers = {}) {
       return void 0;
     }
     const timeout = normalizeTimeout(request?.timeout);
-    const controller = timeout ? new globalThis.AbortController() : void 0;
+    const window2 = hostWindow ?? resolveActiveWindow2();
+    const controller = timeout ? new window2.AbortController() : void 0;
     const handlerPromise = Promise.resolve(
       handler(controller ? { ...request, signal: controller.signal } : request)
     );
@@ -3171,11 +3186,11 @@ function createExtensionUiHandler(handlers = {}) {
       ? await Promise.race([
           handlerPromise,
           new Promise((resolve) => {
-            const timer = setTimeout(() => {
+            const timer = window2.setTimeout(() => {
               controller.abort();
               resolve(void 0);
             }, timeout);
-            handlerPromise.finally(() => clearTimeout(timer)).catch(() => {});
+            handlerPromise.finally(() => window2.clearTimeout(timer)).catch(() => {});
           })
         ])
       : await handlerPromise;
@@ -3183,6 +3198,9 @@ function createExtensionUiHandler(handlers = {}) {
     if (method === "confirm") return { confirmed: value === true };
     return { value: String(value) };
   };
+}
+function resolveActiveWindow2() {
+  return typeof window === "undefined" ? void 0 : (window.activeWindow ?? window);
 }
 function normalizeTimeout(timeout) {
   const value = Number(timeout);
@@ -3197,6 +3215,13 @@ function isExtensionUiMethod(method) {
 
 // src/pi/rpc-client.mjs
 var DEFAULT_REQUEST_TIMEOUT_MS = 3e4;
+var nodeTimerHost = {
+  setTimeout: import_node_timers.setTimeout,
+  clearTimeout: import_node_timers.clearTimeout
+};
+function resolveActiveWindow3() {
+  return typeof window === "undefined" ? void 0 : (window.activeWindow ?? window);
+}
 var UNSUPPORTED_COMMAND_PATTERNS = [
   /unknown (?:rpc )?command/i,
   /unsupported (?:rpc )?command/i,
@@ -3220,6 +3245,7 @@ var PiRpcClient = class {
     this.stderr = "";
     this.stdoutBuffer = "";
     this.decoder = new import_node_string_decoder.StringDecoder("utf8");
+    this.timerHost = options.hostWindow;
     this.disposed = false;
   }
   get running() {
@@ -3293,9 +3319,10 @@ var PiRpcClient = class {
     const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     const command = { id, type, ...payload };
     return new Promise((resolve, reject) => {
+      const timerHost = this.timerHost ?? resolveActiveWindow3() ?? nodeTimerHost;
       const timeout =
         timeoutMs > 0
-          ? setTimeout(() => {
+          ? timerHost.setTimeout(() => {
               this.pending.delete(id);
               reject(new Error(`Pi RPC ${type} timed out after ${timeoutMs}ms.`));
             }, timeoutMs)
@@ -3303,13 +3330,13 @@ var PiRpcClient = class {
       this.pending.set(id, {
         type,
         resolve: (response) => {
-          if (timeout) clearTimeout(timeout);
+          if (timeout) timerHost.clearTimeout(timeout);
           response.success
             ? resolve(response.data)
             : reject(new Error(response.error || `Pi RPC ${type} failed.`));
         },
         reject: (error) => {
-          if (timeout) clearTimeout(timeout);
+          if (timeout) timerHost.clearTimeout(timeout);
           reject(error);
         }
       });
@@ -3837,6 +3864,9 @@ function findLatestAssistantMessage(messages) {
 }
 
 // src/ui/prompt-payload.mjs
+var import_node_util = require("node:util");
+var textEncoder = new import_node_util.TextEncoder();
+var textDecoder = new import_node_util.TextDecoder("utf-8");
 var SUPPORTED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
 var MAX_PROMPT_IMAGE_BYTES = 20 * 1024 * 1024;
 var MAX_TEXT_ATTACHMENT_BYTES = 64 * 1024;
@@ -3998,10 +4028,10 @@ function normalizeTextAttachments(attachments, maxTotalBytes = MAX_TOTAL_TEXT_AT
       .toLowerCase()
       .split(";")[0];
     if (!isSupportedTextFile(fileName, mimeType) || attachment.content.includes("\0")) continue;
-    const bytes = new globalThis.TextEncoder().encode(attachment.content);
+    const bytes = textEncoder.encode(attachment.content);
     const limit = Math.min(MAX_TEXT_ATTACHMENT_BYTES, remaining);
     const content = decodeUtf8Prefix(bytes, limit);
-    const includedBytes = new globalThis.TextEncoder().encode(content).length;
+    const includedBytes = textEncoder.encode(content).length;
     if (includedBytes === 0 && bytes.length > 0) continue;
     const originalSize = Number.isFinite(attachment.originalSize)
       ? Math.max(attachment.originalSize, bytes.length)
@@ -4082,12 +4112,12 @@ function createPromptTextAttachment(
   ) {
     try {
       decodeBytes = trim === 0 ? data : data.slice(0, -trim);
-      decoded = new globalThis.TextDecoder("utf-8", { fatal: true }).decode(decodeBytes);
+      decoded = new import_node_util.TextDecoder("utf-8", { fatal: true }).decode(decodeBytes);
       break;
     } catch {}
   }
   if (decoded === void 0) throw new Error(`${fileName || "This file"} is not valid UTF-8 text.`);
-  const content = decodeUtf8Prefix(new globalThis.TextEncoder().encode(decoded), allowed);
+  const content = decodeUtf8Prefix(textEncoder.encode(decoded), allowed);
   return normalizeTextAttachments(
     [
       {
@@ -4164,7 +4194,7 @@ function bytesToPromptImage({ bytes, fileName, mimeType, source = "vault", path:
     id: createId2(),
     fileName: fileName || "image",
     mimeType,
-    data: globalThis.btoa(binary),
+    data: encodeBase64(binary),
     size: data.length,
     source,
     path: path4
@@ -4201,10 +4231,10 @@ function createAttachmentBoundary(content, index) {
   return boundary;
 }
 function decodeUtf8Prefix(bytes, limit) {
-  if (bytes.length <= limit) return new globalThis.TextDecoder("utf-8").decode(bytes);
+  if (bytes.length <= limit) return textDecoder.decode(bytes);
   let end = limit;
   while (end > 0 && (bytes[end] & 192) === 128) end -= 1;
-  return new globalThis.TextDecoder("utf-8").decode(bytes.slice(0, end));
+  return textDecoder.decode(bytes.slice(0, end));
 }
 function stripDataUrlPrefix(data) {
   const comma = data.indexOf(",");
@@ -4214,13 +4244,27 @@ function estimateBase64Bytes(data) {
   const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
   return Math.max(0, Math.floor((data.length * 3) / 4) - padding);
 }
+function encodeBase64(binary) {
+  const activeWindow = resolveActiveWindow4();
+  return activeWindow?.btoa
+    ? activeWindow.btoa(binary)
+    : Buffer.from(binary, "binary").toString("base64");
+}
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
-    const reader = new globalThis.FileReader();
+    const FileReader = resolveActiveWindow4()?.FileReader;
+    if (!FileReader) {
+      reject(new Error("Could not read image."));
+      return;
+    }
+    const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(reader.error || new Error("Could not read image."));
     reader.readAsDataURL(file);
   });
+}
+function resolveActiveWindow4() {
+  return typeof window === "undefined" ? void 0 : (window.activeWindow ?? window);
 }
 function createId2() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -5111,18 +5155,18 @@ function formatReasoningLabel(value) {
 }
 
 // src/ui/desktop-notifications.mjs
-async function requestDesktopNotificationPermission(
-  NotificationApi = typeof window === "undefined" ? void 0 : window.Notification
-) {
-  if (typeof NotificationApi !== "function") return false;
-  if (NotificationApi.permission === "granted") return true;
+async function requestDesktopNotificationPermission(NotificationApi) {
+  const activeNotificationApi =
+    NotificationApi === void 0 ? resolveActiveWindow5()?.Notification : NotificationApi;
+  if (typeof activeNotificationApi !== "function") return false;
+  if (activeNotificationApi.permission === "granted") return true;
   if (
-    NotificationApi.permission !== "default" ||
-    typeof NotificationApi.requestPermission !== "function"
+    activeNotificationApi.permission !== "default" ||
+    typeof activeNotificationApi.requestPermission !== "function"
   )
     return false;
   try {
-    return (await NotificationApi.requestPermission()) === "granted";
+    return (await activeNotificationApi.requestPermission()) === "granted";
   } catch (error) {
     console.warn("Pi Agent: desktop notification permission request failed", error);
     return false;
@@ -5140,16 +5184,21 @@ function showDesktopRunNotification({
   sentRunIds,
   body,
   onClick,
-  NotificationApi = typeof window === "undefined" ? void 0 : window.Notification,
-  documentRef = typeof window === "undefined" ? void 0 : window.document,
-  windowRef = typeof window === "undefined" ? void 0 : window
+  NotificationApi,
+  documentRef,
+  windowRef
 }) {
+  const activeWindow = resolveActiveWindow5();
+  const activeNotificationApi =
+    NotificationApi === void 0 ? activeWindow?.Notification : NotificationApi;
+  const activeDocument = documentRef === void 0 ? activeWindow?.document : documentRef;
+  const notificationWindow = windowRef === void 0 ? activeWindow : windowRef;
   if (!runId || !(sentRunIds instanceof Set) || sentRunIds.has(runId)) return false;
-  if (!isDocumentUnfocused(documentRef)) return false;
-  if (typeof NotificationApi !== "function" || NotificationApi.permission !== "granted")
+  if (!isDocumentUnfocused(activeDocument)) return false;
+  if (typeof activeNotificationApi !== "function" || activeNotificationApi.permission !== "granted")
     return false;
   try {
-    const notification = new NotificationApi("Pi Agent", {
+    const notification = new activeNotificationApi("Pi Agent", {
       body: String(body || "Agent response completed."),
       silent: false
     });
@@ -5157,7 +5206,7 @@ function showDesktopRunNotification({
     if (sentRunIds.size > 200) sentRunIds.delete(sentRunIds.values().next().value);
     notification.onclick = () => {
       try {
-        windowRef?.focus?.();
+        notificationWindow?.focus?.();
         notification.close?.();
         const clickResult = onClick?.();
         clickResult?.catch?.((error) =>
@@ -5173,6 +5222,9 @@ function showDesktopRunNotification({
     return false;
   }
 }
+function resolveActiveWindow5() {
+  return typeof window === "undefined" ? void 0 : (window.activeWindow ?? window);
+}
 function isDocumentUnfocused(documentRef) {
   try {
     return typeof documentRef?.hasFocus === "function" && !documentRef.hasFocus();
@@ -5186,242 +5238,330 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
+    const configDir = app.vault.configDir;
+    if (configDir && !plugin.settings.ignoredFolders.includes(configDir)) {
+      plugin.settings.ignoredFolders.unshift(configDir);
+    }
   }
+  // Obsidian 1.13.0+ uses these definitions for rendering and settings search.
+  // Keeping display() below is the documented dual-support pattern for Obsidian 1.12.3.
+  getSettingDefinitions() {
+    return [
+      this.getModelDefinition(),
+      this.getThinkingDefinition(),
+      this.getToolModeDefinition(),
+      this.getDesktopNotificationsDefinition(),
+      this.getCustomInstructionsDefinition(),
+      {
+        type: "group",
+        heading: "Advanced",
+        items: [this.getCustomModelDefinition()]
+      },
+      {
+        type: "group",
+        heading: "Pi CLI",
+        items: [this.getPiExecutableDefinition(), this.getPiInstallationDefinition()]
+      },
+      {
+        type: "group",
+        heading: "Skills",
+        items: [this.getDefaultSkillsDefinition(), this.getAdditionalSkillsDefinition()]
+      },
+      {
+        type: "group",
+        heading: "Context and file access",
+        items: [this.getIgnoredFoldersDefinition()]
+      }
+    ];
+  }
+  // Obsidian 1.12.3 and earlier render settings imperatively. On newer versions,
+  // callers in the plugin may still request a refresh through display(), so route
+  // those calls to the declarative update API instead of replacing its DOM.
   display() {
+    if (typeof this.update === "function") {
+      this.update();
+      return;
+    }
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian6.Setting(containerEl)
-      .setName("Model")
-      .setDesc(
-        "Provider/model from Pi's built-in and custom model registry. Use default to follow ~/.pi/agent/settings.json or .pi/settings.json."
-      )
-      .addButton((button) =>
-        button
-          .setButtonText(this.getModelButtonLabel())
-          .setTooltip("Choose model")
-          .onClick(async () => {
-            const label = this.getModelButtonLabel();
-            button.setButtonText("Loading\u2026");
-            button.setDisabled(true);
-            try {
-              await this.plugin.ensureRuntimeModelState();
-              new ModelPickerModal(this.app, this.plugin.settings, async (value) => {
-                this.plugin.settings.model = value;
+    for (const definition of this.getSettingDefinitions()) {
+      if (definition.type === "group") {
+        new import_obsidian6.Setting(containerEl).setName(definition.heading).setHeading();
+        for (const item of definition.items ?? []) this.renderLegacyDefinition(containerEl, item);
+      } else {
+        this.renderLegacyDefinition(containerEl, definition);
+      }
+    }
+  }
+  renderLegacyDefinition(containerEl, definition) {
+    const setting = new import_obsidian6.Setting(containerEl).setName(definition.name);
+    if (definition.desc) setting.setDesc(definition.desc);
+    definition.render?.(setting);
+  }
+  getModelDefinition() {
+    return {
+      name: "Model",
+      desc: "Provider/model from Pi's built-in and custom model registry. Use default to follow ~/.pi/agent/settings.json or .pi/settings.json.",
+      render: (setting) =>
+        setting
+          .addButton((button) =>
+            button
+              .setButtonText(this.getModelButtonLabel())
+              .setTooltip("Choose model")
+              .onClick(async () => {
+                const label = this.getModelButtonLabel();
+                button.setButtonText("Loading\u2026");
+                button.setDisabled(true);
+                try {
+                  await this.plugin.ensureRuntimeModelState();
+                  new ModelPickerModal(this.app, this.plugin.settings, async (value) => {
+                    this.plugin.settings.model = value;
+                    this.plugin.settings.reasoningEffort = "";
+                    await this.plugin.saveSettings();
+                    this.plugin.refreshOpenModelControls();
+                  }).open();
+                } catch (error) {
+                  new import_obsidian6.Notice(
+                    error instanceof Error ? error.message : String(error)
+                  );
+                } finally {
+                  button.setButtonText(label);
+                  button.setDisabled(false);
+                }
+              })
+          )
+          .addButton((button) =>
+            button
+              .setButtonText("Refresh")
+              .setTooltip("Refresh models from Pi")
+              .onClick(async () => {
+                button.setButtonText("Refreshing...");
+                button.setDisabled(true);
+                try {
+                  await this.plugin.refreshModelCatalog(true);
+                } catch (error) {
+                  new import_obsidian6.Notice(
+                    error instanceof Error ? error.message : String(error)
+                  );
+                }
+                this.display();
+              })
+          )
+    };
+  }
+  getThinkingDefinition() {
+    return {
+      name: "Thinking level",
+      desc: "Controls reasoning effort only. Values come from the selected model returned by Pi.",
+      render: (setting) =>
+        setting.addButton((button) =>
+          button
+            .setButtonText(this.getReasoningButtonLabel())
+            .setTooltip("Choose thinking level")
+            .onClick(async () => {
+              const label = this.getReasoningButtonLabel();
+              button.setButtonText("Loading\u2026");
+              button.setDisabled(true);
+              try {
+                await this.plugin.ensureRuntimeModelState();
+                new ThinkingPickerModal(this.app, this.plugin.settings, async (value) => {
+                  this.plugin.settings.reasoningEffort = value;
+                  await this.plugin.saveSettings();
+                  this.plugin.refreshOpenModelControls();
+                }).open();
+              } catch (error) {
+                new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+              } finally {
+                button.setButtonText(label);
+                button.setDisabled(false);
+              }
+            })
+        )
+    };
+  }
+  getToolModeDefinition() {
+    return {
+      name: "Tool mode",
+      desc: "Controls which Pi CLI tools are enabled. Tool modes are not an operating-system sandbox.",
+      render: (setting) =>
+        setting.addDropdown((dropdown) =>
+          dropdown
+            .addOptions(getToolModeOptions())
+            .setValue(this.plugin.settings.sandboxMode)
+            .onChange(async (value) => {
+              if (
+                (value === "edit" || value === "full-agent" || value === "workspace-write") &&
+                !this.plugin.settings.acknowledgedToolRisk &&
+                !(await confirmWithModal(this.app, {
+                  title: "Enable write tools?",
+                  message:
+                    "Pi tool modes are not an operating-system sandbox. Edit and full agent can modify vault/project files, and full agent can run shell commands.",
+                  confirmText: "Enable tools",
+                  warning: true
+                }))
+              ) {
+                this.display();
+                return;
+              }
+              this.plugin.settings.sandboxMode = value;
+              if (value === "edit" || value === "full-agent" || value === "workspace-write") {
+                this.plugin.settings.acknowledgedToolRisk = true;
+              }
+              await this.plugin.saveSettings();
+            })
+        )
+    };
+  }
+  getDesktopNotificationsDefinition() {
+    return {
+      name: "Desktop completion notifications",
+      desc: "Notify when an agent run finishes while Obsidian is unfocused.",
+      render: (setting) =>
+        setting.addToggle((toggle) =>
+          toggle.setValue(this.plugin.settings.desktopNotifications).onChange(async (value) => {
+            if (value && !(await requestDesktopNotificationPermission())) {
+              new import_obsidian6.Notice(
+                "Desktop notifications are unavailable or not permitted. You can enable them in your operating-system notification settings."
+              );
+            }
+            this.plugin.settings.desktopNotifications = value;
+            await this.plugin.saveSettings();
+          })
+        )
+    };
+  }
+  getCustomInstructionsDefinition() {
+    return {
+      name: "Custom instructions",
+      desc: "Vault-specific instructions added to every Pi run.",
+      render: (setting) =>
+        setting.addTextArea((text) =>
+          text
+            .setPlaceholder("Prefer PARA folders. Keep project notes concise.")
+            .setValue(this.plugin.settings.customInstructions)
+            .onChange(async (value) => {
+              this.plugin.settings.customInstructions = value;
+              await this.plugin.saveSettings();
+            })
+        )
+    };
+  }
+  getCustomModelDefinition() {
+    return {
+      name: "Custom model slug",
+      desc: "Fallback for a provider/model slug that Pi does not expose in its catalog. Custom slugs are only selectable here.",
+      render: (setting) => {
+        let useCustomButton;
+        setting
+          .addText((text) =>
+            text
+              .setPlaceholder("Provider/model")
+              .setValue(this.plugin.settings.customModel)
+              .onChange(async (value) => {
+                this.plugin.settings.customModel = value.trim();
+                useCustomButton?.setDisabled(!this.plugin.settings.customModel);
+                await this.plugin.saveSettings();
+              })
+          )
+          .addButton((button) => {
+            useCustomButton = button;
+            button
+              .setButtonText(
+                this.plugin.settings.model === CUSTOM_MODEL_VALUE ? "Using custom" : "Use custom"
+              )
+              .setDisabled(!this.plugin.settings.customModel)
+              .onClick(async () => {
+                this.plugin.settings.model = CUSTOM_MODEL_VALUE;
                 this.plugin.settings.reasoningEffort = "";
                 await this.plugin.saveSettings();
                 this.plugin.refreshOpenModelControls();
-              }).open();
-            } catch (error) {
-              new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
-            } finally {
-              button.setButtonText(label);
-              button.setDisabled(false);
-            }
-          })
-      )
-      .addButton((button) =>
-        button
-          .setButtonText("Refresh")
-          .setTooltip("Refresh models from Pi")
-          .onClick(async () => {
-            button.setButtonText("Refreshing...");
-            button.setDisabled(true);
-            try {
-              await this.plugin.refreshModelCatalog(true);
-            } catch (error) {
-              new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
-            }
-            this.display();
-          })
-      );
-    new import_obsidian6.Setting(containerEl)
-      .setName("Thinking level")
-      .setDesc(
-        "Controls reasoning effort only. Values come from the selected model returned by Pi."
-      )
-      .addButton((button) =>
-        button
-          .setButtonText(this.getReasoningButtonLabel())
-          .setTooltip("Choose thinking level")
-          .onClick(async () => {
-            const label = this.getReasoningButtonLabel();
-            button.setButtonText("Loading\u2026");
-            button.setDisabled(true);
-            try {
-              await this.plugin.ensureRuntimeModelState();
-              new ThinkingPickerModal(this.app, this.plugin.settings, async (value) => {
-                this.plugin.settings.reasoningEffort = value;
-                await this.plugin.saveSettings();
-                this.plugin.refreshOpenModelControls();
-              }).open();
-            } catch (error) {
-              new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
-            } finally {
-              button.setButtonText(label);
-              button.setDisabled(false);
-            }
-          })
-      );
-    new import_obsidian6.Setting(containerEl)
-      .setName("Tool mode")
-      .setDesc("Controls which Pi CLI tools are enabled. Tool modes are not an OS-level sandbox.")
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOptions(getToolModeOptions())
-          .setValue(this.plugin.settings.sandboxMode)
-          .onChange(async (value) => {
-            if (
-              (value === "edit" || value === "full-agent" || value === "workspace-write") &&
-              !this.plugin.settings.acknowledgedToolRisk &&
-              !(await confirmWithModal(this.app, {
-                title: "Enable write tools?",
-                message:
-                  "Pi tool modes are not an OS-level sandbox. Edit and Full agent can modify vault/project files, and Full agent can run shell commands.",
-                confirmText: "Enable tools",
-                warning: true
-              }))
-            ) {
-              this.display();
-              return;
-            }
-            this.plugin.settings.sandboxMode = value;
-            if (value === "edit" || value === "full-agent" || value === "workspace-write") {
-              this.plugin.settings.acknowledgedToolRisk = true;
-            }
-            await this.plugin.saveSettings();
-          })
-      );
-    new import_obsidian6.Setting(containerEl)
-      .setName("Desktop completion notifications")
-      .setDesc("Notify when an agent run finishes while Obsidian is unfocused.")
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.desktopNotifications).onChange(async (value) => {
-          if (value && !(await requestDesktopNotificationPermission())) {
-            new import_obsidian6.Notice(
-              "Desktop notifications are unavailable or not permitted. You can enable them in your operating-system notification settings."
-            );
-          }
-          this.plugin.settings.desktopNotifications = value;
-          await this.plugin.saveSettings();
-        })
-      );
-    new import_obsidian6.Setting(containerEl)
-      .setName("Custom instructions")
-      .setDesc("Vault-specific instructions added to every Pi run.")
-      .addTextArea((text) =>
-        text
-          .setPlaceholder("Prefer PARA folders. Keep project notes concise.")
-          .setValue(this.plugin.settings.customInstructions)
-          .onChange(async (value) => {
-            this.plugin.settings.customInstructions = value;
-            await this.plugin.saveSettings();
-          })
-      );
-    new import_obsidian6.Setting(containerEl).setName("Advanced").setHeading();
-    let useCustomButton;
-    new import_obsidian6.Setting(containerEl)
-      .setName("Custom model slug")
-      .setDesc(
-        "Fallback for a provider/model slug that Pi does not expose in its catalog. Custom slugs are only selectable here."
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder("provider/model")
-          .setValue(this.plugin.settings.customModel)
-          .onChange(async (value) => {
-            this.plugin.settings.customModel = value.trim();
-            useCustomButton?.setDisabled(!this.plugin.settings.customModel);
-            await this.plugin.saveSettings();
-          })
-      )
-      .addButton((button) => {
-        useCustomButton = button;
-        button
-          .setButtonText(
-            this.plugin.settings.model === CUSTOM_MODEL_VALUE ? "Using custom" : "Use custom"
-          )
-          .setDisabled(!this.plugin.settings.customModel)
-          .onClick(async () => {
-            this.plugin.settings.model = CUSTOM_MODEL_VALUE;
-            this.plugin.settings.reasoningEffort = "";
-            await this.plugin.saveSettings();
-            this.plugin.refreshOpenModelControls();
+              });
           });
-      });
-    new import_obsidian6.Setting(containerEl).setName("Pi CLI").setHeading();
-    new import_obsidian6.Setting(containerEl)
-      .setName("Pi executable path")
-      .setDesc(
-        "Optional path to the Pi CLI. Leave empty to auto-detect common install locations. Supports ~ and environment variables like ${USER}."
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder("/etc/profiles/per-user/${USER}/bin/pi")
-          .setValue(this.plugin.settings.piExecutablePath)
-          .onChange(async (value) => {
-            this.plugin.settings.piExecutablePath = value.trim();
-            await this.plugin.saveSettings();
+      }
+    };
+  }
+  getPiExecutableDefinition() {
+    return {
+      name: "Pi executable path",
+      desc: "Optional path to the Pi CLI. Leave empty to auto-detect common install locations. Supports ~ and environment variables like ${USER}.",
+      render: (setting) =>
+        setting.addText((text) =>
+          text
+            .setPlaceholder("/etc/profiles/per-user/${USER}/bin/pi")
+            .setValue(this.plugin.settings.piExecutablePath)
+            .onChange(async (value) => {
+              this.plugin.settings.piExecutablePath = value.trim();
+              await this.plugin.saveSettings();
+            })
+        )
+    };
+  }
+  getPiInstallationDefinition() {
+    return {
+      name: "Check Pi installation",
+      desc: "Verify that Obsidian can run the Pi CLI from its current environment.",
+      render: (setting) =>
+        setting.addButton((button) =>
+          button.setButtonText("Check").onClick(() => {
+            this.plugin.checkPiInstallation(true);
           })
-      );
-    new import_obsidian6.Setting(containerEl)
-      .setName("Check Pi installation")
-      .setDesc("Verify that Obsidian can run the Pi CLI from its current environment.")
-      .addButton((button) =>
-        button.setButtonText("Check").onClick(() => {
-          this.plugin.checkPiInstallation(true);
-        })
-      );
-    new import_obsidian6.Setting(containerEl).setName("Skills").setHeading();
-    new import_obsidian6.Setting(containerEl)
-      .setName("Include default Pi skills")
-      .setDesc(
-        "Load skills discovered by Pi from global and vault/project skill locations. Turn this off to use only the additional skill folders below."
-      )
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.includeDefaultSkills !== false)
-          .onChange(async (value) => {
-            this.plugin.settings.includeDefaultSkills = value;
-            await this.plugin.saveSettings();
-          })
-      );
-    new import_obsidian6.Setting(containerEl)
-      .setName("Additional skill folders")
-      .setDesc(
-        "One trusted skill file or folder per line. Supports absolute and vault-relative paths."
-      )
-      .addTextArea((text) =>
-        text
-          .setPlaceholder(".pi/skills\n/path/to/my-skills")
-          .setValue(
-            normalizeSkillFolderList(this.plugin.settings.additionalSkillFolders).join("\n")
-          )
-          .onChange(async (value) => {
-            this.plugin.settings.additionalSkillFolders = value
-              .split(/\r?\n/)
-              .map((item) => item.trim())
-              .filter(Boolean);
-            await this.plugin.saveSettings();
-          })
-      );
-    new import_obsidian6.Setting(containerEl).setName("Context and file access").setHeading();
-    new import_obsidian6.Setting(containerEl)
-      .setName("Ignored folders/directories")
-      .setDesc(
-        "Comma-separated folder prefixes that Pi pre-attached context and retrieval should ignore."
-      )
-      .addTextArea((text) =>
-        text
-          .setPlaceholder(".obsidian, .git, node_modules")
-          .setValue(this.plugin.settings.ignoredFolders.join(", "))
-          .onChange(async (value) => {
-            this.plugin.settings.ignoredFolders = value
-              .split(",")
-              .map((item) => item.trim())
-              .filter(Boolean);
-            await this.plugin.saveSettings();
-          })
-      );
+        )
+    };
+  }
+  getDefaultSkillsDefinition() {
+    return {
+      name: "Include default Pi skills",
+      desc: "Load skills discovered by Pi from global and vault/project skill locations. Turn this off to use only the additional skill folders below.",
+      render: (setting) =>
+        setting.addToggle((toggle) =>
+          toggle
+            .setValue(this.plugin.settings.includeDefaultSkills !== false)
+            .onChange(async (value) => {
+              this.plugin.settings.includeDefaultSkills = value;
+              await this.plugin.saveSettings();
+            })
+        )
+    };
+  }
+  getAdditionalSkillsDefinition() {
+    return {
+      name: "Additional skill folders",
+      desc: "One trusted skill file or folder per line. Supports absolute and vault-relative paths.",
+      render: (setting) =>
+        setting.addTextArea((text) =>
+          text
+            .setPlaceholder([".pi/skills", "/path/to/my-skills"].join("\n"))
+            .setValue(
+              normalizeSkillFolderList(this.plugin.settings.additionalSkillFolders).join("\n")
+            )
+            .onChange(async (value) => {
+              this.plugin.settings.additionalSkillFolders = value
+                .split(/\r?\n/)
+                .map((item) => item.trim())
+                .filter(Boolean);
+              await this.plugin.saveSettings();
+            })
+        )
+    };
+  }
+  getIgnoredFoldersDefinition() {
+    return {
+      name: "Ignored folders/directories",
+      desc: "Comma-separated folder prefixes that Pi pre-attached context and retrieval should ignore.",
+      render: (setting) =>
+        setting.addTextArea((text) =>
+          text
+            .setPlaceholder([this.app.vault.configDir, ".git", "node_modules"].join(", "))
+            .setValue(this.plugin.settings.ignoredFolders.join(", "))
+            .onChange(async (value) => {
+              this.plugin.settings.ignoredFolders = value
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean);
+              await this.plugin.saveSettings();
+            })
+        )
+    };
   }
   getModelButtonLabel() {
     if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) {
@@ -5653,7 +5793,7 @@ var PiSetupModal = class extends import_obsidian8.Modal {
 pi --version`;
     contentEl.createEl("pre", { text: commandText });
     contentEl.createEl("p", {
-      text: "Start in Chat or Review mode. Only enable Edit or Full agent in vaults you are comfortable letting Pi modify."
+      text: "Start in chat or review mode. Only enable edit or full agent in vaults you are comfortable letting Pi modify."
     });
     const actionsEl = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
     actionsEl
@@ -6336,53 +6476,57 @@ function formatArchiveAllResult({ archivedCount, skippedCount }) {
 }
 
 // src/ui/thread-list-view.mjs
+var PI_BRAND_NAME = "Pi";
 function showThreadList() {
-  ((this.showingThreadList = true), this.renderThreadList());
+  this.showingThreadList = true;
+  this.renderThreadList();
 }
 function renderThreadList() {
   var a;
   let e = this.containerEl.children[1],
     t = this.plugin.listThreads({ includeArchived: true }),
     n = this.plugin.getCurrentThread();
-  ((a = this.suggestions) == null || a.close(),
-    this.cleanupComposerBarObserver(),
-    (this.messagesEl = void 0),
-    (this.inputEl = void 0),
-    (this.sendButtonEl = void 0),
-    (this.composerBarEl = void 0),
-    (this.composerBarExpandEl = void 0),
-    (this.runSettings = void 0),
-    (this.toolBadgesEl = void 0),
-    (this.threadTitleEl = void 0),
-    (this.threadFavoriteEl = void 0),
-    e.empty(),
-    e.addClass("pi-agent-view"));
+  if ((a = this.suggestions) != null) a.close();
+  this.cleanupComposerBarObserver();
+  this.messagesEl = void 0;
+  this.inputEl = void 0;
+  this.sendButtonEl = void 0;
+  this.composerBarEl = void 0;
+  this.composerBarExpandEl = void 0;
+  this.runSettings = void 0;
+  this.toolBadgesEl = void 0;
+  this.threadTitleEl = void 0;
+  this.threadFavoriteEl = void 0;
+  e.empty();
+  e.addClass("pi-agent-view");
   let s = e.createDiv({ cls: "pi-agent-thread-list-header" }),
     o = s.createEl("button", {
       cls: "clickable-icon pi-agent-header-action",
       attr: { "aria-label": "Back to chat", title: "Back to chat" }
     });
-  ((0, f2.setIcon)(o, "arrow-left"), o.addEventListener("click", () => this.renderChatView()));
+  (0, f2.setIcon)(o, "arrow-left");
+  o.addEventListener("click", () => this.renderChatView());
   let l = s.createDiv({ cls: "pi-agent-thread-list-heading" });
-  (l.createDiv({ cls: "pi-agent-thread-list-title-heading", text: "Threads" }),
-    l.createDiv({
-      cls: "pi-agent-thread-list-subtitle",
-      text: `${t.length} chat${t.length === 1 ? "" : "s"}`
-    }));
+  l.createDiv({ cls: "pi-agent-thread-list-title-heading", text: "Threads" });
+  l.createDiv({
+    cls: "pi-agent-thread-list-subtitle",
+    text: `${t.length} chat${t.length === 1 ? "" : "s"}`
+  });
   let archiveButton = s.createEl("button", {
     cls: "clickable-icon pi-agent-header-action",
     attr: { "aria-label": "Archive all chats", title: "Archive all chats" }
   });
-  ((0, f2.setIcon)(archiveButton, "archive"),
-    archiveButton.addEventListener("click", () => this.archiveAllChats()));
+  (0, f2.setIcon)(archiveButton, "archive");
+  archiveButton.addEventListener("click", () => this.archiveAllChats());
   let d = s.createEl("button", {
     cls: "clickable-icon pi-agent-header-action",
     attr: { "aria-label": "New chat", title: "New chat" }
   });
-  ((0, f2.setIcon)(d, "plus"),
-    d.addEventListener("click", () => {
-      (this.plugin.startNewThread(), this.renderChatView());
-    }));
+  (0, f2.setIcon)(d, "plus");
+  d.addEventListener("click", () => {
+    this.plugin.startNewThread();
+    this.renderChatView();
+  });
   let h = e.createDiv({ cls: "pi-agent-thread-list" });
   t.length === 0
     ? h.createDiv({ cls: "pi-agent-empty", text: "No chat threads." })
@@ -6405,10 +6549,11 @@ function renderThreadListRow(e, t, n) {
     (0, f2.setIcon)(h2, "loader");
   }
   o.createSpan({ text: t.title });
-  (s.addEventListener("click", () => {
-    (this.plugin.switchThread(t.id), this.renderChatView());
-  }),
-    a.createDiv({ cls: "pi-agent-thread-list-meta", text: this.formatThreadMeta(t, n) }));
+  s.addEventListener("click", () => {
+    this.plugin.switchThread(t.id);
+    this.renderChatView();
+  });
+  a.createDiv({ cls: "pi-agent-thread-list-meta", text: this.formatThreadMeta(t, n) });
   let l = s.createDiv({ cls: "pi-agent-thread-list-actions" }),
     d = l.createEl("button", {
       cls: `clickable-icon pi-agent-thread-list-action pi-agent-thread-favorite${t.favorite ? " is-favorite" : ""}`,
@@ -6426,18 +6571,24 @@ function renderThreadListRow(e, t, n) {
       cls: "clickable-icon pi-agent-thread-list-action",
       attr: { "aria-label": "Thread actions", title: "Thread actions" }
     });
-  ((0, f2.setIcon)(d, "star"),
-    d.addEventListener("click", (u) => {
-      (u.preventDefault(), u.stopPropagation(), this.toggleThreadFavorite(t));
-    }),
-    (0, f2.setIcon)(deleteButton, "trash-2"),
-    deleteButton.addEventListener("click", (u) => {
-      (u.preventDefault(), u.stopPropagation(), this.deleteThreadFromList(t));
-    }),
-    (0, f2.setIcon)(h, "more-horizontal"),
-    h.addEventListener("click", (u) => {
-      (u.preventDefault(), u.stopPropagation(), this.showThreadRowMenu(u, t, n, o));
-    }));
+  (0, f2.setIcon)(d, "star");
+  d.addEventListener("click", (u) => {
+    u.preventDefault();
+    u.stopPropagation();
+    this.toggleThreadFavorite(t);
+  });
+  (0, f2.setIcon)(deleteButton, "trash-2");
+  deleteButton.addEventListener("click", (u) => {
+    u.preventDefault();
+    u.stopPropagation();
+    this.deleteThreadFromList(t);
+  });
+  (0, f2.setIcon)(h, "more-horizontal");
+  h.addEventListener("click", (u) => {
+    u.preventDefault();
+    u.stopPropagation();
+    this.showThreadRowMenu(u, t, n, o);
+  });
 }
 async function archiveAllChats() {
   const threads = this.plugin.listThreads({ includeArchived: true });
@@ -6469,93 +6620,99 @@ async function archiveAllChats() {
 }
 function showThreadRowMenu(e, t, n, s) {
   let a = new f2.Menu();
-  (a.addItem((o) =>
+  a.addItem((o) =>
     o
       .setTitle(n ? "Current chat" : "Open")
       .setIcon(n ? "check" : "arrow-right")
       .setDisabled(n)
       .onClick(() => {
-        (this.plugin.switchThread(t.id), this.renderChatView());
+        this.plugin.switchThread(t.id);
+        this.renderChatView();
       })
-  ),
+  );
+  a.addItem((o) =>
+    o
+      .setTitle(t.favorite ? "Remove favorite" : "Mark as favorite")
+      .setIcon("star")
+      .onClick(() => this.toggleThreadFavorite(t))
+  );
+  a.addItem((o) =>
+    o
+      .setTitle("Rename")
+      .setIcon("pencil")
+      .onClick(() => this.startThreadListRename(t, s))
+  );
+  if (t.piSessionId) {
     a.addItem((o) =>
       o
-        .setTitle(t.favorite ? "Remove favorite" : "Mark as favorite")
-        .setIcon("star")
-        .onClick(() => this.toggleThreadFavorite(t))
-    ),
-    a.addItem((o) =>
-      o
-        .setTitle("Rename")
-        .setIcon("pencil")
-        .onClick(() => this.startThreadListRename(t, s))
-    ),
-    t.piSessionId &&
-      a.addItem((o) =>
-        o
-          .setTitle("Pi session info")
-          .setIcon("info")
-          .onClick(async () => {
-            try {
-              const [stats, tree] = await Promise.all([
-                this.plugin.getThreadSessionStats(t.id),
-                this.plugin.getThreadSessionTree(t.id)
-              ]);
-              const entryCount = countSessionEntries(tree?.tree ?? []);
-              new f2.Notice(
-                stats
-                  ? `${stats.sessionFile}
+        .setTitle(`${PI_BRAND_NAME} session info`)
+        .setIcon("info")
+        .onClick(async () => {
+          try {
+            const [stats, tree] = await Promise.all([
+              this.plugin.getThreadSessionStats(t.id),
+              this.plugin.getThreadSessionTree(t.id)
+            ]);
+            const entryCount = countSessionEntries(tree?.tree ?? []);
+            new f2.Notice(
+              stats
+                ? `${stats.sessionFile}
 ${stats.totalMessages} messages \xB7 ${entryCount} tree entries \xB7 ${stats.tokens?.total ?? 0} tokens \xB7 $${Number(stats.cost ?? 0).toFixed(4)}`
-                  : "No Pi session information is available."
-              );
-            } catch (error) {
-              new f2.Notice(error instanceof Error ? error.message : String(error));
-            }
-          })
-      ),
-    t.piSessionId &&
-      a.addItem((o) =>
-        o
-          .setTitle("Export Pi session to HTML")
-          .setIcon("download")
-          .onClick(async () => {
-            try {
-              const result = await this.plugin.exportThreadSession(t.id);
-              new f2.Notice(result?.path ? `Exported to ${result.path}` : "Session export failed.");
-            } catch (error) {
-              new f2.Notice(error instanceof Error ? error.message : String(error));
-            }
-          })
-      ),
-    a.addSeparator(),
+                : "No Pi session information is available."
+            );
+          } catch (error) {
+            new f2.Notice(error instanceof Error ? error.message : String(error));
+          }
+        })
+    );
     a.addItem((o) =>
       o
-        .setTitle("Delete")
-        .setIcon("trash-2")
-        .onClick(() => this.deleteThreadFromList(t))
-    ),
-    a.showAtMouseEvent(e));
+        .setTitle(`Export ${PI_BRAND_NAME} session to HTML`)
+        .setIcon("download")
+        .onClick(async () => {
+          try {
+            const result = await this.plugin.exportThreadSession(t.id);
+            new f2.Notice(result?.path ? `Exported to ${result.path}` : "Session export failed.");
+          } catch (error) {
+            new f2.Notice(error instanceof Error ? error.message : String(error));
+          }
+        })
+    );
+  }
+  a.addSeparator();
+  a.addItem((o) =>
+    o
+      .setTitle("Delete")
+      .setIcon("trash-2")
+      .onClick(() => this.deleteThreadFromList(t))
+  );
+  a.showAtMouseEvent(e);
 }
 function startThreadListRename(e, t) {
   let n = document.createElement("input");
-  (n.addClass("pi-agent-thread-list-title-input"),
-    n.setAttr("type", "text"),
-    n.setAttr("aria-label", "Chat title"),
-    (n.value = e.title),
-    t.replaceWith(n));
+  n.addClass("pi-agent-thread-list-title-input");
+  n.setAttr("type", "text");
+  n.setAttr("aria-label", "Chat title");
+  n.value = e.title;
+  t.replaceWith(n);
   let s = (a) => {
     let o = n.value.trim();
-    (a && o && o !== e.title && this.plugin.renameThread(e.id, o), this.renderThreadList());
+    if (a && o && o !== e.title) this.plugin.renameThread(e.id, o);
+    this.renderThreadList();
   };
-  (n.addEventListener("click", (a) => a.stopPropagation()),
-    n.addEventListener("keydown", (a) => {
-      a.key === "Enter"
-        ? (a.preventDefault(), s(true))
-        : a.key === "Escape" && (a.preventDefault(), s(false));
-    }),
-    n.addEventListener("blur", () => s(true)),
-    n.focus(),
-    n.select());
+  n.addEventListener("click", (a) => a.stopPropagation());
+  n.addEventListener("keydown", (a) => {
+    if (a.key === "Enter") {
+      a.preventDefault();
+      s(true);
+    } else if (a.key === "Escape") {
+      a.preventDefault();
+      s(false);
+    }
+  });
+  n.addEventListener("blur", () => s(true));
+  n.focus();
+  n.select();
 }
 function toggleThreadFavorite(e) {
   this.plugin.toggleThreadFavorite(e.id)
@@ -6569,10 +6726,12 @@ async function deleteThreadFromList(e) {
   }
   const choice = await chooseThreadDeletion(this.plugin.app, e);
   if (choice === "cancel") return;
-  this.plugin.deleteThread(e.id, { deletePiSession: choice === "both" })
-    ? (new f2.Notice(choice === "both" ? "Chat and local Pi session deleted." : "Chat deleted."),
-      this.renderThreadList())
-    : new f2.Notice("Chat or local Pi session could not be deleted.");
+  if (this.plugin.deleteThread(e.id, { deletePiSession: choice === "both" })) {
+    new f2.Notice(choice === "both" ? "Chat and local Pi session deleted." : "Chat deleted.");
+    this.renderThreadList();
+  } else {
+    new f2.Notice("Chat or local Pi session could not be deleted.");
+  }
 }
 function formatThreadMeta(e, t) {
   let n = this.plugin.getThreadDisplayMessageCount
@@ -6674,7 +6833,12 @@ function getLinkSourcePath() {
 }
 function revealLine(leaf, line) {
   if (!leaf || !Number.isInteger(line) || line < 1) return;
-  globalThis.setTimeout(() => {
+  const window2 =
+    leaf.view?.containerEl?.ownerDocument?.defaultView ??
+    this?.plugin?.app?.workspace?.containerEl?.ownerDocument?.defaultView ??
+    this?.activeWindow ??
+    resolveActiveWindow6();
+  window2?.setTimeout(() => {
     const editor = leaf.view?.editor;
     if (!editor) return;
     const position = { line: line - 1, ch: 0 };
@@ -6682,6 +6846,9 @@ function revealLine(leaf, line) {
     editor.scrollIntoView?.({ from: position, to: position }, true);
     editor.focus?.();
   }, 50);
+}
+function resolveActiveWindow6() {
+  return typeof window === "undefined" ? void 0 : (window.activeWindow ?? window);
 }
 async function openVaultPath(value, newLeaf = "tab") {
   return this.openVaultLink(value, newLeaf === true || newLeaf === "tab");
@@ -6709,28 +6876,27 @@ function renderMessages() {
   let e = this.messagesEl,
     t = this.stickToBottom,
     n = e.scrollTop;
-  ((this.isRenderingMessages = true),
-    (this.activityItemEl = void 0),
-    (this.activityDetailsEl = void 0),
-    (this.activityLabelEl = void 0),
-    (this.liveThinkingDetailsEl = void 0),
-    (this.liveThinkingTextEl = void 0),
-    (this.liveThinkingSetExpanded = void 0),
-    this.unloadMessageRenderComponents(),
-    e.empty());
+  this.isRenderingMessages = true;
+  this.activityItemEl = void 0;
+  this.activityDetailsEl = void 0;
+  this.activityLabelEl = void 0;
+  this.liveThinkingDetailsEl = void 0;
+  this.liveThinkingTextEl = void 0;
+  this.liveThinkingSetExpanded = void 0;
+  this.unloadMessageRenderComponents();
+  e.empty();
   let s = this.plugin.messages;
   if (s.length === 0) {
-    (this.renderEmptyState(),
-      this.restoreMessagesScroll(e, t, n),
-      (this.isRenderingMessages = false));
+    this.renderEmptyState();
+    this.restoreMessagesScroll(e, t, n);
+    this.isRenderingMessages = false;
     return;
   }
   for (let a = 0; a < s.length; a++) this.renderMessage(s[a], a);
-  (this.running && this.streamingAssistantContent
-    ? this.renderStreamingAssistantMessage()
-    : this.running && this.activityText && this.renderActivityMessage(),
-    this.restoreMessagesScroll(e, t, n),
-    (this.isRenderingMessages = false));
+  if (this.running && this.streamingAssistantContent) this.renderStreamingAssistantMessage();
+  else if (this.running && this.activityText) this.renderActivityMessage();
+  this.restoreMessagesScroll(e, t, n);
+  this.isRenderingMessages = false;
 }
 function restoreMessagesScroll(e, t, n) {
   t ? (e.scrollTop = e.scrollHeight) : (e.scrollTop = Math.min(n, e.scrollHeight));
@@ -6904,20 +7070,25 @@ function renderRoleLabel(e, t, n, s) {
     l = o.createSpan({
       cls: `pi-agent-role-icon pi-agent-role-icon-${t}`
     });
-  if (t === "user") ((0, f3.setIcon)(l, "user"), o.createSpan({ text: "You" }));
-  else (this.renderPiIcon(l), o.createSpan({ text: "Agent" }));
+  if (t === "user") {
+    (0, f3.setIcon)(l, "user");
+    o.createSpan({ text: "You" });
+  } else {
+    this.renderPiIcon(l);
+    o.createSpan({ text: "Agent" });
+  }
   if (n && s !== void 0) {
     let u = a.createEl("button", {
       cls: "clickable-icon pi-agent-message-actions",
       attr: { "aria-label": "Message actions" }
     });
-    ((0, f3.setIcon)(u, "ellipsis"),
-      u.addEventListener("click", (g) => {
-        var m;
-        (g.preventDefault(),
-          g.stopPropagation(),
-          (m = this.messageActions) == null || m.showMessageMenu(g, n, s));
-      }));
+    (0, f3.setIcon)(u, "ellipsis");
+    u.addEventListener("click", (g) => {
+      var m;
+      g.preventDefault();
+      g.stopPropagation();
+      if ((m = this.messageActions) != null) m.showMessageMenu(g, n, s);
+    });
   }
 }
 
@@ -7095,26 +7266,31 @@ function setActivity(e, t, n = "") {
 }
 function applyActivity(e, t, n = "", s = 0) {
   let a = this.activityText === e && this.activityKind === t && this.activityDetail === n;
-  ((this.activityText = e),
-    (this.activityKind = t),
-    (this.activityDetail = n),
-    (this.activityStickyUntil = s),
-    s && ((this.pendingActivity = void 0), this.clearPendingActivityTimer()),
-    a || this.updateActivityDom() || this.renderMessages());
+  this.activityText = e;
+  this.activityKind = t;
+  this.activityDetail = n;
+  this.activityStickyUntil = s;
+  if (s) {
+    this.pendingActivity = void 0;
+    this.clearPendingActivityTimer();
+  }
+  if (!a && !this.updateActivityDom()) this.renderMessages();
 }
 function queuePendingActivity(e, t, n = "") {
-  ((this.pendingActivity = { text: e, kind: t, detail: n }), this.schedulePendingActivity());
+  this.pendingActivity = { text: e, kind: t, detail: n };
+  this.schedulePendingActivity();
 }
 function schedulePendingActivity() {
   if (this.pendingActivityTimer) return;
   let e = Math.max(0, this.activityStickyUntil - Date.now());
   this.pendingActivityTimer = window.setTimeout(() => {
-    ((this.pendingActivityTimer = void 0), this.flushPendingActivity());
+    this.pendingActivityTimer = void 0;
+    this.flushPendingActivity();
   }, e);
 }
 function clearPendingActivityTimer() {
-  (this.pendingActivityTimer && window.clearTimeout(this.pendingActivityTimer),
-    (this.pendingActivityTimer = void 0));
+  if (this.pendingActivityTimer) window.clearTimeout(this.pendingActivityTimer);
+  this.pendingActivityTimer = void 0;
 }
 function flushPendingActivity() {
   if (!this.pendingActivity || Date.now() < this.activityStickyUntil) {
@@ -7126,7 +7302,8 @@ function flushPendingActivity() {
     return;
   }
   let e = this.pendingActivity;
-  ((this.pendingActivity = void 0), this.applyActivity(e.text, e.kind, e.detail));
+  this.pendingActivity = void 0;
+  this.applyActivity(e.text, e.kind, e.detail);
 }
 function updateActivityDom() {
   if (
@@ -7141,21 +7318,22 @@ function updateActivityDom() {
     return false;
   const label = this.activityText.toUpperCase();
   const title = this.activityDetail || this.activityText;
-  (this.activityDetailsEl.getAttribute("title") !== title &&
-    this.activityDetailsEl.setAttr("title", title),
-    this.activityLabelEl.getAttribute("aria-label") !== `${this.activityText} in progress` &&
-      this.activityLabelEl.setAttr("aria-label", `${this.activityText} in progress`),
-    this.activityLabelEl.textContent !== label && this.activityLabelEl.setText(label));
+  if (this.activityDetailsEl.getAttribute("title") !== title)
+    this.activityDetailsEl.setAttr("title", title);
+  if (this.activityLabelEl.getAttribute("aria-label") !== `${this.activityText} in progress`)
+    this.activityLabelEl.setAttr("aria-label", `${this.activityText} in progress`);
+  if (this.activityLabelEl.textContent !== label) this.activityLabelEl.setText(label);
   return true;
 }
 function captureContextUsage(e) {
   let t = extractEventTokenUsage(e == null ? void 0 : e.raw),
     n = this.getContextUsageForTokens(t);
-  n &&
-    (this.runningThreadId && this.invalidatedContextThreadIds.delete(this.runningThreadId),
-    (this.currentRunContextUsage = { contextUsage: n, tokenUsage: t }),
-    this.updateActivityDom(),
-    this.renderToolBadges());
+  if (n) {
+    if (this.runningThreadId) this.invalidatedContextThreadIds.delete(this.runningThreadId);
+    this.currentRunContextUsage = { contextUsage: n, tokenUsage: t };
+    this.updateActivityDom();
+    this.renderToolBadges();
+  }
 }
 function getContextUsageForTokens(e) {
   var a;
@@ -7186,10 +7364,10 @@ function handleRunEvent(e) {
           this.currentRunContextUsage.tokenUsage
         )
       : "";
-    (this.runningThreadId && this.invalidatedContextThreadIds.add(this.runningThreadId),
-      (this.currentRunContextUsage = void 0),
-      this.renderToolBadges(),
-      this.setActivity("Compacting context", "context", n));
+    if (this.runningThreadId) this.invalidatedContextThreadIds.add(this.runningThreadId);
+    this.currentRunContextUsage = void 0;
+    this.renderToolBadges();
+    this.setActivity("Compacting context", "context", n);
     return;
   }
   if (t === "compaction_end") {
@@ -7202,17 +7380,17 @@ function handleRunEvent(e) {
       return;
     }
     let n = e.raw && e.raw.result ? e.raw.result.tokensBefore : void 0;
-    (this.runningThreadId && this.invalidatedContextThreadIds.add(this.runningThreadId),
-      (this.currentRunContextUsage = {
-        compacted: true,
-        contextWindow: this.plugin.getSelectedModelInfo()?.contextWindow
-      }),
-      this.renderToolBadges(),
-      this.setActivity(
-        e.raw && e.raw.willRetry ? "Compacted context, retrying" : "Finishing",
-        e.raw && e.raw.willRetry ? "context" : "finishing",
-        n ? `Before compaction: ${formatTokenCount(n)} tokens` : ""
-      ));
+    if (this.runningThreadId) this.invalidatedContextThreadIds.add(this.runningThreadId);
+    this.currentRunContextUsage = {
+      compacted: true,
+      contextWindow: this.plugin.getSelectedModelInfo()?.contextWindow
+    };
+    this.renderToolBadges();
+    this.setActivity(
+      e.raw && e.raw.willRetry ? "Compacted context, retrying" : "Finishing",
+      e.raw && e.raw.willRetry ? "context" : "finishing",
+      n ? `Before compaction: ${formatTokenCount(n)} tokens` : ""
+    );
     return;
   }
   if (t === "auto_retry_start") {
@@ -7272,14 +7450,15 @@ function handleRunEvent(e) {
     this.streamingAssistantContent || this.setActivity("Thinking", "thinking");
     return;
   }
-  t === "agent_end" &&
-    ((this.activityText = ""),
-    (this.activityDetail = ""),
-    (this.activityStickyUntil = 0),
-    (this.pendingActivity = void 0),
-    this.clearPendingActivityTimer(),
-    this.activeToolCalls.clear(),
-    this.renderMessages());
+  if (t === "agent_end") {
+    this.activityText = "";
+    this.activityDetail = "";
+    this.activityStickyUntil = 0;
+    this.pendingActivity = void 0;
+    this.clearPendingActivityTimer();
+    this.activeToolCalls.clear();
+    this.renderMessages();
+  }
 }
 function normalizeRunEventType(e) {
   return e === "auto_compaction_start" || e === "session_before_compact"
@@ -7624,12 +7803,14 @@ var ThreadActions = class {
   async forkChat() {
     try {
       const fork = await this.plugin.forkCurrentThread();
-      fork
-        ? (this.callbacks.resetThreadUiState?.(),
-          this.callbacks.renderThreadTitle(),
-          this.callbacks.renderMessages(),
-          this.callbacks.renderToolBadges?.())
-        : new import_obsidian15.Notice("Nothing to fork yet.");
+      if (fork) {
+        this.callbacks.resetThreadUiState?.();
+        this.callbacks.renderThreadTitle();
+        this.callbacks.renderMessages();
+        this.callbacks.renderToolBadges?.();
+      } else {
+        new import_obsidian15.Notice("Nothing to fork yet.");
+      }
     } catch (error) {
       new import_obsidian15.Notice(error instanceof Error ? error.message : String(error));
     }
@@ -7802,8 +7983,11 @@ var PiAgentView = class extends f4.ItemView {
   }
   async onOpen() {
     this.registerDomEvent(document, "keydown", (e) => {
-      (this.syncCurrentRunFlags(),
-        e.key !== "Escape" || !this.running || (e.preventDefault(), this.cancelCurrentRun()));
+      this.syncCurrentRunFlags();
+      if (e.key === "Escape" && this.running) {
+        e.preventDefault();
+        this.cancelCurrentRun();
+      }
     });
     this.registerEvent(
       this.plugin.app.workspace.on("file-open", () => {
@@ -7826,73 +8010,76 @@ var PiAgentView = class extends f4.ItemView {
     this.syncCurrentRunFlags();
     this.cleanupComposerBarObserver();
     let e = this.containerEl.children[1];
-    (e.empty(),
-      e.addClass("pi-agent-view"),
-      (this.noteActions = new NoteActions(this.plugin, {
-        parseVaultLinkTarget: (c) => this.parseVaultLinkTarget(c),
-        formatVaultLinkTarget: (c) => this.formatVaultLinkTarget(c),
-        openVaultLink: (c) => this.openVaultLink(c)
-      })),
-      (this.messageActions = new MessageActions(this.plugin, {
-        getInput: () => this.inputEl,
-        runPrompt: (c) => {
-          this.runPrompt(c);
-        },
-        insertIntoCurrentNote: (c) => {
-          var p;
-          return (p = this.noteActions) == null ? void 0 : p.insertIntoCurrentNote(c);
-        },
-        createNoteFromResponse: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.createNoteFromResponse(c)) != null
-            ? v
-            : Promise.resolve();
-        },
-        openCitedNotes: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.openCitedNotes(c)) != null
-            ? v
-            : Promise.resolve();
-        },
-        extractVaultLinks: (c) => {
-          var p, v;
-          return (v = (p = this.noteActions) == null ? void 0 : p.extractVaultLinks(c)) != null
-            ? v
-            : [];
-        },
-        getPreviousUserPrompt: (c) => {
-          var p;
-          return (p = this.noteActions) == null ? void 0 : p.getPreviousUserPrompt(c);
-        }
-      })),
-      (this.threadMenu = new ThreadActions(this.plugin, {
-        renderThreadTitle: () => this.renderThreadTitle(),
-        renderMessages: () => this.renderMessages(),
-        renderToolBadges: () => this.renderToolBadges(),
-        resetThreadUiState: () => {
-          this.renderedThreadId = this.getCurrentThreadId();
-          this.resetTransientRunUiState();
-          this.syncCurrentRunFlags();
-          this.renderPromptQueue();
-          this.setRunningState(this.running);
-        }
-      })));
+    e.empty();
+    e.addClass("pi-agent-view");
+    this.noteActions = new NoteActions(this.plugin, {
+      parseVaultLinkTarget: (c) => this.parseVaultLinkTarget(c),
+      formatVaultLinkTarget: (c) => this.formatVaultLinkTarget(c),
+      openVaultLink: (c) => this.openVaultLink(c)
+    });
+    this.messageActions = new MessageActions(this.plugin, {
+      getInput: () => this.inputEl,
+      runPrompt: (c) => {
+        this.runPrompt(c);
+      },
+      insertIntoCurrentNote: (c) => {
+        var p;
+        return (p = this.noteActions) == null ? void 0 : p.insertIntoCurrentNote(c);
+      },
+      createNoteFromResponse: (c) => {
+        var p, v;
+        return (v = (p = this.noteActions) == null ? void 0 : p.createNoteFromResponse(c)) != null
+          ? v
+          : Promise.resolve();
+      },
+      openCitedNotes: (c) => {
+        var p, v;
+        return (v = (p = this.noteActions) == null ? void 0 : p.openCitedNotes(c)) != null
+          ? v
+          : Promise.resolve();
+      },
+      extractVaultLinks: (c) => {
+        var p, v;
+        return (v = (p = this.noteActions) == null ? void 0 : p.extractVaultLinks(c)) != null
+          ? v
+          : [];
+      },
+      getPreviousUserPrompt: (c) => {
+        var p;
+        return (p = this.noteActions) == null ? void 0 : p.getPreviousUserPrompt(c);
+      }
+    });
+    this.threadMenu = new ThreadActions(this.plugin, {
+      renderThreadTitle: () => this.renderThreadTitle(),
+      renderMessages: () => this.renderMessages(),
+      renderToolBadges: () => this.renderToolBadges(),
+      resetThreadUiState: () => {
+        this.renderedThreadId = this.getCurrentThreadId();
+        this.resetTransientRunUiState();
+        this.syncCurrentRunFlags();
+        this.renderPromptQueue();
+        this.setRunningState(this.running);
+      }
+    });
     let t = e.createDiv({ cls: "pi-agent-header" }),
       n = t.createDiv({ cls: "pi-agent-brand" }),
       s = n.createSpan({
         cls: "pi-agent-brand-icon",
         attr: { title: "Pi Agent" }
       });
-    (this.renderPiIcon(s),
-      (this.threadTitleEl = n.createSpan({
-        cls: "pi-agent-thread-title",
-        attr: { role: "button", tabindex: "0", title: "Rename chat" }
-      })),
-      this.threadTitleEl.addEventListener("click", () => this.startThreadTitleRename()),
-      this.threadTitleEl.addEventListener("keydown", (c) => {
-        (c.key === "Enter" || c.key === " ") && (c.preventDefault(), this.startThreadTitleRename());
-      }),
-      this.renderThreadTitle());
+    this.renderPiIcon(s);
+    this.threadTitleEl = n.createSpan({
+      cls: "pi-agent-thread-title",
+      attr: { role: "button", tabindex: "0", title: "Rename chat" }
+    });
+    this.threadTitleEl.addEventListener("click", () => this.startThreadTitleRename());
+    this.threadTitleEl.addEventListener("keydown", (c) => {
+      if (c.key === "Enter" || c.key === " ") {
+        c.preventDefault();
+        this.startThreadTitleRename();
+      }
+    });
+    this.renderThreadTitle();
     let a = t.createDiv({ cls: "pi-agent-header-actions" }),
       favoriteButton = a.createEl("button", {
         cls: "clickable-icon pi-agent-header-action pi-agent-header-favorite"
@@ -7901,28 +8088,31 @@ var PiAgentView = class extends f4.ItemView {
         cls: "clickable-icon pi-agent-header-action",
         attr: { "aria-label": "New chat", title: "New chat" }
       });
-    ((this.threadFavoriteEl = favoriteButton),
-      (0, f4.setIcon)(favoriteButton, "star"),
-      this.renderThreadFavorite(),
-      favoriteButton.addEventListener("click", () => this.toggleCurrentThreadFavorite()),
-      (0, f4.setIcon)(o, "plus"),
-      o.addEventListener("click", (c) => {
-        var p;
-        (c.preventDefault(), (p = this.threadMenu) == null || p.startNewChat());
-      }));
+    this.threadFavoriteEl = favoriteButton;
+    (0, f4.setIcon)(favoriteButton, "star");
+    this.renderThreadFavorite();
+    favoriteButton.addEventListener("click", () => this.toggleCurrentThreadFavorite());
+    (0, f4.setIcon)(o, "plus");
+    o.addEventListener("click", (c) => {
+      var p;
+      c.preventDefault();
+      if ((p = this.threadMenu) != null) p.startNewChat();
+    });
     let l = a.createEl("button", {
       cls: "clickable-icon pi-agent-header-action",
       attr: { "aria-label": "Fork chat", title: "Fork chat" }
     });
-    ((0, f4.setIcon)(l, "split"),
-      l.addEventListener("click", (c) => {
-        var p;
-        if ((c.preventDefault(), this.isThreadRunning(this.plugin.getCurrentThread().id))) {
-          new f4.Notice("Wait for this chat's agent run to finish before forking it.");
-          return;
-        }
-        ((p = this.threadMenu) == null || p.forkChat(), this.renderToolBadges());
-      }));
+    (0, f4.setIcon)(l, "split");
+    l.addEventListener("click", (c) => {
+      var p;
+      c.preventDefault();
+      if (this.isThreadRunning(this.plugin.getCurrentThread().id)) {
+        new f4.Notice("Wait for this chat's agent run to finish before forking it.");
+        return;
+      }
+      if ((p = this.threadMenu) != null) p.forkChat();
+      this.renderToolBadges();
+    });
     let u = a.createEl("button", {
       cls: "clickable-icon pi-agent-thread-menu",
       attr: {
@@ -7930,67 +8120,68 @@ var PiAgentView = class extends f4.ItemView {
         title: "Manage chat threads"
       }
     });
-    ((0, f4.setIcon)(u, "list"),
-      u.addEventListener("click", (c) => {
-        (c.preventDefault(), this.showThreadList());
-      }));
-    ((this.messagesEl = e.createDiv({ cls: "pi-agent-messages" })),
-      this.messagesEl.addEventListener("scroll", () => {
-        if (!this.messagesEl || this.isRenderingMessages) return;
-        let c =
-          this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
-        this.stickToBottom = c < 40;
-      }));
+    (0, f4.setIcon)(u, "list");
+    u.addEventListener("click", (c) => {
+      c.preventDefault();
+      this.showThreadList();
+    });
+    this.messagesEl = e.createDiv({ cls: "pi-agent-messages" });
+    this.messagesEl.addEventListener("scroll", () => {
+      if (!this.messagesEl || this.isRenderingMessages) return;
+      let c =
+        this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
+      this.stickToBottom = c < 40;
+    });
     let d = e.createDiv({ cls: "pi-agent-composer" });
-    ((this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" })),
-      this.renderToolBadges(),
-      (this.promptQueue = this.plugin.getLocalPromptQueue()),
-      (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
-      this.renderPromptQueue(),
-      (this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
-      this.renderComposerImages(),
-      (this.inputEl = d.createEl("textarea", {
-        placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
-      })),
-      this.inputEl.addEventListener("keydown", (c) => {
-        var p;
-        ((p = this.suggestions) != null && p.handleKeydown(c)) ||
-          (c.key === "Enter" &&
-            !c.shiftKey &&
-            !c.isComposing &&
-            (c.preventDefault(), this.submitInput()),
-          c.key === "Escape" &&
-            (this.syncCurrentRunFlags(), this.running) &&
-            (c.preventDefault(), this.cancelCurrentRun()));
-      }),
-      this.inputEl.addEventListener("paste", (event) => this.handleImagePaste(event)),
-      this.inputEl.addEventListener("dragover", (event) => {
-        if ((event.dataTransfer?.files?.length || 0) > 0) event.preventDefault();
-      }),
-      this.inputEl.addEventListener("drop", (event) => this.handleImageDrop(event)),
-      this.inputEl.addEventListener("input", () => {
-        var c;
-        (this.syncCurrentRunFlags(),
-          this.resizeInput(),
-          (c = this.suggestions) == null || c.update(),
-          this.setRunningState(this.running));
-      }),
-      this.inputEl.addEventListener("click", () => {
-        var c;
-        return (c = this.suggestions) == null ? void 0 : c.update();
-      }),
-      this.inputEl.addEventListener("blur", () => {
-        window.setTimeout(() => {
-          var c;
-          return (c = this.suggestions) == null ? void 0 : c.close();
-        }, 120);
-      }),
-      (this.suggestions = new ComposerSuggestions(this.inputEl, this.plugin, () =>
-        this.resizeInput()
-      )),
-      (this.extensionWidgetsBelowEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
-      this.renderExtensionWidgets(),
-      this.resizeInput());
+    this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" });
+    this.renderToolBadges();
+    this.promptQueue = this.plugin.getLocalPromptQueue();
+    this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" });
+    this.renderPromptQueue();
+    this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" });
+    this.renderComposerImages();
+    this.inputEl = d.createEl("textarea", {
+      placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
+    });
+    this.inputEl.addEventListener("keydown", (c) => {
+      var p;
+      if ((p = this.suggestions) != null && p.handleKeydown(c)) return;
+      if (c.key === "Enter" && !c.shiftKey && !c.isComposing) {
+        c.preventDefault();
+        this.submitInput();
+      }
+      if (c.key === "Escape") {
+        this.syncCurrentRunFlags();
+        if (this.running) {
+          c.preventDefault();
+          this.cancelCurrentRun();
+        }
+      }
+    });
+    this.inputEl.addEventListener("paste", (event) => this.handleImagePaste(event));
+    this.inputEl.addEventListener("dragover", (event) => {
+      if ((event.dataTransfer?.files?.length || 0) > 0) event.preventDefault();
+    });
+    this.inputEl.addEventListener("drop", (event) => this.handleImageDrop(event));
+    this.inputEl.addEventListener("input", () => {
+      var c;
+      this.syncCurrentRunFlags();
+      this.resizeInput();
+      if ((c = this.suggestions) != null) c.update();
+      this.setRunningState(this.running);
+    });
+    this.inputEl.addEventListener("click", () => {
+      this.suggestions?.update();
+    });
+    this.inputEl.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        this.suggestions?.close();
+      }, 120);
+    });
+    this.suggestions = new ComposerSuggestions(this.inputEl, this.plugin, () => this.resizeInput());
+    this.extensionWidgetsBelowEl = d.createDiv({ cls: "pi-agent-extension-widgets" });
+    this.renderExtensionWidgets();
+    this.resizeInput();
     this.imageInputEl = d.createEl("input", {
       cls: "pi-agent-image-input",
       attr: {
@@ -8007,47 +8198,46 @@ var PiAgentView = class extends f4.ItemView {
       if (this.imageInputEl) this.imageInputEl.value = "";
     });
     let h = d.createDiv({ cls: "pi-agent-composer-bar" });
-    ((this.composerBarEl = h),
-      (this.runSettings = new RunSettingsControls(this.plugin)),
-      this.renderImagePicker(h),
-      this.runSettings.render(h));
+    this.composerBarEl = h;
+    this.runSettings = new RunSettingsControls(this.plugin);
+    this.renderImagePicker(h);
+    this.runSettings.render(h);
     let m = h.createEl("button", {
       cls: "clickable-icon pi-agent-send-button",
       attr: { "aria-label": "Send message", title: "Send message" }
     });
-    ((0, f4.setIcon)(m, "send"),
-      m.createSpan({ cls: "pi-agent-control-label", text: "Send" }),
-      (this.sendButtonEl = m),
-      m.addEventListener("click", () => this.handleSendButtonClick()),
-      this.observeComposerBar(h),
-      this.renderMessages(),
-      this.setRunningState(this.running));
+    (0, f4.setIcon)(m, "send");
+    m.createSpan({ cls: "pi-agent-control-label", text: "Send" });
+    this.sendButtonEl = m;
+    m.addEventListener("click", () => this.handleSendButtonClick());
+    this.observeComposerBar(h);
+    this.renderMessages();
+    this.setRunningState(this.running);
   }
   async onClose() {
-    var e;
-    ((this.messagesEl = void 0),
-      (this.inputEl = void 0),
-      (this.promptQueueEl = void 0),
-      (this.extensionWidgetsAboveEl = void 0),
-      (this.extensionWidgetsBelowEl = void 0),
-      (this.composerImages = []),
-      (this.composerAttachments = []),
-      (this.imageInputEl = void 0),
-      (this.sendButtonEl = void 0),
-      (this.composerBarEl = void 0),
-      (this.composerBarExpandEl = void 0),
-      (this.runSettings = void 0),
-      (this.toolBadgesEl = void 0),
-      (this.threadTitleEl = void 0),
-      (this.threadFavoriteEl = void 0),
-      this.cleanupComposerBarObserver(),
-      this.clearPendingActivityTimer(),
-      this.unloadMessageRenderComponents(),
-      (this.messageActions = void 0),
-      (this.noteActions = void 0),
-      (this.threadMenu = void 0),
-      (e = this.suggestions) == null || e.close(),
-      (this.suggestions = void 0));
+    this.messagesEl = void 0;
+    this.inputEl = void 0;
+    this.promptQueueEl = void 0;
+    this.extensionWidgetsAboveEl = void 0;
+    this.extensionWidgetsBelowEl = void 0;
+    this.composerImages = [];
+    this.composerAttachments = [];
+    this.imageInputEl = void 0;
+    this.sendButtonEl = void 0;
+    this.composerBarEl = void 0;
+    this.composerBarExpandEl = void 0;
+    this.runSettings = void 0;
+    this.toolBadgesEl = void 0;
+    this.threadTitleEl = void 0;
+    this.threadFavoriteEl = void 0;
+    this.cleanupComposerBarObserver();
+    this.clearPendingActivityTimer();
+    this.unloadMessageRenderComponents();
+    this.messageActions = void 0;
+    this.noteActions = void 0;
+    this.threadMenu = void 0;
+    this.suggestions?.close();
+    this.suggestions = void 0;
   }
   renderExtensionWidgets() {
     this.extensionWidgetsAboveEl?.empty();
@@ -8164,7 +8354,8 @@ var PiAgentView = class extends f4.ItemView {
   renderThreadTitle() {
     if (!this.threadTitleEl) return;
     let e = this.plugin.getCurrentThread();
-    (this.threadTitleEl.empty(), this.threadTitleEl.createSpan({ text: e.title }));
+    this.threadTitleEl.empty();
+    this.threadTitleEl.createSpan({ text: e.title });
     this.renderThreadFavorite();
   }
   renderThreadFavorite() {
@@ -8188,7 +8379,8 @@ var PiAgentView = class extends f4.ItemView {
     var a;
     if (!((a = this.threadTitleEl) != null && a.isConnected)) return;
     let e = this.plugin.getCurrentThread();
-    (this.threadTitleEl.empty(), this.threadTitleEl.addClass("is-editing"));
+    this.threadTitleEl.empty();
+    this.threadTitleEl.addClass("is-editing");
     let t = this.threadTitleEl.createEl("input", {
         cls: "pi-agent-thread-title-input",
         attr: { type: "text", value: e.title, "aria-label": "Chat title" }
@@ -8196,26 +8388,28 @@ var PiAgentView = class extends f4.ItemView {
       n = (o) => {
         var d;
         let l = t.value.trim();
-        ((d = this.threadTitleEl) == null || d.removeClass("is-editing"),
-          o && l && l !== e.title && this.plugin.renameThread(e.id, l),
-          this.renderThreadTitle());
+        if ((d = this.threadTitleEl) != null) d.removeClass("is-editing");
+        if (o && l && l !== e.title) this.plugin.renameThread(e.id, l);
+        this.renderThreadTitle();
       },
       s = (o) => {
         o.stopPropagation();
       };
-    (t.addEventListener(
+    t.addEventListener(
       "keydown",
       (o) => {
-        (s(o), o.key === "Enter" && n(true), o.key === "Escape" && n(false));
+        s(o);
+        if (o.key === "Enter") n(true);
+        if (o.key === "Escape") n(false);
       },
       { capture: true }
-    ),
-      t.addEventListener("keypress", s, { capture: true }),
-      t.addEventListener("keyup", s, { capture: true }),
-      t.addEventListener("click", (o) => o.stopPropagation()),
-      t.addEventListener("blur", () => n(true)),
-      t.focus(),
-      t.select());
+    );
+    t.addEventListener("keypress", s, { capture: true });
+    t.addEventListener("keyup", s, { capture: true });
+    t.addEventListener("click", (o) => o.stopPropagation());
+    t.addEventListener("blur", () => n(true));
+    t.focus();
+    t.select();
   }
   async submitInput() {
     var t, n;
@@ -8229,15 +8423,15 @@ var PiAgentView = class extends f4.ItemView {
       new f4.Notice("The selected Pi model does not support image input.");
       return;
     }
-    (this.inputEl && (this.inputEl.value = ""),
-      (this.composerImages = []),
-      (this.composerAttachments = []),
-      this.renderComposerImages(),
-      (n = this.suggestions) == null || n.close(),
-      this.resizeInput(),
-      this.syncCurrentRunFlags(),
-      this.runPrompt(e, void 0, images, void 0, attachments, void 0, contextFilePath),
-      this.setRunningState(this.running));
+    if (this.inputEl) this.inputEl.value = "";
+    this.composerImages = [];
+    this.composerAttachments = [];
+    this.renderComposerImages();
+    if ((n = this.suggestions) != null) n.close();
+    this.resizeInput();
+    this.syncCurrentRunFlags();
+    this.runPrompt(e, void 0, images, void 0, attachments, void 0, contextFilePath);
+    this.setRunningState(this.running);
   }
   handleSendButtonClick() {
     var t;
@@ -8256,52 +8450,60 @@ var PiAgentView = class extends f4.ItemView {
   cancelCurrentRun() {
     this.syncCurrentRunFlags();
     let e = this.getCurrentThreadRun();
-    e &&
-      !e.canceling &&
-      ((e.canceling = true),
-      (this.canceling = true),
-      this.setActivity("Canceling", "finishing"),
-      this.plugin.cancelPiRun(e.runner),
-      this.setRunningState(true),
-      this.renderThreadListIfVisible());
+    if (e && !e.canceling) {
+      e.canceling = true;
+      this.canceling = true;
+      this.setActivity("Canceling", "finishing");
+      this.plugin.cancelPiRun(e.runner);
+      this.setRunningState(true);
+      this.renderThreadListIfVisible();
+    }
   }
   finishCanceledRun() {
-    ((this.running = false),
-      (this.canceling = false),
-      (this.streamingAssistantContent = ""),
-      (this.streamingThinkingContent = ""),
-      (this.thinkingDisclosureExpanded = false),
-      (this.thinkingDisclosureUserSet = false),
-      (this.streamingItemEl = void 0),
-      (this.streamingTextEl = void 0),
-      (this.activityText = ""),
-      (this.activityDetail = ""),
-      (this.activityStickyUntil = 0),
-      (this.pendingActivity = void 0),
-      this.clearPendingActivityTimer(),
-      this.activeToolCalls.clear(),
-      (this.currentRunContextUsage = void 0),
-      this.runningThreadId && this.plugin.endAnnotationProcessingForThread(this.runningThreadId),
-      (this.runningThreadId = void 0),
-      this.plugin.cancelPiRun(),
-      this.renderPromptQueue(),
-      this.setRunningState(false),
-      this.renderMessages(),
-      this.renderToolBadges());
+    this.running = false;
+    this.canceling = false;
+    this.streamingAssistantContent = "";
+    this.streamingThinkingContent = "";
+    this.thinkingDisclosureExpanded = false;
+    this.thinkingDisclosureUserSet = false;
+    this.streamingItemEl = void 0;
+    this.streamingTextEl = void 0;
+    this.activityText = "";
+    this.activityDetail = "";
+    this.activityStickyUntil = 0;
+    this.pendingActivity = void 0;
+    this.clearPendingActivityTimer();
+    this.activeToolCalls.clear();
+    this.currentRunContextUsage = void 0;
+    if (this.runningThreadId) this.plugin.endAnnotationProcessingForThread(this.runningThreadId);
+    this.runningThreadId = void 0;
+    this.plugin.cancelPiRun();
+    this.renderPromptQueue();
+    this.setRunningState(false);
+    this.renderMessages();
+    this.renderToolBadges();
   }
   cleanupComposerBarObserver() {
-    this.composerBarCleanup && (this.composerBarCleanup(), (this.composerBarCleanup = void 0));
+    if (this.composerBarCleanup) {
+      this.composerBarCleanup();
+      this.composerBarCleanup = void 0;
+    }
   }
   observeComposerBar(e) {
     this.cleanupComposerBarObserver();
     let t = () => this.updateComposerBarMode(e.clientWidth);
-    if ((t(), typeof ResizeObserver == "undefined")) {
+    t();
+    if (typeof ResizeObserver == "undefined") {
       window.addEventListener("resize", t);
       let n2 = false,
         s2 = () => {
-          n2 || ((n2 = true), window.removeEventListener("resize", t));
+          if (!n2) {
+            n2 = true;
+            window.removeEventListener("resize", t);
+          }
         };
-      ((this.composerBarCleanup = s2), this.register(s2));
+      this.composerBarCleanup = s2;
+      this.register(s2);
       return;
     }
     let n = new ResizeObserver((a2) => {
@@ -8312,29 +8514,34 @@ var PiAgentView = class extends f4.ItemView {
       }),
       s = false,
       a = () => {
-        s || ((s = true), n.disconnect());
+        if (!s) {
+          s = true;
+          n.disconnect();
+        }
       };
-    (n.observe(e), (this.composerBarCleanup = a), this.register(a));
+    n.observe(e);
+    this.composerBarCleanup = a;
+    this.register(a);
   }
   updateComposerBarMode(e) {
     let t = this.composerBarEl;
     if (!t) return;
     let n = e < 560,
       s = e < 390;
-    (!n && this.composerBarExpanded && (this.composerBarExpanded = false),
-      t.toggleClass("is-compact", n),
-      t.toggleClass("is-narrow", s),
-      this.updateComposerBarExpansion());
+    if (!n && this.composerBarExpanded) this.composerBarExpanded = false;
+    t.toggleClass("is-compact", n);
+    t.toggleClass("is-narrow", s);
+    this.updateComposerBarExpansion();
   }
   updateComposerBarExpansion() {
     let e = this.composerBarEl,
       t = this.composerBarExpandEl;
     if (!e || !t) return;
     let n = this.composerBarExpanded && e.hasClass("is-compact");
-    (e.toggleClass("is-expanded", n),
-      t.setAttr("aria-label", n ? "Collapse run options" : "Expand run options"),
-      t.setAttr("title", n ? "Collapse run options" : "Expand run options"),
-      (0, f4.setIcon)(t, n ? "chevrons-right" : "chevrons-left"));
+    e.toggleClass("is-expanded", n);
+    t.setAttr("aria-label", n ? "Collapse run options" : "Expand run options");
+    t.setAttr("title", n ? "Collapse run options" : "Expand run options");
+    (0, f4.setIcon)(t, n ? "chevrons-right" : "chevrons-left");
   }
   renderImagePicker(parent) {
     const button = parent.createEl("button", {
@@ -8500,26 +8707,27 @@ var PiAgentView = class extends f4.ItemView {
   }
   syncCurrentRunFlags() {
     let e = this.getCurrentThreadRun();
-    ((this.running = !!e), (this.canceling = e?.canceling === true));
+    this.running = !!e;
+    this.canceling = e?.canceling === true;
   }
   resetTransientRunUiState() {
-    ((this.activityText = ""),
-      (this.activityKind = "thinking"),
-      (this.activityDetail = ""),
-      (this.activityStickyUntil = 0),
-      (this.pendingActivity = void 0),
-      this.clearPendingActivityTimer(),
-      this.activeToolCalls.clear(),
-      (this.currentRunContextUsage = void 0),
-      (this.streamingAssistantContent = ""),
-      (this.streamingThinkingContent = ""),
-      (this.thinkingDisclosureExpanded = false),
-      (this.thinkingDisclosureUserSet = false),
-      (this.streamingItemEl = void 0),
-      (this.streamingTextEl = void 0));
+    this.activityText = "";
+    this.activityKind = "thinking";
+    this.activityDetail = "";
+    this.activityStickyUntil = 0;
+    this.pendingActivity = void 0;
+    this.clearPendingActivityTimer();
+    this.activeToolCalls.clear();
+    this.currentRunContextUsage = void 0;
+    this.streamingAssistantContent = "";
+    this.streamingThinkingContent = "";
+    this.thinkingDisclosureExpanded = false;
+    this.thinkingDisclosureUserSet = false;
+    this.streamingItemEl = void 0;
+    this.streamingTextEl = void 0;
   }
   renderThreadListIfVisible() {
-    this.showingThreadList && this.renderThreadList();
+    if (this.showingThreadList) this.renderThreadList();
   }
   runAnnotationPrompt(prompt, sourcePath) {
     return this.runPrompt(prompt, void 0, [], void 0, [], void 0, sourcePath);
@@ -8652,28 +8860,27 @@ var PiAgentView = class extends f4.ItemView {
       this.plugin.replaceLocalPromptQueue(this.promptQueue);
       this.renderPromptQueue();
     };
-    (this.activeRuns.set(t, n),
-      this.syncCurrentRunFlags(),
-      (this.runningThreadId = t),
-      (this.running = this.isCurrentThread(t)),
-      (this.canceling = false),
-      (this.activityText = "Preparing context"),
-      (this.activityKind = "context"),
-      (this.activityDetail =
-        "Collecting current note, links, backlinks, and explicit attachments."),
-      (this.activityStickyUntil = 0),
-      (this.pendingActivity = void 0),
-      this.clearPendingActivityTimer(),
-      this.activeToolCalls.clear(),
-      (this.currentRunContextUsage = void 0),
-      (this.streamingAssistantContent = ""),
-      (this.streamingThinkingContent = ""),
-      (this.thinkingDisclosureExpanded = false),
-      (this.thinkingDisclosureUserSet = false),
-      (this.stickToBottom = true),
-      this.plugin.beginAnnotationProcessing(t, annotations),
-      this.setRunningState(this.running),
-      !queuedId && addUserMessage());
+    this.activeRuns.set(t, n);
+    this.syncCurrentRunFlags();
+    this.runningThreadId = t;
+    this.running = this.isCurrentThread(t);
+    this.canceling = false;
+    this.activityText = "Preparing context";
+    this.activityKind = "context";
+    this.activityDetail = "Collecting current note, links, backlinks, and explicit attachments.";
+    this.activityStickyUntil = 0;
+    this.pendingActivity = void 0;
+    this.clearPendingActivityTimer();
+    this.activeToolCalls.clear();
+    this.currentRunContextUsage = void 0;
+    this.streamingAssistantContent = "";
+    this.streamingThinkingContent = "";
+    this.thinkingDisclosureExpanded = false;
+    this.thinkingDisclosureUserSet = false;
+    this.stickToBottom = true;
+    this.plugin.beginAnnotationProcessing(t, annotations);
+    this.setRunningState(this.running);
+    if (!queuedId) addUserMessage();
     this.renderThreadListIfVisible();
     let s = getCurrentRunMetadata(this.plugin.settings);
     try {
@@ -8722,24 +8929,27 @@ var PiAgentView = class extends f4.ItemView {
         thinkingKey,
         n.thinkingUserSet ? n.thinkingExpanded : false
       );
-      ((this.streamingAssistantContent = ""),
-        (this.streamingThinkingContent = ""),
-        (this.streamingItemEl = void 0),
-        (this.streamingTextEl = void 0),
-        this.plugin.addMessageToThread(t, {
-          role: "assistant",
-          content: a.finalResponse,
-          createdAt,
-          contextUsage: a.contextUsage,
-          tokenUsage: a.tokenUsage,
-          runMetadata: s,
-          thinking: n.thinking || void 0,
-          toolErrors: n.toolErrors.length > 0 ? n.toolErrors : void 0
-        }),
-        a.contextUsage && !a.contextCompacted && this.invalidatedContextThreadIds.delete(t),
-        a.contextCompacted && this.invalidatedContextThreadIds.add(t),
-        this.isCurrentThread(t) &&
-          (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()));
+      this.streamingAssistantContent = "";
+      this.streamingThinkingContent = "";
+      this.streamingItemEl = void 0;
+      this.streamingTextEl = void 0;
+      this.plugin.addMessageToThread(t, {
+        role: "assistant",
+        content: a.finalResponse,
+        createdAt,
+        contextUsage: a.contextUsage,
+        tokenUsage: a.tokenUsage,
+        runMetadata: s,
+        thinking: n.thinking || void 0,
+        toolErrors: n.toolErrors.length > 0 ? n.toolErrors : void 0
+      });
+      if (a.contextUsage && !a.contextCompacted) this.invalidatedContextThreadIds.delete(t);
+      if (a.contextCompacted) this.invalidatedContextThreadIds.add(t);
+      if (this.isCurrentThread(t)) {
+        this.renderThreadTitle();
+        this.renderMessages();
+        this.renderToolBadges();
+      }
       this.notifyRunCompleted(n.notificationRunId, t);
     } catch (a) {
       let o = a instanceof Error ? a.message : String(a);
@@ -8759,42 +8969,48 @@ var PiAgentView = class extends f4.ItemView {
         `${t}:${createdAt}`,
         n.thinkingUserSet ? n.thinkingExpanded : false
       );
-      (this.plugin.addMessageToThread(t, {
+      this.plugin.addMessageToThread(t, {
         role: "assistant",
         content: `Agent run failed: ${o}`,
         createdAt,
         thinking: n.thinking || void 0,
         toolErrors: n.toolErrors.length > 0 ? n.toolErrors : void 0
-      }),
-        this.isCurrentThread(t) &&
-          (this.renderThreadTitle(), this.renderMessages(), this.renderToolBadges()),
-        new f4.Notice(o));
+      });
+      if (this.isCurrentThread(t)) {
+        this.renderThreadTitle();
+        this.renderMessages();
+        this.renderToolBadges();
+      }
+      new f4.Notice(o);
       this.notifyRunCompleted(n.notificationRunId, t, "Agent run failed. Click to open the chat.");
     } finally {
-      (this.activeRuns.delete(t),
-        this.syncCurrentRunFlags(),
-        (this.running = this.isThreadRunning(this.plugin.getCurrentThread().id)),
-        (this.canceling = this.getCurrentThreadRun()?.canceling === true),
-        (this.streamingAssistantContent = ""),
-        (this.streamingThinkingContent = ""),
-        (this.thinkingDisclosureExpanded = false),
-        (this.thinkingDisclosureUserSet = false),
-        (this.activityStickyUntil = 0),
-        (this.pendingActivity = void 0),
-        this.clearPendingActivityTimer(),
-        this.activeToolCalls.clear(),
-        (this.activityText = ""),
-        (this.activityDetail = ""),
-        (this.currentRunContextUsage = void 0),
-        this.isCurrentThread(t) && (this.nativePiQueue = void 0),
-        this.renderPromptQueue(),
-        (this.runningThreadId = void 0),
-        this.setRunningState(this.running),
-        this.isCurrentThread(t) && (this.renderMessages(), this.renderToolBadges()),
-        this.renderThreadListIfVisible(),
-        this.plugin.endAnnotationProcessingForThread(t),
-        this.plugin.rebuildServicesIfPending(),
-        !skipQueueDrain && this.runNextQueuedPrompt());
+      this.activeRuns.delete(t);
+      this.syncCurrentRunFlags();
+      this.running = this.isThreadRunning(this.plugin.getCurrentThread().id);
+      this.canceling = this.getCurrentThreadRun()?.canceling === true;
+      this.streamingAssistantContent = "";
+      this.streamingThinkingContent = "";
+      this.thinkingDisclosureExpanded = false;
+      this.thinkingDisclosureUserSet = false;
+      this.activityStickyUntil = 0;
+      this.pendingActivity = void 0;
+      this.clearPendingActivityTimer();
+      this.activeToolCalls.clear();
+      this.activityText = "";
+      this.activityDetail = "";
+      this.currentRunContextUsage = void 0;
+      if (this.isCurrentThread(t)) this.nativePiQueue = void 0;
+      this.renderPromptQueue();
+      this.runningThreadId = void 0;
+      this.setRunningState(this.running);
+      if (this.isCurrentThread(t)) {
+        this.renderMessages();
+        this.renderToolBadges();
+      }
+      this.renderThreadListIfVisible();
+      this.plugin.endAnnotationProcessingForThread(t);
+      this.plugin.rebuildServicesIfPending();
+      if (!skipQueueDrain) this.runNextQueuedPrompt();
     }
   }
   notifyRunCompleted(runId, threadId, body = "Agent response completed. Click to open the chat.") {
@@ -8837,24 +9053,21 @@ var PiAgentView = class extends f4.ItemView {
   }
   appendStreamingDelta(e) {
     if (e) {
-      if (
-        ((this.activityText = "Responding"),
-        (this.activityKind = "answer"),
-        (this.activityDetail = ""),
-        (this.activityStickyUntil = 0),
-        (this.pendingActivity = void 0),
-        this.clearPendingActivityTimer(),
-        (this.streamingAssistantContent += e),
-        this.updateActivityDom(),
-        !this.streamingTextEl)
-      ) {
+      this.activityText = "Responding";
+      this.activityKind = "answer";
+      this.activityDetail = "";
+      this.activityStickyUntil = 0;
+      this.pendingActivity = void 0;
+      this.clearPendingActivityTimer();
+      this.streamingAssistantContent += e;
+      this.updateActivityDom();
+      if (!this.streamingTextEl) {
         this.renderMessages();
         return;
       }
-      (this.streamingTextEl.appendText(e),
-        this.messagesEl &&
-          this.stickToBottom &&
-          (this.messagesEl.scrollTop = this.messagesEl.scrollHeight));
+      this.streamingTextEl.appendText(e);
+      if (this.messagesEl && this.stickToBottom)
+        this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     }
   }
   setRunningState(e) {
@@ -9238,6 +9451,7 @@ function isPlainObject(value) {
 }
 
 // src/plugin/PiAgentPlugin.mjs
+var PI_BRAND_NAME2 = "Pi";
 var be = `# Pi Agent
 
 You are Pi, an agentic AI coding assistant from https://pi.dev, running inside Pi Agent.
@@ -9379,7 +9593,7 @@ var PiAgentPlugin = class extends P.Plugin {
       })
     );
     this.registerView(PI_AGENT_VIEW_TYPE, (e) => new PiAgentView(e, this));
-    this.addRibbonIcon(PI_AGENT_ICON_ID, "Open Pi Agent", () => {
+    this.addRibbonIcon(PI_AGENT_ICON_ID, `Open ${PI_AGENT_DISPLAY_NAME}`, () => {
       this.activateView();
     });
     this.addCommand({
@@ -9399,7 +9613,7 @@ var PiAgentPlugin = class extends P.Plugin {
     });
     this.addCommand({
       id: "check-pi-installation",
-      name: "Check Pi installation",
+      name: `Check ${PI_BRAND_NAME2} installation`,
       callback: () => {
         this.checkPiInstallation(true);
       }
@@ -9462,24 +9676,24 @@ var PiAgentPlugin = class extends P.Plugin {
         annotationData,
         ...o
       } = e != null ? e : {};
-    ((this.settings = normalizeSettings(o)),
-      (this.localPromptQueue = restorePersistedLocalPromptQueue(q, steering)),
-      (this.localPromptSteering = []),
-      (this.localPromptQueuePaused = this.localPromptQueue.length > 0),
-      (this.settings.additionalSkillFolders = normalizeSkillFolderList(
-        this.settings.additionalSkillFolders
-      )),
-      (this.threadHistory = new ThreadStore(t, n, a != null ? a : s)),
-      (this.annotationStore = new AnnotationStore(annotationData, () => {
-        this.saveAnnotations();
-        this.annotationController?.refresh();
-        this.refreshAnnotationBadges();
-      })));
-    (this.syncCurrentThreadState(),
-      this.settings.model &&
-        isLegacyBareModelId(this.settings.model) &&
-        ((this.settings.customModel = `openai/${this.settings.model}`),
-        (this.settings.model = "__custom")));
+    this.settings = normalizeSettings(o);
+    this.localPromptQueue = restorePersistedLocalPromptQueue(q, steering);
+    this.localPromptSteering = [];
+    this.localPromptQueuePaused = this.localPromptQueue.length > 0;
+    this.settings.additionalSkillFolders = normalizeSkillFolderList(
+      this.settings.additionalSkillFolders
+    );
+    this.threadHistory = new ThreadStore(t, n, a != null ? a : s);
+    this.annotationStore = new AnnotationStore(annotationData, () => {
+      this.saveAnnotations();
+      this.annotationController?.refresh();
+      this.refreshAnnotationBadges();
+    });
+    this.syncCurrentThreadState();
+    if (this.settings.model && isLegacyBareModelId(this.settings.model)) {
+      this.settings.customModel = `openai/${this.settings.model}`;
+      this.settings.model = "__custom";
+    }
   }
   async saveSettings() {
     this.modelCatalogGeneration += 1;
@@ -10013,29 +10227,29 @@ var PiAgentPlugin = class extends P.Plugin {
     this.disposeThreadRunners();
     this.piCommands = [];
     this.commandCatalogLoaded = false;
-    ((this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile())),
-      (this.contextBuilder = new ContextBuilder(
-        this.graph,
-        this.settings,
-        be,
-        this.getVaultBasePath(),
-        () => this.piCommands,
-        (path4) => this.getAnnotationsForContext(path4)
-      )),
-      (this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings)),
-      (this.commandCatalog = new PiCommandCatalog(
-        this.getPluginDirectory(),
-        this.settings,
-        this.getExtensionUiHandler()
-      )),
-      (this.pi = new PiRunner(
-        this.settings,
-        this.contextBuilder,
-        this.getVaultBasePath(),
-        this.getPluginDirectory(),
-        void 0,
-        this.getExtensionUiHandler()
-      )));
+    this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile());
+    this.contextBuilder = new ContextBuilder(
+      this.graph,
+      this.settings,
+      be,
+      this.getVaultBasePath(),
+      () => this.piCommands,
+      (path4) => this.getAnnotationsForContext(path4)
+    );
+    this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings);
+    this.commandCatalog = new PiCommandCatalog(
+      this.getPluginDirectory(),
+      this.settings,
+      this.getExtensionUiHandler()
+    );
+    this.pi = new PiRunner(
+      this.settings,
+      this.contextBuilder,
+      this.getVaultBasePath(),
+      this.getPluginDirectory(),
+      void 0,
+      this.getExtensionUiHandler()
+    );
   }
   async consumeAnnotationsForPrompt(sourcePath) {
     this.annotationController?.cancelPick();
@@ -10198,14 +10412,14 @@ var PiAgentPlugin = class extends P.Plugin {
     var a, o, l;
     let n = /* @__PURE__ */ new Set(),
       s = (a = e.parent) == null ? void 0 : a.path;
-    s &&
-      s !== "/" &&
+    if (s && s !== "/") {
       n.add(
         (l = (o = s.split("/").pop()) == null ? void 0 : o.toLowerCase().replace(/\s+/g, "-")) !=
           null
           ? l
           : ""
       );
+    }
     for (let d of t.matchAll(/#([A-Za-z0-9/_-]+)/g)) n.add(d[1]);
     return [...n].filter(Boolean).slice(0, 6);
   }
@@ -10224,14 +10438,14 @@ var PiAgentPlugin = class extends P.Plugin {
     var a;
     let e = this.getVaultBasePath();
     if (!e) return;
+    const configDir = this.app.vault.configDir;
     let t = (a = this.manifest.dir) != null ? a : `plugins/${this.manifest.id}`,
       n = e.replace(/\/+$/, ""),
       s = t.replace(/^\/+/, "");
-    return s.startsWith(".obsidian/")
-      ? `${n}/${s}`
-      : n.endsWith("/.obsidian")
-        ? `${n}/${s}`
-        : `${n}/.obsidian/${s}`;
+    if (s.startsWith(`${configDir}/`)) {
+      return n.endsWith(`/${configDir}`) ? `${n}/${s.slice(configDir.length + 1)}` : `${n}/${s}`;
+    }
+    return n.endsWith(`/${configDir}`) ? `${n}/${s}` : `${n}/${configDir}/${s}`;
   }
 };
 function isLegacyBareModelId(model) {

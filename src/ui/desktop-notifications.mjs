@@ -1,16 +1,16 @@
-export async function requestDesktopNotificationPermission(
-  NotificationApi = typeof window === "undefined" ? undefined : window.Notification
-) {
-  if (typeof NotificationApi !== "function") return false;
-  if (NotificationApi.permission === "granted") return true;
+export async function requestDesktopNotificationPermission(NotificationApi) {
+  const activeNotificationApi =
+    NotificationApi === undefined ? resolveActiveWindow()?.Notification : NotificationApi;
+  if (typeof activeNotificationApi !== "function") return false;
+  if (activeNotificationApi.permission === "granted") return true;
   if (
-    NotificationApi.permission !== "default" ||
-    typeof NotificationApi.requestPermission !== "function"
+    activeNotificationApi.permission !== "default" ||
+    typeof activeNotificationApi.requestPermission !== "function"
   )
     return false;
 
   try {
-    return (await NotificationApi.requestPermission()) === "granted";
+    return (await activeNotificationApi.requestPermission()) === "granted";
   } catch (error) {
     console.warn("Pi Agent: desktop notification permission request failed", error);
     return false;
@@ -30,17 +30,22 @@ export function showDesktopRunNotification({
   sentRunIds,
   body,
   onClick,
-  NotificationApi = typeof window === "undefined" ? undefined : window.Notification,
-  documentRef = typeof window === "undefined" ? undefined : window.document,
-  windowRef = typeof window === "undefined" ? undefined : window
+  NotificationApi,
+  documentRef,
+  windowRef
 }) {
+  const activeWindow = resolveActiveWindow();
+  const activeNotificationApi =
+    NotificationApi === undefined ? activeWindow?.Notification : NotificationApi;
+  const activeDocument = documentRef === undefined ? activeWindow?.document : documentRef;
+  const notificationWindow = windowRef === undefined ? activeWindow : windowRef;
   if (!runId || !(sentRunIds instanceof Set) || sentRunIds.has(runId)) return false;
-  if (!isDocumentUnfocused(documentRef)) return false;
-  if (typeof NotificationApi !== "function" || NotificationApi.permission !== "granted")
+  if (!isDocumentUnfocused(activeDocument)) return false;
+  if (typeof activeNotificationApi !== "function" || activeNotificationApi.permission !== "granted")
     return false;
 
   try {
-    const notification = new NotificationApi("Pi Agent", {
+    const notification = new activeNotificationApi("Pi Agent", {
       body: String(body || "Agent response completed."),
       silent: false
     });
@@ -48,7 +53,7 @@ export function showDesktopRunNotification({
     if (sentRunIds.size > 200) sentRunIds.delete(sentRunIds.values().next().value);
     notification.onclick = () => {
       try {
-        windowRef?.focus?.();
+        notificationWindow?.focus?.();
         notification.close?.();
         const clickResult = onClick?.();
         clickResult?.catch?.((error) =>
@@ -63,6 +68,10 @@ export function showDesktopRunNotification({
     console.warn("Pi Agent: desktop notification failed", error);
     return false;
   }
+}
+
+function resolveActiveWindow() {
+  return typeof window === "undefined" ? undefined : (window.activeWindow ?? window);
 }
 
 function isDocumentUnfocused(documentRef) {

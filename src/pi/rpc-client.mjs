@@ -1,11 +1,17 @@
 import { execFileSync, spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
+import { clearTimeout as clearNodeTimeout, setTimeout as setNodeTimeout } from "node:timers";
 import { buildPiProcessInvocation, findPiExecutable } from "./environment.mjs";
 import { createPiCliError, formatPiCliFailure } from "./diagnostics.mjs";
 import { isExtensionUiDialog, isExtensionUiMethod } from "./extension-ui.mjs";
 import { MINIMUM_PI_VERSION } from "./health.mjs";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+const nodeTimerHost = { setTimeout: setNodeTimeout, clearTimeout: clearNodeTimeout };
+
+function resolveActiveWindow() {
+  return typeof window === "undefined" ? undefined : (window.activeWindow ?? window);
+}
 const UNSUPPORTED_COMMAND_PATTERNS = [
   /unknown (?:rpc )?command/i,
   /unsupported (?:rpc )?command/i,
@@ -36,6 +42,7 @@ export class PiRpcClient {
     this.stderr = "";
     this.stdoutBuffer = "";
     this.decoder = new StringDecoder("utf8");
+    this.timerHost = options.hostWindow;
     this.disposed = false;
   }
 
@@ -115,9 +122,10 @@ export class PiRpcClient {
     const command = { id, type, ...payload };
 
     return new Promise((resolve, reject) => {
+      const timerHost = this.timerHost ?? resolveActiveWindow() ?? nodeTimerHost;
       const timeout =
         timeoutMs > 0
-          ? setTimeout(() => {
+          ? timerHost.setTimeout(() => {
               this.pending.delete(id);
               reject(new Error(`Pi RPC ${type} timed out after ${timeoutMs}ms.`));
             }, timeoutMs)
@@ -126,13 +134,13 @@ export class PiRpcClient {
       this.pending.set(id, {
         type,
         resolve: (response) => {
-          if (timeout) clearTimeout(timeout);
+          if (timeout) timerHost.clearTimeout(timeout);
           response.success
             ? resolve(response.data)
             : reject(new Error(response.error || `Pi RPC ${type} failed.`));
         },
         reject: (error) => {
-          if (timeout) clearTimeout(timeout);
+          if (timeout) timerHost.clearTimeout(timeout);
           reject(error);
         }
       });
