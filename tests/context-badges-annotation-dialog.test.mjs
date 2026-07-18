@@ -11,11 +11,14 @@ const modalSource = fs.readFileSync("src/annotations/annotation-modal.mjs", "utf
 const styles = fs.readFileSync("styles.css", "utf8");
 
 describe("pending context badges", () => {
-  it("uses compact removable payload badges without duplicate current-note prose", () => {
+  it("uses compact badges without duplicate current-note prose", () => {
     expect(viewSource).not.toContain("Current:");
     expect(viewSource).not.toContain("No current note");
     expect(viewSource).toContain("pi-agent-context-badge-remove");
-    expect(viewSource).toContain("`Remove ${contextFile.name}`");
+    expect(viewSource).toContain(
+      "this.renderPendingBadge(badges, contextFile.name, { title: contextFile.path })"
+    );
+    expect(viewSource).not.toContain("`Remove ${contextFile.name}`");
     expect(viewSource).toContain("`Remove ${image.fileName || \"image\"}`");
     expect(viewSource).toContain("`Remove ${attachment.fileName}`");
     expect(viewSource).toContain("`Clear ${label}`");
@@ -24,17 +27,19 @@ describe("pending context badges", () => {
     );
   });
 
-  it("removes the real pending files, active-note context, and annotations", () => {
-    expect(viewSource).toContain("this.excludedContextPath = contextFile.path");
+  it("keeps the current note mandatory while removing real pending files and annotations", () => {
+    expect(viewSource).not.toContain("excludedContextPath");
+    expect(viewSource).not.toContain("includeActiveNote");
+    expect(pluginSource).not.toContain("includeActiveNote");
+    expect(viewSource).toContain("if (!onRemove) return");
     expect(viewSource).toContain(
       "this.composerImages = this.composerImages.filter((item) => item.id !== image.id)"
     );
     expect(viewSource).toContain("(item) => item.id !== attachment.id");
     expect(viewSource).toContain("this.plugin.annotationStore.deletePath(contextFile.path)");
     expect(viewSource).toContain("contextFilePath: annotationSourcePath");
-    expect(viewSource).toContain("includeActiveNote");
-    expect(pluginSource).toContain("includeActiveNote: enriched.includeActiveNote !== false");
     expect(pluginSource).toContain("this.refreshAnnotationBadges()");
+    expect(pluginSource).toContain("Follow every annotation's user-authored request");
   });
 });
 

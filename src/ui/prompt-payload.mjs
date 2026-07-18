@@ -100,7 +100,6 @@ export function createQueuedPrompt({
   attachments = [],
   annotations = [],
   contextFilePath,
-  includeActiveNote = true,
   threadId,
   id,
   createdAt
@@ -119,7 +118,6 @@ export function createQueuedPrompt({
     attachments: normalizedAttachments,
     annotations: normalizedAnnotations,
     contextFilePath: contextFilePath ? String(contextFilePath) : undefined,
-    includeActiveNote: includeActiveNote !== false,
     threadId: String(threadId || ""),
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
     state: "pending"

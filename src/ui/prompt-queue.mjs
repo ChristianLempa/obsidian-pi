@@ -18,8 +18,7 @@ export function enqueuePrompt(
   images = [],
   attachments = [],
   annotations = [],
-  contextFilePath,
-  includeActiveNote = true
+  contextFilePath
 ) {
   const item = this.plugin.enqueueLocalPrompt({
     prompt,
@@ -27,7 +26,6 @@ export function enqueuePrompt(
     attachments,
     annotations,
     contextFilePath,
-    includeActiveNote,
     threadId
   });
   if (!item) return;
@@ -60,8 +58,7 @@ export function runNextQueuedPrompt() {
     item.id,
     item.attachments,
     item.annotations,
-    item.contextFilePath,
-    item.includeActiveNote
+    item.contextFilePath
   );
 }
 
@@ -81,7 +78,6 @@ export function retrieveQueuedPrompt(id) {
   if (this.inputEl) this.inputEl.value = item.prompt;
   this.composerImages = item.images.map((image) => ({ ...image }));
   this.composerAttachments = item.attachments.map((attachment) => ({ ...attachment }));
-  this.excludedContextPath = item.includeActiveNote === false ? item.contextFilePath : undefined;
   this.removeQueuedPrompt(id);
   this.renderComposerImages();
   this.resizeInput();

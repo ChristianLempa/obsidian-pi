@@ -729,8 +729,7 @@ export class PiAgentPlugin extends P.Plugin {
       this.getEditorSelection(),
       {
         ...(hasAnnotationSnapshot ? { annotations: enriched.annotations } : {}),
-        activeNotePath: enriched.contextFilePath,
-        includeActiveNote: enriched.includeActiveNote !== false
+        activeNotePath: enriched.contextFilePath
       }
     );
     return { ...enriched, promptContext };
@@ -982,7 +981,7 @@ export class PiAgentPlugin extends P.Plugin {
       return;
     }
     await view.runAnnotationPrompt(
-      "Process the submitted annotations for this note. Apply each Change annotation with a targeted edit and answer each Question annotation.",
+      "Follow every annotation's user-authored request. Batch non-overlapping Change annotations for this note into one targeted edit call, and answer each Question annotation without modifying its target.",
       path
     );
   }

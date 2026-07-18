@@ -57,7 +57,6 @@ export class PiAgentView extends f.ItemView {
     this.promptQueue = this.plugin.getLocalPromptQueue();
     this.composerImages = [];
     this.composerAttachments = [];
-    this.excludedContextPath = undefined;
     this.nativePiQueue = undefined;
     this.steeringPromptIds = new Set();
     this.streamingThinkingContent = "";
@@ -309,7 +308,6 @@ export class PiAgentView extends f.ItemView {
       (this.extensionWidgetsBelowEl = void 0),
       (this.composerImages = []),
       (this.composerAttachments = []),
-      (this.excludedContextPath = void 0),
       (this.imageInputEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
@@ -357,54 +355,47 @@ export class PiAgentView extends f.ItemView {
       attr: { role: "list", "aria-label": "Pending prompt context" }
     });
     const contextFile = this.plugin.getCurrentContextFile();
-    if (this.excludedContextPath && this.excludedContextPath !== contextFile?.path)
-      this.excludedContextPath = undefined;
-    const includeActiveNote = !!contextFile && this.excludedContextPath !== contextFile.path;
-    if (includeActiveNote)
-      this.renderPendingBadge(
-        badges,
-        contextFile.name,
-        `Remove ${contextFile.name}`,
-        () => {
-          this.excludedContextPath = contextFile.path;
-          this.renderToolBadges();
-        },
-        contextFile.path
-      );
+    if (contextFile) this.renderPendingBadge(badges, contextFile.name, { title: contextFile.path });
     for (const image of this.composerImages)
-      this.renderPendingBadge(
-        badges,
-        image.fileName || "image",
-        `Remove ${image.fileName || "image"}`,
-        () => {
+      this.renderPendingBadge(badges, image.fileName || "image", {
+        removeLabel: `Remove ${image.fileName || "image"}`,
+        onRemove: () => {
           this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
           this.renderComposerImages();
         }
-      );
+      });
     for (const attachment of this.composerAttachments)
-      this.renderPendingBadge(badges, attachment.fileName, `Remove ${attachment.fileName}`, () => {
-        this.composerAttachments = this.composerAttachments.filter(
-          (item) => item.id !== attachment.id
-        );
-        this.renderComposerImages();
+      this.renderPendingBadge(badges, attachment.fileName, {
+        removeLabel: `Remove ${attachment.fileName}`,
+        onRemove: () => {
+          this.composerAttachments = this.composerAttachments.filter(
+            (item) => item.id !== attachment.id
+          );
+          this.renderComposerImages();
+        }
       });
     const annotations = contextFile ? this.plugin.annotationStore.list(contextFile.path) : [];
     if (annotations.length > 0) {
       const label = `${annotations.length} annotation${annotations.length === 1 ? "" : "s"}`;
-      this.renderPendingBadge(badges, label, `Clear ${label}`, () => {
-        this.plugin.annotationController?.cancelPick();
-        this.plugin.annotationStore.deletePath(contextFile.path);
-        this.renderToolBadges();
+      this.renderPendingBadge(badges, label, {
+        removeLabel: `Clear ${label}`,
+        onRemove: () => {
+          this.plugin.annotationController?.cancelPick();
+          this.plugin.annotationStore.deletePath(contextFile.path);
+          this.renderToolBadges();
+        }
       });
     }
     this.renderToolBadgesContextUsage(root);
   }
-  renderPendingBadge(parent, label, removeLabel, onRemove, title = label) {
+  renderPendingBadge(parent, label, options = {}) {
+    const { removeLabel, onRemove, title = label } = options;
     const badge = parent.createSpan({
       cls: "pi-agent-tool-badge pi-agent-context-badge is-enabled",
       attr: { title, role: "listitem" }
     });
     badge.createSpan({ cls: "pi-agent-context-badge-label", text: label });
+    if (!onRemove) return;
     const remove = badge.createEl("button", {
       cls: "clickable-icon pi-agent-context-badge-remove",
       attr: { type: "button", "aria-label": removeLabel, title: removeLabel }
@@ -507,9 +498,7 @@ export class PiAgentView extends f.ItemView {
     let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
     let images = this.composerImages.map((image) => ({ ...image }));
     let attachments = this.composerAttachments.map((attachment) => ({ ...attachment }));
-    const contextFile = this.plugin.getCurrentContextFile();
-    const contextFilePath = contextFile?.path;
-    const includeActiveNote = !!contextFile && this.excludedContextPath !== contextFilePath;
+    const contextFilePath = this.plugin.getCurrentContextFile()?.path;
     if (!e && images.length === 0 && attachments.length === 0) return;
     if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
     if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
@@ -519,21 +508,11 @@ export class PiAgentView extends f.ItemView {
     (this.inputEl && (this.inputEl.value = ""),
       (this.composerImages = []),
       (this.composerAttachments = []),
-      (this.excludedContextPath = undefined),
       this.renderComposerImages(),
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
-      this.runPrompt(
-        e,
-        undefined,
-        images,
-        undefined,
-        attachments,
-        undefined,
-        contextFilePath,
-        includeActiveNote
-      ),
+      this.runPrompt(e, undefined, images, undefined, attachments, undefined, contextFilePath),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
@@ -827,8 +806,7 @@ export class PiAgentView extends f.ItemView {
     queuedId,
     attachments = [],
     annotations,
-    annotationSourcePath,
-    includeActiveNote = true
+    annotationSourcePath
   ) {
     if (annotations === undefined) {
       try {
@@ -849,15 +827,7 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(
-          e,
-          t,
-          images,
-          attachments,
-          annotations,
-          annotationSourcePath,
-          includeActiveNote
-        );
+        this.enqueuePrompt(e, t, images, attachments, annotations, annotationSourcePath);
       }
       return;
     }
@@ -869,8 +839,7 @@ export class PiAgentView extends f.ItemView {
           images,
           attachments,
           annotations,
-          contextFilePath: annotationSourcePath,
-          includeActiveNote
+          contextFilePath: annotationSourcePath
         },
         { mode: "prompt", threadId: t }
       );
@@ -921,15 +890,7 @@ export class PiAgentView extends f.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(
-          e,
-          t,
-          images,
-          attachments,
-          annotations,
-          annotationSourcePath,
-          includeActiveNote
-        );
+        this.enqueuePrompt(e, t, images, attachments, annotations, annotationSourcePath);
       }
       return;
     }

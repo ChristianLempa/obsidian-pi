@@ -53,14 +53,12 @@ describe("prompt image payloads", () => {
       createQueuedPrompt({
         images: [image],
         threadId: "thread",
-        contextFilePath: "Pinned.md",
-        includeActiveNote: false
+        contextFilePath: "Pinned.md"
       })
     ).toMatchObject({
       prompt: "",
       threadId: "thread",
       contextFilePath: "Pinned.md",
-      includeActiveNote: false,
       state: "pending"
     });
     expect(createQueuedPrompt({ prompt: "  ", images: [] })).toBeUndefined();

@@ -79,7 +79,7 @@ export function renderThinkingDisclosure(container, thinking, expanded, onToggle
   (0, f.setIcon)(chevron, "chevron-right");
   summary.createSpan({
     cls: "pi-agent-thinking-label",
-    text: live ? "THINKING" : "Thinking",
+    text: "THINKING",
     attr: live ? { role: "status", "aria-label": "Thinking in progress" } : undefined
   });
   const text = details.createDiv({ cls: "pi-agent-thinking-content", text: thinking });

@@ -302,7 +302,8 @@
 }
 
 .pi-agent-message-content {
-  background: var(--background-secondary);
+  background: var(--background-secondary-alt);
+  border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   color: var(--text-normal);
   cursor: text;
@@ -416,8 +417,17 @@
   user-select: text;
 }
 
+.pi-agent-message-assistant .pi-agent-message-content {
+  border-color: var(--background-modifier-border-hover);
+}
+
 .pi-agent-message-user .pi-agent-message-content {
-  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary-alt));
+  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-primary-alt));
+  border-color: color-mix(
+    in srgb,
+    var(--interactive-accent) 32%,
+    var(--background-modifier-border)
+  );
 }
 
 .pi-agent-message-user .pi-agent-message-role {
@@ -847,7 +857,6 @@
   color: var(--text-muted);
 }
 
-.pi-agent-inline-activity-text,
 .pi-agent-thinking-disclosure.is-live .pi-agent-thinking-label {
   animation: pi-agent-activity-flow 1.2s linear infinite;
   background:
@@ -885,9 +894,11 @@
 }
 
 .pi-agent-inline-activity-text {
+  color: var(--text-muted);
   font: inherit;
   font-size: var(--font-ui-smaller);
   padding: 0 4px;
+  -webkit-text-fill-color: currentColor;
 }
 
 @keyframes pi-agent-activity-flow {
@@ -905,14 +916,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pi-agent-inline-activity-text,
   .pi-agent-thinking-disclosure.is-live .pi-agent-thinking-label,
   .pi-agent-thread-list-running,
   .pi-agent-typing-cursor {
     animation: none;
   }
 
-  .pi-agent-inline-activity-text,
   .pi-agent-thinking-disclosure.is-live .pi-agent-thinking-label {
     background: none;
     filter: none;
@@ -974,10 +983,6 @@
 
 .pi-agent-thinking-label {
   color: var(--text-normal);
-  font-weight: var(--font-semibold);
-}
-
-.pi-agent-thinking-disclosure.is-live .pi-agent-thinking-label {
   font-weight: var(--font-bold);
   letter-spacing: 0.04em;
 }

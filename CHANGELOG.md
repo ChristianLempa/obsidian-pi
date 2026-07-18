@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Kept live and completed thinking consistently labelled **THINKING** in bold uppercase inside the response disclosure, with animation only while live; strengthened user and agent message bubble contrast and kept assistant answers inside the same bubble as thinking.
+- Made the current Markdown note mandatory prompt context while keeping attached files and annotations removable, and clarified that every annotation's Request field drives the targeted change or focused answer.
+
 ## 0.0.10
 
 - Fixed the two error-level Obsidian Community scanner findings by removing a `this` alias from the vault attachment picker and using Obsidian's `setCssProps` helper for dynamic composer height updates.

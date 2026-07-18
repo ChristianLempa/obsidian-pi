@@ -97,7 +97,7 @@ describe("native chat polish", () => {
     expect(rendered.details.open).toBe(false);
     expect(descendants.map((element) => element.icon).filter(Boolean)).toEqual(["chevron-right"]);
     expect(descendants.some((element) => element.attr.role === "status")).toBe(false);
-    expect(descendants.some((element) => element.text === "Thinking")).toBe(true);
+    expect(descendants.some((element) => element.text === "THINKING")).toBe(true);
 
     rendered.details.open = true;
     rendered.details.listeners.get("toggle")();
@@ -170,17 +170,34 @@ describe("native chat polish", () => {
     expect(messageRendererSource).not.toContain("pi-agent-inline-activity-spinner");
     expect(messageRendererSource).not.toContain("pi-agent-thinking-spinner");
     expect(messageRendererSource).toContain('this.activityKind !== "thinking"');
-    expect(messageRendererSource).toContain('text: live ? "THINKING" : "Thinking"');
+    expect(messageRendererSource).toContain('text: "THINKING"');
+    expect(messageRendererSource).not.toContain('text: live ? "THINKING"');
     expect(styles).toMatch(
-      /\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label \{[\s\S]*?font-weight: var\(--font-bold\);/
+      /\.pi-agent-thinking-label \{[\s\S]*?font-weight: var\(--font-bold\);[\s\S]*?letter-spacing: 0\.04em;/
     );
     expect(styles).toContain("@keyframes pi-agent-activity-flow");
     expect(styles).toMatch(
-      /\.pi-agent-inline-activity-text,\s*\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label \{[\s\S]*?animation: pi-agent-activity-flow 1\.2s linear infinite;/
+      /\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label \{[\s\S]*?animation: pi-agent-activity-flow 1\.2s linear infinite;/
+    );
+    expect(styles).not.toMatch(
+      /\.pi-agent-inline-activity-text[\s\S]{0,120}animation: pi-agent-activity-flow/
     );
     expect(styles).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label,[\s\S]*?animation: none;[\s\S]*?-webkit-text-fill-color: var\(--text-muted\);[\s\S]*?\.pi-agent-thinking-chevron \{\s*transition: none;/
     );
     expect(viewSource).not.toContain('setIcon)(icon, "brain")');
+    expect(messageRendererSource).toContain('this.activityKind !== "thinking"');
+  });
+
+  it("makes both user and assistant response bubbles visually distinct", () => {
+    expect(styles).toMatch(
+      /\.pi-agent-message-content \{[\s\S]*?background: var\(--background-secondary-alt\);[\s\S]*?border: 1px solid var\(--background-modifier-border\);/
+    );
+    expect(styles).toMatch(
+      /\.pi-agent-message-assistant \.pi-agent-message-content \{[\s\S]*?border-color: var\(--background-modifier-border-hover\);/
+    );
+    expect(styles).toMatch(
+      /\.pi-agent-message-user \.pi-agent-message-content \{[\s\S]*?interactive-accent\) 14%[\s\S]*?border-color:/
+    );
   });
 });
