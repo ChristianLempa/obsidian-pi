@@ -1,0 +1,64 @@
+src/context/context-builder.mjs
+  s_23d07ac90458a0::t_0d85f086d597c5 52,70-79
+  s_21ef6700c1954f::t_e572feb4dd50fc 80-81
+src/plugin/PiAgentPlugin.mjs
+  s_23d07ac90458a0::t_a0a8db1cc3b5f9 281,653-655,730-734
+src/ui/PiAgentView.mjs
+  s_23d07ac90458a0::t_fcfbedfb2ba794 1029-1032
+  s_23d07ac90458a0::t_eba808c4990cc0 358-360,368,379,397,408
+  s_23d07ac90458a0::t_470f73ffe9463d 388,392-393
+  s_23d07ac90458a0::t_5428c2b77bfd61 865-874,938-947
+  s_23d07ac90458a0::t_453be5a8751305 369-370
+  s_23d07ac90458a0::t_82687960324cec 57,315,355-357,362-367,371-378,380-387,389-391,394-396,398-407,409-416,513-515,525,530-540,781,836-837,881-888
+styles.css
+  s_23d07ac90458a0::t_69bd156051a36e 319-320,324-327,335-336,344-346,353-354,359-360,364-365,374-375,383-384,470-506,930,934-938,977-982,986
+  s_23d07ac90458a0::t_9b692b722982e5 457-469
+  s_23d07ac90458a0::t_2077bc9cb5439e 1473,1481,1503-1510,1514,1516,1522-1526
+tests/prompt-payload.test.mjs
+  s_23d07ac90458a0::t_15de87ef4adc58 52-59,62-63
+main.js
+  s_23d07ac90458a0::t_5b625ba7c76c5f 8683-8686
+  s_23d07ac90458a0::t_470f73ffe9463d 464,469,474,476,485-486,499-500,503,508,523,1538,1542,1556-1557,1900,2168,2184-2194,3986-3987,4007-4008,5997-5999,6007-6008,6041-6043,6061,6738-6750,6752,6769,6809,6812-6816,6819,6829-6832,6836,6839-6842,6844,6846,6865,7710,7968,8008-8013,8015-8069,8166-8168,8178,8183-8193,8435,8490-8491,8519-8528,8535-8542,8592-8601,9485,9840-9843,9918-9922
+src/ui/message-renderer.mjs
+  s_23d07ac90458a0::t_64caaa9b9f3373 49-61,63,82,127,130-134,137,147-150,155,158-161,163,165,185
+src/ui/prompt-payload.mjs
+  s_23d07ac90458a0::t_6da04e9c961e09 103-104,124-125
+tests/native-chat-polish.test.mjs
+  s_23d07ac90458a0::t_d0d1a9b905349b 146
+  s_23d07ac90458a0::t_e31bd48321a0d5 10,108-130
+  s_23d07ac90458a0::t_fb175b0dc0d5b8 80,100,107,131-142,172-176
+tests/context-builder.test.mjs
+  s_23d07ac90458a0::t_22494f3deeb106 95-123
+tests/context-badges-annotation-dialog.test.mjs
+  s_23d07ac90458a0::t_15e26cee52c090 1-64
+src/ui/prompt-queue.mjs
+  s_23d07ac90458a0::t_2efe298cc70a89 21-23,31-32,66-68,88
+src/annotations/markdown-annotations-controller.mjs
+  s_23d07ac90458a0::t_80aff167e09c17 4,765-766
+src/annotations/annotation-modal.mjs
+  s_23d07ac90458a0::t_6a2898209725c2 12,18,23,25,35-36,50-51,54,59,76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "540ddb948295acb4b32a7a7556e97ff68b3c5576",
+  "prompts": {},
+  "sessions": {
+    "s_21ef6700c1954f": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7109-edbd-75e1-81e2-ca2b3a1a4051",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_23d07ac90458a0": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f742d-b813-7d10-bf9c-e01e7953dcc8",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
