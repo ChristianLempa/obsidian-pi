@@ -1,6 +1,6 @@
 {
   "name": "pi-agent",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Chat with Pi using context from your notes, links, backlinks, tags, and search results.",
   "private": true,
   "scripts": {
