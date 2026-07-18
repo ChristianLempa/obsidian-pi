@@ -22,6 +22,7 @@ import { ApprovalModal } from "../ui/modals/approval-modal.mjs";
 import { PiSetupModal } from "../ui/modals/pi-setup-modal.mjs";
 import { showExtensionUiDialog } from "../ui/modals/extension-ui-modal.mjs";
 import { PiAgentView } from "../ui/PiAgentView.mjs";
+import { requestDesktopNotificationPermission } from "../ui/desktop-notifications.mjs";
 import { previewFrontmatterPatch } from "../shared/frontmatter.mjs";
 import { sanitizeThreadHistory } from "../shared/thread-history.mjs";
 import { ThreadStore } from "../threads/thread-store.mjs";
@@ -141,6 +142,9 @@ export class PiAgentPlugin extends P.Plugin {
       new P.Notice("Pi Agent is desktop-only.");
       return;
     }
+
+    if (this.settings.desktopNotifications)
+      void requestDesktopNotificationPermission().catch(() => {});
 
     (0, P.addIcon)(I, O);
     this.extensionStatusEl = this.addStatusBarItem();

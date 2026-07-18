@@ -115,6 +115,34 @@ describe("Pi event helpers", () => {
     });
   });
 
+  it("carries start arguments into tool completion events that omit them", () => {
+    const events = [];
+    const emit = (event) =>
+      handlePiJsonEventLine(JSON.stringify(event), undefined, events, vi.fn(), vi.fn());
+
+    emit({
+      type: "tool_execution_start",
+      toolName: "edit",
+      toolCallId: "edit-1",
+      args: { path: "Note.md", edits: [{ oldText: "old", newText: "new" }] }
+    });
+    emit({
+      type: "tool_execution_end",
+      toolName: "edit",
+      toolCallId: "edit-1",
+      result: { content: [{ type: "text", text: "Successfully replaced 1 block." }] },
+      isError: false
+    });
+
+    expect(events[1]).toMatchObject({
+      type: "tool_end",
+      toolName: "edit",
+      toolCallId: "edit-1",
+      toolArgs: { path: "Note.md", edits: [{ oldText: "old", newText: "new" }] },
+      isError: false
+    });
+  });
+
   it("extracts tool calls from assistant events", () => {
     expect(
       extractToolCallFromAssistantEvent({

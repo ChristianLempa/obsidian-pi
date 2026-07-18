@@ -36,13 +36,18 @@ export function handlePiJsonEventLine(line, callbacks, events, appendText, updat
   }
 
   if (type === "tool_execution_end") {
+    const toolCallId = String(event.toolCallId ?? "");
+    const startedTool = events
+      .slice()
+      .reverse()
+      .find((candidate) => candidate.type === "tool_start" && candidate.toolCallId === toolCallId);
     emit({
       type: "tool_end",
       raw: event,
-      message: String(event.toolName ?? "tool"),
-      toolName: String(event.toolName ?? "tool"),
-      toolCallId: String(event.toolCallId ?? ""),
-      toolArgs: event.args ?? {},
+      message: String(event.toolName ?? startedTool?.toolName ?? "tool"),
+      toolName: String(event.toolName ?? startedTool?.toolName ?? "tool"),
+      toolCallId,
+      toolArgs: event.args ?? startedTool?.toolArgs ?? {},
       isError: event.isError === true,
       errorMessage:
         event.isError === true

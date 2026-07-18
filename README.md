@@ -1,3 +1,5 @@
+![Pi Agent for Obsidian](assets/pi-agent-banner.jpg)
+
 # Pi Agent
 
 Chat with Pi in Obsidian using context from your current note, links, backlinks, tags, explicit search results, and selected text.
@@ -43,6 +45,7 @@ Privacy reminder: prompts, selected text, note content, search excerpts, attachm
 - Use `/` autocomplete for Obsidian context commands and `/skill:name` commands.
 - Copy responses, create notes from answers, and open cited vault notes.
 - Attach change requests or questions to Markdown selections and source-backed blocks.
+- Receive a native completion notification when an agent run finishes while Obsidian is unfocused, where desktop notification permission is available.
 
 ### Annotations
 

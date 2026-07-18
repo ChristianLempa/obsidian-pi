@@ -25,7 +25,8 @@ export const DEFAULT_SETTINGS = {
   additionalSkillFolders: [],
   effectiveModel: "",
   effectiveReasoning: "",
-  dismissedPiSetup: false
+  dismissedPiSetup: false,
+  desktopNotifications: true
 };
 
 export function normalizeSettings(rawSettings = {}) {
@@ -58,6 +59,7 @@ export function normalizeSettings(rawSettings = {}) {
   settings.effectiveModel = normalizeString(settings.effectiveModel);
   settings.effectiveReasoning = normalizeString(settings.effectiveReasoning);
   settings.dismissedPiSetup = settings.dismissedPiSetup === true;
+  settings.desktopNotifications = settings.desktopNotifications !== false;
 
   return settings;
 }

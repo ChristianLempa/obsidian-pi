@@ -9,6 +9,7 @@ import {
 import { normalizeSkillFolderList } from "../context/skills.mjs";
 import { confirmWithModal } from "../ui/modals/confirm-modal.mjs";
 import { ModelPickerModal, ThinkingPickerModal } from "../ui/modals/model-picker-modal.mjs";
+import { requestDesktopNotificationPermission } from "../ui/desktop-notifications.mjs";
 
 export class PiAgentSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -123,6 +124,21 @@ export class PiAgentSettingTab extends PluginSettingTab {
             }
             await this.plugin.saveSettings();
           })
+      );
+
+    new Setting(containerEl)
+      .setName("Desktop completion notifications")
+      .setDesc("Notify when an agent run finishes while Obsidian is unfocused.")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.desktopNotifications).onChange(async (value) => {
+          if (value && !(await requestDesktopNotificationPermission())) {
+            new Notice(
+              "Desktop notifications are unavailable or not permitted. You can enable them in your operating-system notification settings."
+            );
+          }
+          this.plugin.settings.desktopNotifications = value;
+          await this.plugin.saveSettings();
+        })
       );
 
     new Setting(containerEl)

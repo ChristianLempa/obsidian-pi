@@ -7,7 +7,11 @@ vi.mock("obsidian", () => ({
   }
 }));
 
-import { renderMessage, renderThinkingDisclosure } from "../src/ui/message-renderer.mjs";
+import {
+  renderActivityMessage,
+  renderMessage,
+  renderThinkingDisclosure
+} from "../src/ui/message-renderer.mjs";
 
 class FakeElement {
   constructor(tag, options = {}) {
@@ -88,20 +92,59 @@ describe("native chat polish", () => {
     expect(rendered.details.open).toBe(false);
   });
 
-  it("renders completed thinking collapsed without live-only status UI", () => {
+  it("renders completed thinking collapsed with Markdown and without live-only status UI", () => {
     const root = new FakeElement("div");
     const onToggle = vi.fn();
-    const rendered = renderThinkingDisclosure(root, "Finished reasoning", false, onToggle);
+    const renderMarkdown = vi.fn();
+    const rendered = renderThinkingDisclosure(
+      root,
+      "**Finished reasoning**",
+      false,
+      onToggle,
+      false,
+      "Thinking",
+      renderMarkdown
+    );
     const descendants = rendered.details.descendants();
 
     expect(rendered.details.open).toBe(false);
     expect(descendants.map((element) => element.icon).filter(Boolean)).toEqual(["chevron-right"]);
     expect(descendants.some((element) => element.attr.role === "status")).toBe(false);
     expect(descendants.some((element) => element.text === "THINKING")).toBe(true);
+    expect(renderMarkdown).toHaveBeenCalledWith(rendered.text, "**Finished reasoning**");
 
     rendered.details.open = true;
     rendered.details.listeners.get("toggle")();
     expect(onToggle).toHaveBeenCalledWith(true);
+  });
+
+  it("renders tool activity inside the assistant response box instead of the Agent heading", () => {
+    const messagesEl = new FakeElement("div");
+    const view = {
+      messagesEl,
+      activityText: "Editing note.md",
+      streamingThinkingContent: "**Updating** the note",
+      thinkingDisclosureExpanded: true,
+      renderRoleLabel: vi.fn(),
+      renderThinkingDisclosure,
+      renderPlainMessageContent: vi.fn(),
+      setLiveThinkingExpanded: vi.fn()
+    };
+
+    renderActivityMessage.call(view);
+
+    const message = messagesEl.children[0];
+    const response = message.children.find((element) => element.cls === "pi-agent-message-content");
+    const disclosure = response.children[0];
+    const label = disclosure
+      .descendants()
+      .find((element) => element.cls === "pi-agent-thinking-label");
+    expect(view.renderRoleLabel).toHaveBeenCalledWith(message, "pi");
+    expect(label.text).toBe("EDITING NOTE.MD");
+    expect(view.renderPlainMessageContent).toHaveBeenCalledWith(
+      disclosure.children[1],
+      "**Updating** the note"
+    );
   });
 
   it("integrates completed thinking into the assistant response box", () => {
@@ -127,16 +170,23 @@ describe("native chat polish", () => {
     const response = message.children.find((element) => element.cls === "pi-agent-message-content");
     expect(response.children[0].cls).toBe("pi-agent-thinking-disclosure");
     expect(response.children[1].cls).toBe("pi-agent-message-answer");
+    expect(renderPlainMessageContent).toHaveBeenCalledWith(
+      response.children[0].children[1],
+      "Reasoning"
+    );
     expect(renderPlainMessageContent).toHaveBeenCalledWith(response.children[1], "Answer");
     expect(messageRendererSource).toContain("this.renderThinkingDisclosure(\n      response");
     expect(messageRendererSource).toContain(
       'answer = response.createDiv({ cls: "pi-agent-message-answer" })'
     );
     expect(styles).toMatch(
-      /\.pi-agent-thinking-disclosure\[open\][\s\S]*?border-bottom: 1px solid var\(--background-modifier-border\)/
+      /\.pi-agent-thinking-disclosure \{[\s\S]*?border-bottom: 1px solid var\(--background-modifier-border\)/
     );
-    expect(styles).toMatch(
+    expect(styles).not.toMatch(
       /\.pi-agent-thinking-content \{[\s\S]*?background: var\(--background-primary-alt\);/
+    );
+    expect(styles).not.toMatch(
+      /\.pi-agent-thinking-content \{[\s\S]*?border-top: 1px solid var\(--background-modifier-border\);/
     );
   });
 
@@ -165,13 +215,14 @@ describe("native chat polish", () => {
     );
   });
 
-  it("restores animated activity text with a reduced-motion fallback", () => {
-    expect(messageRendererSource).toContain('cls: "pi-agent-inline-activity-text"');
+  it("keeps animated activity text inside the response disclosure with reduced-motion fallback", () => {
+    expect(messageRendererSource).not.toContain("pi-agent-inline-activity");
+    expect(styles).not.toContain(".pi-agent-inline-activity");
     expect(messageRendererSource).not.toContain("pi-agent-inline-activity-spinner");
     expect(messageRendererSource).not.toContain("pi-agent-thinking-spinner");
-    expect(messageRendererSource).toContain('this.activityKind !== "thinking"');
-    expect(messageRendererSource).toContain('text: "THINKING"');
-    expect(messageRendererSource).not.toContain('text: live ? "THINKING"');
+    expect(messageRendererSource).toContain('this.activityText || "Thinking"');
+    expect(messageRendererSource).toContain('this.activityText || "Responding"');
+    expect(messageRendererSource).toContain(".toUpperCase()");
     expect(styles).toMatch(
       /\.pi-agent-thinking-label \{[\s\S]*?font-weight: var\(--font-bold\);[\s\S]*?letter-spacing: 0\.04em;/
     );
@@ -179,14 +230,10 @@ describe("native chat polish", () => {
     expect(styles).toMatch(
       /\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label \{[\s\S]*?animation: pi-agent-activity-flow 1\.2s linear infinite;/
     );
-    expect(styles).not.toMatch(
-      /\.pi-agent-inline-activity-text[\s\S]{0,120}animation: pi-agent-activity-flow/
-    );
     expect(styles).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label,[\s\S]*?animation: none;[\s\S]*?-webkit-text-fill-color: var\(--text-muted\);[\s\S]*?\.pi-agent-thinking-chevron \{\s*transition: none;/
     );
     expect(viewSource).not.toContain('setIcon)(icon, "brain")');
-    expect(messageRendererSource).toContain('this.activityKind !== "thinking"');
   });
 
   it("makes both user and assistant response bubbles visually distinct", () => {

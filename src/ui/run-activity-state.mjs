@@ -68,21 +68,21 @@ export function flushPendingActivity() {
 export function updateActivityDom() {
   if (
     !this.running ||
-    this.streamingAssistantContent ||
     !this.activityText ||
     !this.activityItemEl ||
-    !this.activityInlineEl ||
-    !this.activityInlineTextEl ||
+    !this.activityDetailsEl ||
+    !this.activityLabelEl ||
     !this.activityItemEl.isConnected ||
-    !this.activityInlineEl.isConnected
+    !this.activityDetailsEl.isConnected
   )
     return !1;
-  let e = `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
-    t = this.activityDetail;
-  (this.activityInlineEl.getAttribute("class") !== e && this.activityInlineEl.setAttr("class", e),
-    this.activityInlineEl.getAttribute("title") !== t && this.activityInlineEl.setAttr("title", t),
-    this.activityInlineTextEl.textContent !== this.activityText &&
-      this.activityInlineTextEl.setText(this.activityText));
+  const label = this.activityText.toUpperCase();
+  const title = this.activityDetail || this.activityText;
+  (this.activityDetailsEl.getAttribute("title") !== title &&
+    this.activityDetailsEl.setAttr("title", title),
+    this.activityLabelEl.getAttribute("aria-label") !== `${this.activityText} in progress` &&
+      this.activityLabelEl.setAttr("aria-label", `${this.activityText} in progress`),
+    this.activityLabelEl.textContent !== label && this.activityLabelEl.setText(label));
   return !0;
 }
 

@@ -53,6 +53,7 @@ describe("PiRunner", () => {
     expect(createRunner({ sandboxMode: "review" }).buildPiArgs("session.jsonl")).toContain(
       "read,grep,find,ls"
     );
+    expect(createRunner().buildPiArgs("session.jsonl")).not.toContain("--no-extensions");
   });
 
   it("loads durable instructions through the persistent Pi runtime arguments", () => {
@@ -78,9 +79,9 @@ describe("PiRunner", () => {
     );
     runner.runPiRpc = vi.fn(async (prompt) => ({ finalResponse: prompt }));
 
-    await expect(runner.run("/missing test", { userPrompt: "/missing test" })).resolves.toMatchObject(
-      { finalResponse: "formatted:/missing test" }
-    );
+    await expect(
+      runner.run("/missing test", { userPrompt: "/missing test" })
+    ).resolves.toMatchObject({ finalResponse: "formatted:/missing test" });
     expect(formatPrompt).toHaveBeenCalledOnce();
   });
 
