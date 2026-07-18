@@ -509,10 +509,13 @@ describe("MarkdownAnnotationsController", () => {
     vi.useFakeTimers();
     const read = vi.fn().mockResolvedValue("changed text");
     const reanchorPath = vi.fn();
-    const controller = new MarkdownAnnotationsController({
-      app: { vault: { read } },
-      annotationStore: { list: vi.fn(() => [{ id: "one" }]), reanchorPath }
-    });
+    const controller = new MarkdownAnnotationsController(
+      {
+        app: { vault: { read } },
+        annotationStore: { list: vi.fn(() => [{ id: "one" }]), reanchorPath }
+      },
+      globalThis
+    );
     controller.refreshPath = vi.fn();
     const file = { path: "Note.md", extension: "md" };
 

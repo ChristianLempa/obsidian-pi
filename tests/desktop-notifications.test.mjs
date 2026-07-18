@@ -51,6 +51,31 @@ describe("desktop completion notifications", () => {
     warn.mockRestore();
   });
 
+  it("uses the active window's notification APIs by default", async () => {
+    const originalWindow = globalThis.window;
+    const { NotificationApi, instances } = notificationApi();
+    const focus = vi.fn();
+    globalThis.window = {
+      activeWindow: {
+        Notification: NotificationApi,
+        document: { hasFocus: () => false },
+        focus
+      }
+    };
+
+    try {
+      await expect(requestDesktopNotificationPermission()).resolves.toBe(true);
+      expect(
+        showDesktopRunNotification({ runId: "active-window", sentRunIds: new Set() })
+      ).toBe(true);
+      instances[0].onclick();
+      expect(focus).toHaveBeenCalledOnce();
+    } finally {
+      if (originalWindow === undefined) delete globalThis.window;
+      else globalThis.window = originalWindow;
+    }
+  });
+
   it("emits once for a settled run while Obsidian is unfocused", () => {
     const { NotificationApi, instances } = notificationApi();
     const sentRunIds = new Set();

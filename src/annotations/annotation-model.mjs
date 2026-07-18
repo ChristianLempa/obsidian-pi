@@ -183,8 +183,9 @@ function normalizeTimestamp(value, fallback = new Date(0).toISOString()) {
 }
 
 function createId() {
+  const activeWindow = typeof window === "undefined" ? undefined : (window.activeWindow ?? window);
   return (
-    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    activeWindow?.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
   );
 }
 
@@ -193,8 +194,6 @@ export function annotationDataBytes(data) {
 }
 
 function utf8Bytes(value) {
-  if (typeof globalThis.TextEncoder === "function")
-    return new globalThis.TextEncoder().encode(value).length;
   let bytes = 0;
   for (const character of value) {
     const codePoint = character.codePointAt(0);

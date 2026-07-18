@@ -44,7 +44,10 @@ export function createMarkdownAnnotationExtension(controller) {
         },
         mouseup(_event, view) {
           if (!controller.isPicking(view) || view.state.selection.main.empty) return false;
-          globalThis.queueMicrotask?.(() => controller.chooseEditorSelection(view));
+          const activeWindow = view.dom?.ownerDocument?.defaultView;
+          if (typeof activeWindow?.queueMicrotask === "function")
+            activeWindow.queueMicrotask(() => controller.chooseEditorSelection(view));
+          else void Promise.resolve().then(() => controller.chooseEditorSelection(view));
           return false;
         },
         click(event, view) {
