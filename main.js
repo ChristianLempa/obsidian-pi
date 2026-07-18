@@ -454,31 +454,6 @@ var import_obsidian2 = require("obsidian");
 
 // src/annotations/annotation-modal.mjs
 var import_obsidian = require("obsidian");
-var AnnotationDeleteModal = class extends import_obsidian.Modal {
-  constructor(app, onConfirm) {
-    super(app);
-    this.onConfirm = onConfirm;
-  }
-  onOpen() {
-    this.titleEl.setText("Delete annotation?");
-    this.contentEl.empty();
-    this.contentEl.createEl("p", {
-      text: "This removes this annotation only. The note text is not changed."
-    });
-    const actions = this.contentEl.createDiv({ cls: "pi-agent-modal-actions" });
-    const cancel = actions.createEl("button", { text: "Cancel" });
-    cancel.addEventListener("click", () => this.close());
-    const remove = actions.createEl("button", { text: "Delete", cls: "mod-warning" });
-    remove.addEventListener("click", () => {
-      this.onConfirm();
-      this.close();
-    });
-    window.setTimeout(() => cancel.focus(), 0);
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
 var AnnotationModal = class extends import_obsidian.Modal {
   constructor(app, options) {
     super(app);
@@ -486,31 +461,19 @@ var AnnotationModal = class extends import_obsidian.Modal {
     this.intent = options.annotation?.intent ?? "change";
   }
   onOpen() {
-    this.titleEl.setText("Annotations");
+    this.titleEl.setText(this.options.annotation ? "Edit annotation" : "Add annotation");
     this.contentEl.empty();
     this.modalEl.addClass("pi-agent-annotation-modal");
-    const displayText = this.options.anchor.renderedText || this.options.anchor.quote;
-    const quote = this.contentEl.createEl("blockquote", {
-      cls: "pi-agent-annotation-modal-quote",
-      text: truncate(displayText, 240)
-    });
-    quote.setAttr("aria-label", "Annotated text");
-    if (this.options.anchor.anchorLabel) {
-      this.contentEl.createDiv({
-        cls: "pi-agent-annotation-anchor-label",
-        text: this.options.anchor.anchorLabel
-      });
-    }
     const controlId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const contextId = `pi-agent-annotation-context-${controlId}`;
-    this.contentEl.createEl("label", { text: "Context", attr: { for: contextId } });
+    this.contentEl.createEl("label", { text: "Request", attr: { for: contextId } });
     this.contextEl = this.contentEl.createEl("textarea", {
       cls: "pi-agent-annotation-context",
       attr: {
         id: contextId,
-        rows: "5",
+        rows: "4",
         maxlength: String(ANNOTATION_LIMITS.context),
-        placeholder: "Describe the change or question"
+        placeholder: "Describe the change or ask a question"
       }
     });
     this.contextEl.value = this.options.annotation?.context ?? "";
@@ -519,9 +482,9 @@ var AnnotationModal = class extends import_obsidian.Modal {
       this.errorEl?.empty();
     });
     const fieldset = this.contentEl.createEl("fieldset", {
-      cls: "pi-agent-annotation-intents"
+      cls: "pi-agent-annotation-intents",
+      attr: { "aria-label": "Annotation intent" }
     });
-    fieldset.createEl("legend", { text: "Intent" });
     for (const intent of ["change", "question"]) {
       const option = fieldset.createEl("label", { cls: "pi-agent-annotation-intent" });
       const input = option.createEl("input", {
@@ -533,14 +496,16 @@ var AnnotationModal = class extends import_obsidian.Modal {
       });
       option.createSpan({ text: intent === "change" ? "Change" : "Question" });
     }
+    const errorId = `pi-agent-annotation-error-${controlId}`;
+    this.contextEl.setAttr("aria-describedby", errorId);
     this.errorEl = this.contentEl.createDiv({
       cls: "pi-agent-annotation-error",
-      attr: { role: "alert", "aria-live": "polite" }
+      attr: { id: errorId, role: "alert", "aria-live": "polite" }
     });
     const actions = this.contentEl.createDiv({ cls: "pi-agent-modal-actions" });
     actions.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
     this.saveButton = actions.createEl("button", {
-      text: this.options.annotation ? "Save changes" : "Save annotation",
+      text: "Save",
       cls: "mod-cta"
     });
     this.saveButton.addEventListener("click", () => this.submit());
@@ -555,7 +520,7 @@ var AnnotationModal = class extends import_obsidian.Modal {
     if (this.submitting) return;
     const context = this.contextEl?.value.trim() ?? "";
     if (!context) {
-      this.errorEl?.setText("Context is required.");
+      this.errorEl?.setText("Request is required.");
       this.contextEl?.setAttr("aria-invalid", "true");
       this.contextEl?.focus();
       return;
@@ -576,12 +541,6 @@ var AnnotationModal = class extends import_obsidian.Modal {
     this.contentEl.empty();
   }
 };
-function truncate(value, limit) {
-  const text = String(value ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text.length > limit ? `${text.slice(0, limit - 1)}\u2026` : text;
-}
 
 // src/annotations/markdown-block-range.mjs
 var STRUCTURAL_LINE = /^\s*(?:#{1,6}\s|>|[-+*]\s|\d+[.)]\s|```|~~~|(?:[-*_]\s*){3,}$|\|)/;
@@ -1576,11 +1535,11 @@ var MarkdownAnnotationsController = class {
       const copy = row.createDiv({ cls: "pi-agent-annotation-copy" });
       copy.createDiv({
         cls: "pi-agent-annotation-quote",
-        text: truncate2(annotation.renderedText || annotation.quote, 72)
+        text: truncate(annotation.renderedText || annotation.quote, 72)
       });
       copy.createDiv({
         cls: "pi-agent-annotation-context-preview",
-        text: truncate2(annotation.context, 92)
+        text: truncate(annotation.context, 92)
       });
       const metadata = copy.createDiv({ cls: "pi-agent-annotation-meta" });
       metadata.createSpan({ text: annotation.intent === "change" ? "Change" : "Question" });
@@ -1594,10 +1553,8 @@ var MarkdownAnnotationsController = class {
         this.openEditModal(state, annotation)
       );
       this.iconButton(actions, "trash-2", "Delete annotation", () => {
-        new AnnotationDeleteModal(this.plugin.app, () => {
-          this.plugin.annotationStore.delete(annotation.path, annotation.id);
-          this.refresh();
-        }).open();
+        this.plugin.annotationStore.delete(annotation.path, annotation.id);
+        this.refresh();
       });
     }
   }
@@ -1940,7 +1897,7 @@ function structuredCloneSafe2(value) {
 function elementFromNode(node) {
   return node?.nodeType === 1 ? node : node?.parentElement;
 }
-function truncate2(value, limit) {
+function truncate(value, limit) {
   const text = String(value ?? "")
     .replace(/\s+/g, " ")
     .trim();
@@ -2208,7 +2165,7 @@ var ContextBuilder = class {
    * additional context explicitly with @note, #tag, /search, or folder refs.
    */
   async buildPreAttachedContext(parsedPrompt, selection = "", options = void 0) {
-    const activeNote = await this.graph.getActiveNoteContext(selection);
+    const activeNote = await this.resolveActiveNote(selection, options);
     const linkedNeighborhood = activeNote
       ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
       : [];
@@ -2223,6 +2180,17 @@ var ContextBuilder = class {
       },
       options
     );
+  }
+  async resolveActiveNote(selection, options) {
+    if (options?.includeActiveNote === false) return void 0;
+    if (!options?.activeNotePath) return this.graph.getActiveNoteContext(selection);
+    try {
+      const context = await this.graph.getNoteContext(options.activeNotePath);
+      const content = await this.graph.readVaultFile(options.activeNotePath);
+      return { ...context, content, selection };
+    } catch {
+      return void 0;
+    }
   }
   /**
    * Reusable prompt-time enrichment hook. Local queue or steer-now callers can
@@ -4015,6 +3983,8 @@ function createQueuedPrompt({
   attachments = [],
   annotations = [],
   annotationBatchId,
+  contextFilePath,
+  includeActiveNote = true,
   threadId,
   id,
   createdAt
@@ -4034,6 +4004,8 @@ function createQueuedPrompt({
     annotations: normalizedAnnotations,
     annotationBatchId:
       normalizedAnnotations.length > 0 ? String(annotationBatchId || normalizedId) : void 0,
+    contextFilePath: contextFilePath ? String(contextFilePath) : void 0,
+    includeActiveNote: includeActiveNote !== false,
     threadId: String(threadId || ""),
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
     state: "pending"
@@ -6022,7 +5994,9 @@ function enqueuePrompt(
   images = [],
   attachments = [],
   annotations = [],
-  annotationBatchId
+  annotationBatchId,
+  contextFilePath,
+  includeActiveNote = true
 ) {
   const item = this.plugin.enqueueLocalPrompt({
     prompt,
@@ -6030,6 +6004,8 @@ function enqueuePrompt(
     attachments,
     annotations,
     annotationBatchId,
+    contextFilePath,
+    includeActiveNote,
     threadId
   });
   if (!item) return;
@@ -6062,7 +6038,9 @@ function runNextQueuedPrompt() {
     item.id,
     item.attachments,
     item.annotations,
-    item.annotationBatchId
+    item.annotationBatchId,
+    item.contextFilePath,
+    item.includeActiveNote
   );
 }
 function removeQueuedPrompt(id) {
@@ -6080,6 +6058,7 @@ function retrieveQueuedPrompt(id) {
   if (this.inputEl) this.inputEl.value = item.prompt;
   this.composerImages = item.images.map((image) => ({ ...image }));
   this.composerAttachments = item.attachments.map((attachment) => ({ ...attachment }));
+  this.excludedContextPath = item.includeActiveNote === false ? item.contextFilePath : void 0;
   this.plugin.endAnnotationProcessing(item.annotationBatchId);
   this.plugin.restoreConsumedAnnotations(item.annotations);
   this.removeQueuedPrompt(id);
@@ -6756,21 +6735,21 @@ function renderMessage(e, t) {
     cls: `pi-agent-message pi-agent-message-${e.role}`
   });
   this.renderRoleLabel(n, e.role === "user" ? "user" : "pi", e, t);
-  if (e.role === "assistant") {
-    this.renderToolErrors(n, e.toolErrors);
-    if (e.thinking) {
-      const key = `${this.getCurrentThreadId()}:${e.createdAt}`;
-      this.renderThinkingDisclosure(
-        n,
-        e.thinking,
-        this.completedThinkingExpansion.get(key) === true,
-        (expanded) => this.completedThinkingExpansion.set(key, expanded),
-        false
-      );
-    }
+  if (e.role === "assistant") this.renderToolErrors(n, e.toolErrors);
+  const response = n.createDiv({ cls: "pi-agent-message-content" });
+  let answer = response;
+  if (e.role === "assistant" && e.thinking) {
+    const key = `${this.getCurrentThreadId()}:${e.createdAt}`;
+    this.renderThinkingDisclosure(
+      response,
+      e.thinking,
+      this.completedThinkingExpansion.get(key) === true,
+      (expanded) => this.completedThinkingExpansion.set(key, expanded),
+      false
+    );
+    answer = response.createDiv({ cls: "pi-agent-message-answer" });
   }
-  let s = n.createDiv({ cls: "pi-agent-message-content" });
-  this.renderPlainMessageContent(s, e.content);
+  this.renderPlainMessageContent(answer, e.content);
 }
 function renderToolErrors(container, errors) {
   for (const error of Array.isArray(errors) ? errors : [])
@@ -6787,7 +6766,7 @@ function renderThinkingDisclosure(container, thinking, expanded, onToggle, live 
   (0, f3.setIcon)(chevron, "chevron-right");
   summary.createSpan({
     cls: "pi-agent-thinking-label",
-    text: "Thinking",
+    text: live ? "THINKING" : "Thinking",
     attr: live ? { role: "status", "aria-label": "Thinking in progress" } : void 0
   });
   const text = details.createDiv({ cls: "pi-agent-thinking-content", text: thinking });
@@ -6827,13 +6806,17 @@ function unloadMessageRenderComponents() {
 }
 function renderStreamingAssistantMessage() {
   if (!this.messagesEl) return;
-  let e = this.messagesEl.createDiv({
+  const item = this.messagesEl.createDiv({
     cls: "pi-agent-message pi-agent-message-assistant pi-agent-message-streaming"
   });
-  ((this.streamingItemEl = e), this.renderRoleLabel(e, "pi"));
+  this.streamingItemEl = item;
+  this.renderRoleLabel(item, "pi");
+  const response = item.createDiv({
+    cls: "pi-agent-message-content pi-agent-message-content-streaming"
+  });
   if (this.streamingThinkingContent) {
     const rendered = this.renderThinkingDisclosure(
-      e,
+      response,
       this.streamingThinkingContent,
       this.thinkingDisclosureExpanded,
       (expanded) => this.setLiveThinkingExpanded(expanded),
@@ -6843,27 +6826,24 @@ function renderStreamingAssistantMessage() {
     this.liveThinkingTextEl = rendered.text;
     this.liveThinkingSetExpanded = rendered.setExpanded;
   }
-  let t = e.createDiv({
-    cls: "pi-agent-message-content pi-agent-message-content-streaming"
-  });
-  ((this.streamingTextEl = t.createSpan({
-    cls: "pi-agent-streaming-text"
-  })),
-    this.streamingTextEl.setText(this.streamingAssistantContent),
-    t.createSpan({ cls: "pi-agent-typing-cursor", text: "\u258C" }));
+  const answer = response.createDiv({ cls: "pi-agent-message-answer" });
+  this.streamingTextEl = answer.createSpan({ cls: "pi-agent-streaming-text" });
+  this.streamingTextEl.setText(this.streamingAssistantContent);
+  answer.createSpan({ cls: "pi-agent-typing-cursor", text: "\u258C" });
 }
 function renderActivityMessage() {
   if (!this.messagesEl) return;
-  let e = this.messagesEl.createDiv({
+  const item = this.messagesEl.createDiv({
     cls: "pi-agent-message pi-agent-message-assistant pi-agent-message-activity"
   });
-  this.activityItemEl = e;
-  this.renderRoleLabel(e, "pi");
-  if (this.streamingThinkingContent) {
+  this.activityItemEl = item;
+  this.renderRoleLabel(item, "pi");
+  if (this.streamingThinkingContent || this.activityKind === "thinking") {
+    const response = item.createDiv({ cls: "pi-agent-message-content" });
     const rendered = this.renderThinkingDisclosure(
-      e,
+      response,
       this.streamingThinkingContent,
-      this.thinkingDisclosureExpanded,
+      this.streamingThinkingContent ? this.thinkingDisclosureExpanded : false,
       (expanded) => this.setLiveThinkingExpanded(expanded),
       true
     );
@@ -6882,10 +6862,7 @@ function renderRoleLabel(e, t, n, s) {
   else if (
     (this.renderPiIcon(l),
     o.createSpan({ text: "Agent" }),
-    !n &&
-      this.running &&
-      this.activityText &&
-      !(this.streamingThinkingContent && this.activityKind === "thinking"))
+    !n && this.running && this.activityText && this.activityKind !== "thinking")
   ) {
     let h = o.createSpan({
       cls: `pi-agent-inline-activity pi-agent-activity-${this.activityKind}`,
@@ -7730,6 +7707,7 @@ var PiAgentView = class extends f4.ItemView {
     this.promptQueue = this.plugin.getLocalPromptQueue();
     this.composerImages = [];
     this.composerAttachments = [];
+    this.excludedContextPath = void 0;
     this.nativePiQueue = void 0;
     this.steeringPromptIds = /* @__PURE__ */ new Set();
     this.streamingThinkingContent = "";
@@ -7903,7 +7881,6 @@ var PiAgentView = class extends f4.ItemView {
       (this.promptQueueEl = d.createDiv({ cls: "pi-agent-prompt-queue" })),
       this.renderPromptQueue(),
       (this.extensionWidgetsAboveEl = d.createDiv({ cls: "pi-agent-extension-widgets" })),
-      (this.composerImagesEl = d.createDiv({ cls: "pi-agent-composer-images" })),
       this.renderComposerImages(),
       (this.inputEl = d.createEl("textarea", {
         placeholder: "Ask the agent about your vault... Enter sends, Shift+Enter adds a line."
@@ -7986,9 +7963,9 @@ var PiAgentView = class extends f4.ItemView {
       (this.promptQueueEl = void 0),
       (this.extensionWidgetsAboveEl = void 0),
       (this.extensionWidgetsBelowEl = void 0),
-      (this.composerImagesEl = void 0),
       (this.composerImages = []),
       (this.composerAttachments = []),
+      (this.excludedContextPath = void 0),
       (this.imageInputEl = void 0),
       (this.sendButtonEl = void 0),
       (this.composerBarEl = void 0),
@@ -8028,23 +8005,68 @@ var PiAgentView = class extends f4.ItemView {
     this.inputEl.focus();
   }
   renderToolBadges() {
-    let e = this.toolBadgesEl;
-    if (!e) return;
-    e.empty();
-    let t = this.plugin.getCurrentContextFile(),
-      n = t
-        ? { label: `Current: ${t.basename}`, enabled: true, title: t.path }
-        : {
-            label: "No current note",
-            enabled: false,
-            title: "Open a markdown note to attach it automatically"
-          };
-    e.createSpan({
-      cls: `pi-agent-tool-badge${n.enabled ? " is-enabled" : ""}`,
-      text: n.label,
-      attr: { title: n.title }
+    const root = this.toolBadgesEl;
+    if (!root) return;
+    root.empty();
+    const badges = root.createDiv({
+      cls: "pi-agent-context-badges",
+      attr: { role: "list", "aria-label": "Pending prompt context" }
     });
-    this.renderToolBadgesContextUsage(e);
+    const contextFile = this.plugin.getCurrentContextFile();
+    if (this.excludedContextPath && this.excludedContextPath !== contextFile?.path)
+      this.excludedContextPath = void 0;
+    const includeActiveNote = !!contextFile && this.excludedContextPath !== contextFile.path;
+    if (includeActiveNote)
+      this.renderPendingBadge(
+        badges,
+        contextFile.name,
+        `Remove ${contextFile.name}`,
+        () => {
+          this.excludedContextPath = contextFile.path;
+          this.renderToolBadges();
+        },
+        contextFile.path
+      );
+    for (const image of this.composerImages)
+      this.renderPendingBadge(
+        badges,
+        image.fileName || "image",
+        `Remove ${image.fileName || "image"}`,
+        () => {
+          this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
+          this.renderComposerImages();
+        }
+      );
+    for (const attachment of this.composerAttachments)
+      this.renderPendingBadge(badges, attachment.fileName, `Remove ${attachment.fileName}`, () => {
+        this.composerAttachments = this.composerAttachments.filter(
+          (item) => item.id !== attachment.id
+        );
+        this.renderComposerImages();
+      });
+    const annotations = contextFile ? this.plugin.annotationStore.list(contextFile.path) : [];
+    if (annotations.length > 0) {
+      const label = `${annotations.length} annotation${annotations.length === 1 ? "" : "s"}`;
+      this.renderPendingBadge(badges, label, `Clear ${label}`, () => {
+        this.plugin.annotationController?.cancelPick();
+        this.plugin.annotationStore.deletePath(contextFile.path);
+        this.renderToolBadges();
+      });
+    }
+    this.renderToolBadgesContextUsage(root);
+  }
+  renderPendingBadge(parent, label, removeLabel, onRemove, title = label) {
+    const badge = parent.createSpan({
+      cls: "pi-agent-tool-badge pi-agent-context-badge is-enabled",
+      attr: { title, role: "listitem" }
+    });
+    badge.createSpan({ cls: "pi-agent-context-badge-label", text: label });
+    const remove = badge.createEl("button", {
+      cls: "clickable-icon pi-agent-context-badge-remove",
+      attr: { type: "button", "aria-label": removeLabel, title: removeLabel }
+    });
+    (0, f4.setIcon)(remove, "x");
+    remove.addEventListener("click", onRemove);
   }
   renderToolBadgesContextUsage(e) {
     let t = this.getDisplayedContextUsage(),
@@ -8141,6 +8163,9 @@ var PiAgentView = class extends f4.ItemView {
     let e = (t = this.inputEl) == null ? void 0 : t.value.trim();
     let images = this.composerImages.map((image) => ({ ...image }));
     let attachments = this.composerAttachments.map((attachment) => ({ ...attachment }));
+    const contextFile = this.plugin.getCurrentContextFile();
+    const contextFilePath = contextFile?.path;
+    const includeActiveNote = !!contextFile && this.excludedContextPath !== contextFilePath;
     if (!e && images.length === 0 && attachments.length === 0) return;
     if (images.length > 0) await this.plugin.ensureModelCatalogLoaded();
     if (images.length > 0 && !modelSupportsImages(this.plugin.getSelectedModelInfo())) {
@@ -8150,11 +8175,22 @@ var PiAgentView = class extends f4.ItemView {
     (this.inputEl && (this.inputEl.value = ""),
       (this.composerImages = []),
       (this.composerAttachments = []),
+      (this.excludedContextPath = void 0),
       this.renderComposerImages(),
       (n = this.suggestions) == null || n.close(),
       this.resizeInput(),
       this.syncCurrentRunFlags(),
-      this.runPrompt(e, void 0, images, void 0, attachments),
+      this.runPrompt(
+        e,
+        void 0,
+        images,
+        void 0,
+        attachments,
+        void 0,
+        void 0,
+        contextFilePath,
+        includeActiveNote
+      ),
       this.setRunningState(this.running));
   }
   handleSendButtonClick() {
@@ -8396,47 +8432,7 @@ var PiAgentView = class extends f4.ItemView {
     this.addLocalFiles(files);
   }
   renderComposerImages() {
-    if (!this.composerImagesEl) return;
-    this.composerImagesEl.empty();
-    this.composerImagesEl.toggleClass(
-      "is-empty",
-      this.composerImages.length === 0 && this.composerAttachments.length === 0
-    );
-    for (const image of this.composerImages) {
-      const preview = this.composerImagesEl.createDiv({ cls: "pi-agent-composer-image" });
-      preview.createEl("img", {
-        attr: { src: imagePreviewUrl(image), alt: image.fileName || "Attached image" }
-      });
-      const remove = preview.createEl("button", {
-        cls: "clickable-icon",
-        attr: { "aria-label": `Remove ${image.fileName || "image"}`, title: "Remove image" }
-      });
-      f4.setIcon(remove, "x");
-      remove.addEventListener("click", () => {
-        this.composerImages = this.composerImages.filter((item) => item.id !== image.id);
-        this.renderComposerImages();
-      });
-      renderAttachmentMetadata(preview, image, "image");
-    }
-    for (const attachment of this.composerAttachments) {
-      const preview = this.composerImagesEl.createDiv({
-        cls: "pi-agent-composer-image pi-agent-composer-file"
-      });
-      const icon = preview.createSpan({ cls: "pi-agent-attachment-icon" });
-      f4.setIcon(icon, "file-text");
-      renderAttachmentMetadata(preview, attachment, "text");
-      const remove = preview.createEl("button", {
-        cls: "clickable-icon",
-        attr: { "aria-label": `Remove ${attachment.fileName}`, title: "Remove file" }
-      });
-      f4.setIcon(remove, "x");
-      remove.addEventListener("click", () => {
-        this.composerAttachments = this.composerAttachments.filter(
-          (item) => item.id !== attachment.id
-        );
-        this.renderComposerImages();
-      });
-    }
+    this.renderToolBadges();
   }
   resizeInput() {
     if (!this.inputEl) return;
@@ -8491,7 +8487,8 @@ var PiAgentView = class extends f4.ItemView {
     attachments = [],
     annotations,
     annotationBatchId = createAnnotationBatchId(t),
-    annotationSourcePath
+    annotationSourcePath,
+    includeActiveNote = true
   ) {
     if (annotations === void 0) {
       try {
@@ -8519,14 +8516,30 @@ var PiAgentView = class extends f4.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments, annotations, annotationBatchId);
+        this.enqueuePrompt(
+          e,
+          t,
+          images,
+          attachments,
+          annotations,
+          annotationBatchId,
+          annotationSourcePath,
+          includeActiveNote
+        );
       }
       return;
     }
     let delivery;
     try {
       delivery = await this.plugin.enrichPromptDelivery(
-        { prompt: e, images, attachments, annotations },
+        {
+          prompt: e,
+          images,
+          attachments,
+          annotations,
+          contextFilePath: annotationSourcePath,
+          includeActiveNote
+        },
         { mode: "prompt", threadId: t }
       );
     } catch (error) {
@@ -8576,7 +8589,16 @@ var PiAgentView = class extends f4.ItemView {
         this.plugin.replaceLocalPromptQueue(this.promptQueue);
         this.renderPromptQueue();
       } else {
-        this.enqueuePrompt(e, t, images, attachments, annotations, annotationBatchId);
+        this.enqueuePrompt(
+          e,
+          t,
+          images,
+          attachments,
+          annotations,
+          annotationBatchId,
+          annotationSourcePath,
+          includeActiveNote
+        );
       }
       return;
     }
@@ -8658,7 +8680,10 @@ var PiAgentView = class extends f4.ItemView {
             this.thinkingDisclosureExpanded = n.thinkingExpanded;
             this.thinkingDisclosureUserSet = n.thinkingUserSet;
             this.handleRunEvent(o);
-            if (thinkingDelta) this.appendStreamingThinkingDelta(thinkingDelta);
+            if (thinkingDelta) {
+              this.liveThinkingSetExpanded?.(n.thinkingExpanded);
+              this.appendStreamingThinkingDelta(thinkingDelta);
+            }
           },
           onTextDelta: (o) => {
             if (!n.thinkingUserSet) n.thinkingExpanded = false;
@@ -8894,16 +8919,6 @@ function mimeForName(name) {
       py: "text/x-python"
     }[extension] || ""
   );
-}
-function formatAttachmentBytes(bytes) {
-  if (!Number.isFinite(bytes)) return "unknown size";
-  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KiB`;
-}
-function renderAttachmentMetadata(parent, attachment, kind) {
-  parent.createSpan({
-    cls: "pi-agent-attachment-metadata",
-    text: `${attachment.fileName} \xB7 ${attachment.mimeType || kind} \xB7 ${formatAttachmentBytes(attachment.originalSize ?? attachment.size)}${attachment.truncated ? " \xB7 truncated" : ""}`
-  });
 }
 function createAnnotationBatchId(threadId) {
   return `annotation-${String(threadId || "thread")}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -9467,6 +9482,7 @@ var PiAgentPlugin = class extends P.Plugin {
       (this.annotationStore = new AnnotationStore(annotationData, () => {
         this.saveAnnotations();
         this.annotationController?.refresh();
+        this.refreshAnnotationBadges();
       })));
     (this.syncCurrentThreadState(),
       this.settings.model &&
@@ -9821,6 +9837,10 @@ var PiAgentPlugin = class extends P.Plugin {
       leaf.updateHeader?.();
     }
   }
+  refreshAnnotationBadges() {
+    for (const leaf of this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE))
+      leaf.view?.renderToolBadges?.();
+  }
   async activateView() {
     var n;
     let t = (n = this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE)[0]) != null ? n : null;
@@ -9895,7 +9915,11 @@ var PiAgentPlugin = class extends P.Plugin {
     const promptContext = await this.contextBuilder.build(
       enriched.prompt,
       this.getEditorSelection(),
-      hasAnnotationSnapshot ? { annotations: enriched.annotations } : void 0
+      {
+        ...(hasAnnotationSnapshot ? { annotations: enriched.annotations } : {}),
+        activeNotePath: enriched.contextFilePath,
+        includeActiveNote: enriched.includeActiveNote !== false
+      }
     );
     return { ...enriched, promptContext };
   }

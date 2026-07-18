@@ -7,7 +7,7 @@ vi.mock("obsidian", () => ({
   }
 }));
 
-import { renderThinkingDisclosure } from "../src/ui/message-renderer.mjs";
+import { renderMessage, renderThinkingDisclosure } from "../src/ui/message-renderer.mjs";
 
 class FakeElement {
   constructor(tag, options = {}) {
@@ -77,6 +77,7 @@ describe("native chat polish", () => {
     expect(descendants.some((element) => element.tag === "pre")).toBe(false);
     expect(descendants.map((element) => element.icon).filter(Boolean)).toEqual(["chevron-right"]);
     expect(descendants.some((element) => element.text === "Live")).toBe(false);
+    expect(descendants.some((element) => element.text === "THINKING")).toBe(true);
     expect(
       descendants.some(
         (element) => element.cls === "pi-agent-thinking-label" && element.attr.role === "status"
@@ -96,15 +97,53 @@ describe("native chat polish", () => {
     expect(rendered.details.open).toBe(false);
     expect(descendants.map((element) => element.icon).filter(Boolean)).toEqual(["chevron-right"]);
     expect(descendants.some((element) => element.attr.role === "status")).toBe(false);
+    expect(descendants.some((element) => element.text === "Thinking")).toBe(true);
 
     rendered.details.open = true;
     rendered.details.listeners.get("toggle")();
     expect(onToggle).toHaveBeenCalledWith(true);
   });
 
+  it("integrates completed thinking into the assistant response box", () => {
+    const messagesEl = new FakeElement("div");
+    const renderPlainMessageContent = vi.fn();
+    const view = {
+      messagesEl,
+      completedThinkingExpansion: new Map(),
+      getCurrentThreadId: () => "thread",
+      renderRoleLabel: vi.fn(),
+      renderToolErrors: vi.fn(),
+      renderThinkingDisclosure,
+      renderPlainMessageContent
+    };
+
+    renderMessage.call(
+      view,
+      { role: "assistant", content: "Answer", thinking: "Reasoning", createdAt: 1 },
+      0
+    );
+
+    const message = messagesEl.children[0];
+    const response = message.children.find((element) => element.cls === "pi-agent-message-content");
+    expect(response.children[0].cls).toBe("pi-agent-thinking-disclosure");
+    expect(response.children[1].cls).toBe("pi-agent-message-answer");
+    expect(renderPlainMessageContent).toHaveBeenCalledWith(response.children[1], "Answer");
+    expect(messageRendererSource).toContain("this.renderThinkingDisclosure(\n      response");
+    expect(messageRendererSource).toContain(
+      'answer = response.createDiv({ cls: "pi-agent-message-answer" })'
+    );
+    expect(styles).toMatch(
+      /\.pi-agent-thinking-disclosure\[open\][\s\S]*?border-bottom: 1px solid var\(--background-modifier-border\)/
+    );
+    expect(styles).toMatch(
+      /\.pi-agent-thinking-content \{[\s\S]*?background: var\(--background-primary-alt\);/
+    );
+  });
+
   it("preserves a user-set thinking disclosure state when a run completes or fails", () => {
     expect(viewSource.match(/n\.thinkingUserSet \? n\.thinkingExpanded : false/g)).toHaveLength(2);
     expect(viewSource).toContain("if (!n.thinkingUserSet) n.thinkingExpanded = false");
+    expect(viewSource).toContain("this.liveThinkingSetExpanded?.(n.thinkingExpanded)");
   });
 
   it("keeps archive-all directly visible and removes the empty history overflow", () => {
@@ -130,6 +169,11 @@ describe("native chat polish", () => {
     expect(messageRendererSource).toContain('cls: "pi-agent-inline-activity-text"');
     expect(messageRendererSource).not.toContain("pi-agent-inline-activity-spinner");
     expect(messageRendererSource).not.toContain("pi-agent-thinking-spinner");
+    expect(messageRendererSource).toContain('this.activityKind !== "thinking"');
+    expect(messageRendererSource).toContain('text: live ? "THINKING" : "Thinking"');
+    expect(styles).toMatch(
+      /\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label \{[\s\S]*?font-weight: var\(--font-bold\);/
+    );
     expect(styles).toContain("@keyframes pi-agent-activity-flow");
     expect(styles).toMatch(
       /\.pi-agent-inline-activity-text,\s*\.pi-agent-thinking-disclosure\.is-live \.pi-agent-thinking-label \{[\s\S]*?animation: pi-agent-activity-flow 1\.2s linear infinite;/

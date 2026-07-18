@@ -92,6 +92,35 @@ describe("ContextBuilder", () => {
     expect(formatted).toContain('"status": "detached"');
   });
 
+  it("pins or removes active-note context according to the pending badge payload", async () => {
+    const graph = createGraph();
+    graph.getNoteContext = vi.fn(async (path) => ({
+      ...graph.activeNote,
+      path,
+      title: "Pinned"
+    }));
+    graph.readVaultFile = vi.fn(async (path) => `content for ${path}`);
+    const builder = new ContextBuilder(graph, DEFAULT_SETTINGS, "Bundled", "");
+
+    const pinned = await builder.build("Prompt", "selection", {
+      activeNotePath: "Folder/Pinned.md"
+    });
+    const removed = await builder.build("Prompt", "selection", {
+      activeNotePath: "Folder/Pinned.md",
+      includeActiveNote: false
+    });
+
+    expect(pinned.activeNote).toMatchObject({
+      path: "Folder/Pinned.md",
+      content: "content for Folder/Pinned.md",
+      selection: "selection"
+    });
+    expect(graph.getNoteContext).toHaveBeenCalledOnce();
+    expect(removed.activeNote).toBeUndefined();
+    expect(removed.linkedNeighborhood).toEqual([]);
+    expect(removed.annotations).toEqual([]);
+  });
+
   it("keeps instruction-like annotation text inside escaped structured data", async () => {
     const builder = new ContextBuilder(
       createGraph(),

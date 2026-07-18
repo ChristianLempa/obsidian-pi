@@ -18,7 +18,9 @@ export function enqueuePrompt(
   images = [],
   attachments = [],
   annotations = [],
-  annotationBatchId
+  annotationBatchId,
+  contextFilePath,
+  includeActiveNote = true
 ) {
   const item = this.plugin.enqueueLocalPrompt({
     prompt,
@@ -26,6 +28,8 @@ export function enqueuePrompt(
     attachments,
     annotations,
     annotationBatchId,
+    contextFilePath,
+    includeActiveNote,
     threadId
   });
   if (!item) return;
@@ -59,7 +63,9 @@ export function runNextQueuedPrompt() {
     item.id,
     item.attachments,
     item.annotations,
-    item.annotationBatchId
+    item.annotationBatchId,
+    item.contextFilePath,
+    item.includeActiveNote
   );
 }
 
@@ -79,6 +85,7 @@ export function retrieveQueuedPrompt(id) {
   if (this.inputEl) this.inputEl.value = item.prompt;
   this.composerImages = item.images.map((image) => ({ ...image }));
   this.composerAttachments = item.attachments.map((attachment) => ({ ...attachment }));
+  this.excludedContextPath = item.includeActiveNote === false ? item.contextFilePath : undefined;
   this.plugin.endAnnotationProcessing(item.annotationBatchId);
   this.plugin.restoreConsumedAnnotations(item.annotations);
   this.removeQueuedPrompt(id);

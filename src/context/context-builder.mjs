@@ -49,7 +49,7 @@ export class ContextBuilder {
    * additional context explicitly with @note, #tag, /search, or folder refs.
    */
   async buildPreAttachedContext(parsedPrompt, selection = "", options = undefined) {
-    const activeNote = await this.graph.getActiveNoteContext(selection);
+    const activeNote = await this.resolveActiveNote(selection, options);
     const linkedNeighborhood = activeNote
       ? await this.graph.getLinkedNeighborhood(activeNote.path, 1)
       : [];
@@ -65,6 +65,18 @@ export class ContextBuilder {
       },
       options
     );
+  }
+
+  async resolveActiveNote(selection, options) {
+    if (options?.includeActiveNote === false) return undefined;
+    if (!options?.activeNotePath) return this.graph.getActiveNoteContext(selection);
+    try {
+      const context = await this.graph.getNoteContext(options.activeNotePath);
+      const content = await this.graph.readVaultFile(options.activeNotePath);
+      return { ...context, content, selection };
+    } catch {
+      return undefined;
+    }
   }
 
   /**

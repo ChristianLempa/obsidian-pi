@@ -1,7 +1,7 @@
 import { MarkdownRenderChild, MarkdownView, Notice, setIcon } from "obsidian";
 import { captureAnchor } from "./annotation-anchors.mjs";
 import { ANNOTATION_LIMITS, positionToOffset } from "./annotation-model.mjs";
-import { AnnotationDeleteModal, AnnotationModal } from "./annotation-modal.mjs";
+import { AnnotationModal } from "./annotation-modal.mjs";
 import { resolveMarkdownBlockRange } from "./markdown-block-range.mjs";
 import {
   mapRenderedChunkCandidatesToSource,
@@ -762,10 +762,8 @@ export class MarkdownAnnotationsController {
         this.openEditModal(state, annotation)
       );
       this.iconButton(actions, "trash-2", "Delete annotation", () => {
-        new AnnotationDeleteModal(this.plugin.app, () => {
-          this.plugin.annotationStore.delete(annotation.path, annotation.id);
-          this.refresh();
-        }).open();
+        this.plugin.annotationStore.delete(annotation.path, annotation.id);
+        this.refresh();
       });
     }
   }
