@@ -109,18 +109,6 @@ function buildDecorations(view, controller) {
     );
   }
 
-  for (const reveal of controller.revealRangesForEditor(view)) {
-    const from = Math.min(documentLength, reveal.from);
-    const to = Math.min(documentLength, reveal.to);
-    if (to <= from) continue;
-    ranges.push(
-      Decoration.mark({
-        class: "pi-agent-annotation-reveal-range",
-        attributes: { "data-annotation-reveal": "true" }
-      }).range(from, to)
-    );
-  }
-
   const candidate = view.state.selection.main.empty
     ? controller.pickRangeForEditor(view)
     : undefined;

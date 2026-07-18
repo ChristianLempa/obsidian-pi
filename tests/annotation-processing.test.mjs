@@ -46,13 +46,19 @@ describe("annotation processing UX", () => {
     );
   });
 
-  it("reveals resolved changed ranges without replaying document edits", () => {
-    expect(extensionSource).toContain("revealRangesForEditor");
-    expect(extensionSource).toContain("pi-agent-annotation-reveal-range");
-    expect(styles).toContain("@keyframes pi-agent-annotation-reveal");
-    expect(styles).toMatch(
-      /\.pi-agent-annotation-reveal-range[\s\S]*?clip-path: inset\(0 100% 0 0\)/
-    );
+  it("does not keep a post-edit reveal subsystem", () => {
+    expect(extensionSource).not.toContain("revealRangesForEditor");
+    expect(controllerSource).not.toContain("revealRanges");
+    expect(controllerSource).not.toContain("prepareRevealForModifiedFile");
+    expect(styles).not.toContain("pi-agent-annotation-reveal-range");
+    expect(styles).not.toContain("@keyframes pi-agent-annotation-reveal");
+  });
+
+  it("does not broadly reload Markdown views for active-run vault modifications", () => {
+    expect(viewSource).not.toContain('app.vault.on("modify"');
+    expect(viewSource).not.toContain("handleVaultFileModify");
+    expect(viewSource).not.toContain("activeEditorScrollSnapshot");
+    expect(viewSource).not.toContain("scheduleEditorScrollRestore");
   });
 
   it("exposes annotation-only sending from the sticky scrollable list", () => {
@@ -64,20 +70,22 @@ describe("annotation processing UX", () => {
     expect(styles).toMatch(/\.pi-agent-annotations-list-heading \{[\s\S]*?position: sticky;/);
   });
 
-  it("removes stored highlights before starting the processing transition", () => {
+  it("consumes annotations without showing processing for a merely queued prompt", () => {
     const consumeStart = pluginSource.indexOf("async consumeAnnotationsForPrompt");
-    const consumeEnd = pluginSource.indexOf("beginAnnotationProcessing(token", consumeStart);
+    const consumeEnd = pluginSource.indexOf("beginAnnotationProcessing(threadId", consumeStart);
     const consumeSource = pluginSource.slice(consumeStart, consumeEnd);
-    expect(consumeSource.indexOf("annotationStore.deletePath")).toBeGreaterThan(-1);
-    expect(consumeSource.indexOf("annotationStore.deletePath")).toBeLessThan(
-      consumeSource.indexOf("beginAnnotationProcessing(processingToken")
-    );
+    expect(consumeSource).toContain("annotationStore.deletePath");
+    expect(consumeSource).not.toContain("beginAnnotationProcessing");
+    expect(queueSource).not.toContain("annotationBatchId");
+    expect(queueSource).not.toContain("beginAnnotationProcessing(item");
   });
 
-  it("releases processing state on unsent errors, queue removal, retrieval, and run settlement", () => {
-    expect(viewSource).toContain("restoreUnsentAnnotations");
+  it("starts processing with execution and clears it on mutation or run settlement", () => {
+    expect(viewSource).toContain("this.plugin.beginAnnotationProcessing(t, annotations)");
+    expect(viewSource).toContain("handleSuccessfulToolMutation(o, t)");
+    expect(viewSource).toContain("completeAnnotationProcessingForPath(threadId, file.path)");
     expect(viewSource).toContain("endAnnotationProcessingForThread(t)");
-    expect(queueSource).toContain("endAnnotationProcessing(item.annotationBatchId)");
+    expect(viewSource).toContain("restoreUnsentAnnotations");
     expect(queueSource).toContain("restoreConsumedAnnotations(item.annotations)");
   });
 });

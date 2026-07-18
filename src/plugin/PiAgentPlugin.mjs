@@ -850,25 +850,20 @@ export class PiAgentPlugin extends P.Plugin {
         this.getExtensionUiHandler()
       )));
   }
-  async consumeAnnotationsForPrompt(processingToken, threadId, sourcePath) {
+  async consumeAnnotationsForPrompt(sourcePath) {
     this.annotationController?.cancelPick();
     const explicitFile = sourcePath ? this.app.vault.getAbstractFileByPath(sourcePath) : undefined;
     const file = explicitFile instanceof P.TFile ? explicitFile : this.getCurrentContextFile();
     if (!file) return [];
     const annotations = await this.getAnnotationsForContext(file.path);
-    if (annotations.length > 0) {
-      // Remove persisted highlights before adding processing masks so the two
-      // visual states are never briefly nested over the same source range.
-      this.annotationStore.deletePath(file.path);
-      this.beginAnnotationProcessing(processingToken, annotations, threadId);
-    }
+    if (annotations.length > 0) this.annotationStore.deletePath(file.path);
     return annotations;
   }
-  beginAnnotationProcessing(token, annotations, threadId) {
-    this.annotationController?.beginProcessing(token, annotations, threadId);
+  beginAnnotationProcessing(threadId, annotations) {
+    this.annotationController?.beginProcessing(threadId, annotations);
   }
-  endAnnotationProcessing(token) {
-    this.annotationController?.endProcessing(token);
+  completeAnnotationProcessingForPath(threadId, path) {
+    this.annotationController?.completeProcessingForPath(threadId, path);
   }
   endAnnotationProcessingForThread(threadId) {
     this.annotationController?.endProcessingForThread(threadId);
