@@ -1,0 +1,24 @@
+CHANGELOG.md
+  s_eee29254f5a8ef::t_d2164477091b7b 5-6
+tests/native-chat-polish.test.mjs
+  s_eee29254f5a8ef::t_06f7ae2096f335 192-193
+  s_eee29254f5a8ef::t_595f4b7f1dcd32 191,194
+styles.css
+  s_eee29254f5a8ef::t_fd1e74b7dc90ca 921,963-967
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "7c183fd6c21418cdbcf71e02b93b701753eef884",
+  "prompts": {},
+  "sessions": {
+    "s_eee29254f5a8ef": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7fb0-ada3-73ae-97f0-518d80c23997",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
