@@ -190,7 +190,7 @@ describe("native chat polish", () => {
     );
     expect(styles).toMatch(/\.pi-agent-thinking-disclosure summary \{[\s\S]*?padding: 0;/);
     expect(styles).toMatch(
-      /\.pi-agent-thinking-disclosure\.is-live:only-child \{\s*border-bottom-color: transparent;/
+      /\.pi-agent-thinking-disclosure\.is-live:only-child \{\s*border-bottom-color: transparent;\s*padding-bottom: 0;/
     );
     expect(styles).toMatch(/\.pi-agent-thinking-disclosure\[open\] \{\s*padding-bottom: 6px;/);
     expect(styles).toMatch(/\.pi-agent-thinking-content \{[\s\S]*?padding: 0 0 0 18px;/);

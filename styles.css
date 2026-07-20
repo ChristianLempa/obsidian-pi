@@ -913,6 +913,7 @@
 
 .pi-agent-thinking-disclosure.is-live:only-child {
   border-bottom-color: transparent;
+  padding-bottom: 0;
 }
 
 .pi-agent-thinking-disclosure[open] {
