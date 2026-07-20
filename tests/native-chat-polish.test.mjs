@@ -189,11 +189,14 @@ describe("native chat polish", () => {
       /\.pi-agent-thinking-content \{[\s\S]*?border-top: 1px solid var\(--background-modifier-border\);/
     );
     expect(styles).toMatch(/\.pi-agent-thinking-disclosure summary \{[\s\S]*?padding: 0;/);
-    expect(styles).toMatch(/\.pi-agent-thinking-content \{[\s\S]*?padding: 0 0 6px 18px;/);
+    expect(styles).toMatch(
+      /\.pi-agent-thinking-disclosure\.is-live:only-child \{\s*border-bottom-color: transparent;/
+    );
+    expect(styles).toMatch(/\.pi-agent-thinking-disclosure\[open\] \{\s*padding-bottom: 6px;/);
+    expect(styles).toMatch(/\.pi-agent-thinking-content \{[\s\S]*?padding: 0 0 0 18px;/);
     expect(styles).toMatch(
       /\.pi-agent-thinking-content\.markdown-rendered > \* \{\s*margin-block: 3px;/
     );
-    expect(styles).not.toMatch(/\.pi-agent-thinking-disclosure\[open\] \{[\s\S]*?padding/);
   });
 
   it("preserves a user-set thinking disclosure state when a run completes or fails", () => {

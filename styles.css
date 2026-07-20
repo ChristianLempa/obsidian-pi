@@ -911,6 +911,14 @@
   overflow: hidden;
 }
 
+.pi-agent-thinking-disclosure.is-live:only-child {
+  border-bottom-color: transparent;
+}
+
+.pi-agent-thinking-disclosure[open] {
+  padding-bottom: 6px;
+}
+
 .pi-agent-thinking-disclosure summary {
   align-items: center;
   cursor: pointer;
@@ -960,7 +968,7 @@
   max-height: 240px;
   overflow: auto;
   overflow-wrap: anywhere;
-  padding: 0 0 6px 18px;
+  padding: 0 0 0 18px;
 }
 
 .pi-agent-thinking-content.markdown-rendered > * {
