@@ -189,10 +189,10 @@ describe("native chat polish", () => {
       /\.pi-agent-thinking-content \{[\s\S]*?border-top: 1px solid var\(--background-modifier-border\);/
     );
     expect(styles).toMatch(/\.pi-agent-thinking-disclosure summary \{[\s\S]*?padding: 0;/);
+    expect(styles).toMatch(/\.pi-agent-thinking-disclosure \{[\s\S]*?padding-bottom: 6px;/);
     expect(styles).toMatch(
-      /\.pi-agent-thinking-disclosure\.is-live:only-child \{\s*border-bottom-color: transparent;\s*padding-bottom: 0;/
+      /\.pi-agent-thinking-disclosure\.is-live \{\s*border-bottom-color: transparent;\s*margin-bottom: 0;\s*padding-bottom: 0;/
     );
-    expect(styles).toMatch(/\.pi-agent-thinking-disclosure\[open\] \{\s*padding-bottom: 6px;/);
     expect(styles).toMatch(/\.pi-agent-thinking-content \{[\s\S]*?padding: 0 0 0 18px;/);
     expect(styles).toMatch(
       /\.pi-agent-thinking-content\.markdown-rendered > \* \{\s*margin-block: 3px;/

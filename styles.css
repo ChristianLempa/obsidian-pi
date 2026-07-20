@@ -909,15 +909,13 @@
   font-size: var(--font-ui-smaller);
   margin: -4px -4px 6px;
   overflow: hidden;
-}
-
-.pi-agent-thinking-disclosure.is-live:only-child {
-  border-bottom-color: transparent;
-  padding-bottom: 0;
-}
-
-.pi-agent-thinking-disclosure[open] {
   padding-bottom: 6px;
+}
+
+.pi-agent-thinking-disclosure.is-live {
+  border-bottom-color: transparent;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 .pi-agent-thinking-disclosure summary {
