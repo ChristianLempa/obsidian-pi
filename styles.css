@@ -911,10 +911,6 @@
   overflow: hidden;
 }
 
-.pi-agent-thinking-disclosure[open] {
-  padding-bottom: 6px;
-}
-
 .pi-agent-thinking-disclosure summary {
   align-items: center;
   cursor: pointer;
@@ -922,7 +918,7 @@
   gap: 5px;
   list-style: none;
   min-height: 28px;
-  padding: 3px 7px;
+  padding: 0;
   user-select: none;
 }
 
@@ -964,7 +960,11 @@
   max-height: 240px;
   overflow: auto;
   overflow-wrap: anywhere;
-  padding: 7px 9px 8px;
+  padding: 0;
+}
+
+.pi-agent-thinking-content > * {
+  margin-block: 2px;
 }
 
 .pi-agent-thinking-content > :first-child {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Tightened the native thinking disclosure introduced in 0.0.11 by retaining its answer separator, removing summary and content insets, and reducing Markdown section spacing while preserving expandable Markdown rendering. (#77)
+
 ## 0.0.11
 
 - Cleared all Obsidian plugin scanner findings by replacing ambiguous expression chains, adopting popout-safe window/document/timer access, using the configured vault settings directory, adding Obsidian 1.13 searchable settings definitions with a 1.12-compatible renderer, and declaring CodeMirror as build-time-only dependencies while keeping its runtime modules externalized.
