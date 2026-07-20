@@ -904,7 +904,7 @@
 }
 
 .pi-agent-thinking-disclosure {
-  border-bottom: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border-hover);
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   margin: -4px -4px 6px;
@@ -960,7 +960,7 @@
   max-height: 240px;
   overflow: auto;
   overflow-wrap: anywhere;
-  padding: 0;
+  padding: 0 0 0 18px;
 }
 
 .pi-agent-thinking-content > * {

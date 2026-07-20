@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Tightened the native thinking disclosure introduced in 0.0.11 by retaining its answer separator, removing summary and content insets, and reducing Markdown section spacing while preserving expandable Markdown rendering. (#77)
+- Tightened the native thinking disclosure introduced in 0.0.11 with a clearer answer separator, label-aligned thinking content, and reduced Markdown section spacing while preserving expandable Markdown rendering. (#77)
 
 ## 0.0.11
 

@@ -180,7 +180,7 @@ describe("native chat polish", () => {
       'answer = response.createDiv({ cls: "pi-agent-message-answer" })'
     );
     expect(styles).toMatch(
-      /\.pi-agent-thinking-disclosure \{[\s\S]*?border-bottom: 1px solid var\(--background-modifier-border\)/
+      /\.pi-agent-thinking-disclosure \{[\s\S]*?border-bottom: 1px solid var\(--background-modifier-border-hover\)/
     );
     expect(styles).not.toMatch(
       /\.pi-agent-thinking-content \{[\s\S]*?background: var\(--background-primary-alt\);/
@@ -189,7 +189,7 @@ describe("native chat polish", () => {
       /\.pi-agent-thinking-content \{[\s\S]*?border-top: 1px solid var\(--background-modifier-border\);/
     );
     expect(styles).toMatch(/\.pi-agent-thinking-disclosure summary \{[\s\S]*?padding: 0;/);
-    expect(styles).toMatch(/\.pi-agent-thinking-content \{[\s\S]*?padding: 0;/);
+    expect(styles).toMatch(/\.pi-agent-thinking-content \{[\s\S]*?padding: 0 0 0 18px;/);
     expect(styles).toMatch(/\.pi-agent-thinking-content > \* \{\s*margin-block: 2px;/);
     expect(styles).not.toMatch(/\.pi-agent-thinking-disclosure\[open\] \{[\s\S]*?padding/);
   });
