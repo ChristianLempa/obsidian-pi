@@ -960,18 +960,18 @@
   max-height: 240px;
   overflow: auto;
   overflow-wrap: anywhere;
-  padding: 0 0 0 18px;
+  padding: 0 0 6px 18px;
 }
 
-.pi-agent-thinking-content > * {
-  margin-block: 2px;
+.pi-agent-thinking-content.markdown-rendered > * {
+  margin-block: 3px;
 }
 
-.pi-agent-thinking-content > :first-child {
+.pi-agent-thinking-content.markdown-rendered > :first-child {
   margin-top: 0;
 }
 
-.pi-agent-thinking-content > :last-child {
+.pi-agent-thinking-content.markdown-rendered > :last-child {
   margin-bottom: 0;
 }
 
