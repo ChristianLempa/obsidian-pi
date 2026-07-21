@@ -28,13 +28,13 @@ When Obsidian is unfocused and the operating system has granted notification per
 
 ## Local storage
 
-The plugin stores settings, annotations, and unsent local follow-up queue items in Obsidian plugin data. Chat transcripts are plaintext, versioned JSON files under the configurable vault-relative `pi_sessions` folder after migration; legacy history remains in plugin data until you approve migration. Migration creates a local recovery backup before removing legacy history from plugin data. Annotation records are plaintext JSON and include note paths, quoted/source text, optional rendered-selection text, and your annotation context. None of this local data is encrypted by the plugin.
+The plugin stores settings, annotations, and unsent local follow-up queue items in Obsidian plugin data. Chat transcripts are plaintext, versioned JSON files under the configurable vault-relative `chats` folder after migration; legacy history remains in plugin data until you approve migration. Migration creates a local recovery backup before removing legacy history from plugin data. Annotation records are plaintext JSON and include note paths, quoted/source text, optional rendered-selection text, and your annotation context. None of this local data is encrypted by the plugin.
 
 Queued image data is stored locally as base64 and queued text-file content as plaintext until the item is sent or removed; once sent, Pi and the configured model provider receive it. Unsupported binaries, PDFs, office documents, and archives are not attached; Pi RPC is not presented as supporting generic binary files. After the plugin restarts, saved follow-ups remain paused until you explicitly resume or discard them, preventing stale prompts from replaying automatically.
 
 Deleting a chat removes only its Pi Agent chat-history file by default. When a chat has a local Pi session, the deletion dialog separately offers to delete that session file; local Pi data is removed only after choosing that explicit option. Session information shows the local storage path, and HTML export writes a separate local file at the path reported by Pi.
 
-Obsidian Sync, third-party sync tools, backups, or copying the vault may sync or copy chat history, plugin data, annotations, and Pi session files. Their retention and security policies apply. Pi runtime session files are written under the plugin directory during local runs and remain separate from `pi_sessions` chat-history files.
+Obsidian Sync, third-party sync tools, backups, or copying the vault may sync or copy chat history, plugin data, annotations, and Pi session files. Their retention and security policies apply. Pi runtime session files are written under the plugin directory during local runs and remain separate from the vault-relative `chats` history files.
 
 ## File and shell access
 

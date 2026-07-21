@@ -102,7 +102,7 @@ describe("plugin settings helpers", () => {
       includeDefaultSkills: undefined,
       dismissedPiSetup: true,
       chatHistoryFolder: " custom/history ",
-      chatHistoryStorageVersion: 1,
+      chatHistoryStorageVersion: 2,
       chatHistoryMigrationDismissed: true
     });
 
@@ -114,7 +114,7 @@ describe("plugin settings helpers", () => {
       dismissedPiSetup: true,
       desktopNotifications: true,
       chatHistoryFolder: "custom/history",
-      chatHistoryStorageVersion: 1,
+      chatHistoryStorageVersion: 2,
       chatHistoryMigrationDismissed: true
     });
     expect(settings).not.toHaveProperty("maxSearchResults");
@@ -123,9 +123,10 @@ describe("plugin settings helpers", () => {
     expect(settings).not.toHaveProperty("maxChangeSnapshotFiles");
     expect(settings.ignoredFolders).toContain("custom/history");
     expect(normalizeSettings({ desktopNotifications: false }).desktopNotifications).toBe(false);
-    expect(normalizeSettings({ chatHistoryFolder: "../outside" }).chatHistoryFolder).toBe(
-      "pi_sessions"
-    );
+    expect(normalizeSettings({ chatHistoryFolder: "../outside" }).chatHistoryFolder).toBe("chats");
+    expect(
+      normalizeSettings({ chatHistoryFolder: "pi_sessions", chatHistoryStorageVersion: 1 })
+    ).toMatchObject({ chatHistoryFolder: "chats", chatHistoryStorageVersion: 0 });
   });
 
   it("finds custom selected model info and exposes tool modes", () => {

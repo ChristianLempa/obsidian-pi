@@ -3,11 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 export const CHAT_HISTORY_SCHEMA_VERSION = 1;
-export const DEFAULT_CHAT_HISTORY_FOLDER = "pi_sessions";
+export const CHAT_HISTORY_STORAGE_VERSION = 2;
+export const DEFAULT_CHAT_HISTORY_FOLDER = "chats";
 
-const INDEX_FILE = "index.json";
-const CHATS_FOLDER = "chats";
-const MIGRATION_BACKUP_FILE = "migration-backup-v0.json";
+const MIGRATION_BACKUP_FILE = ".pi-agent-migration-backup-v0.json";
+const LEGACY_INDEX_FILE = "index.json";
+const LEGACY_CHATS_FOLDER = "chats";
 
 export class ChatHistoryFileStore {
   constructor(vaultBasePath, folder = DEFAULT_CHAT_HISTORY_FOLDER) {
@@ -15,25 +16,20 @@ export class ChatHistoryFileStore {
     this.vaultBasePath = path.resolve(vaultBasePath);
     this.folder = normalizeChatHistoryFolder(folder);
     this.rootPath = resolveVaultRelativePath(this.vaultBasePath, this.folder);
-    this.chatsPath = path.join(this.rootPath, CHATS_FOLDER);
-    this.indexPath = path.join(this.rootPath, INDEX_FILE);
     this.managedFiles = new Map();
     this.warnings = [];
-    this.lastLoadHadValidIndex = false;
   }
 
-  async loadHistory() {
+  async loadHistory(currentThreadId) {
     this.warnings = [];
     this.managedFiles = new Map();
-    this.lastLoadHadValidIndex = false;
 
-    const index = await this.readIndex();
-    const files = await listJsonFiles(this.chatsPath);
+    const files = await listChatFiles(this.rootPath);
     const threads = [];
     const seenIds = new Set();
 
     for (const fileName of files) {
-      const filePath = path.join(this.chatsPath, fileName);
+      const filePath = path.join(this.rootPath, fileName);
       try {
         const document = JSON.parse(await fs.promises.readFile(filePath, "utf8"));
         const thread = readThreadDocument(document, fileName);
@@ -50,16 +46,17 @@ export class ChatHistoryFileStore {
 
     if (threads.length === 0) return undefined;
 
-    const currentThreadId = threads.some((thread) => thread.id === index?.currentThreadId)
-      ? index.currentThreadId
-      : getMostRecentThread(threads).id;
-
-    return { currentThreadId, threads };
+    return {
+      currentThreadId: threads.some((thread) => thread.id === currentThreadId)
+        ? currentThreadId
+        : getMostRecentThread(threads).id,
+      threads
+    };
   }
 
   async saveHistory(history) {
     const normalized = normalizeHistorySnapshot(history);
-    await fs.promises.mkdir(this.chatsPath, { recursive: true });
+    await fs.promises.mkdir(this.rootPath, { recursive: true });
 
     const desiredFiles = new Set();
     for (const thread of normalized.threads) {
@@ -67,7 +64,7 @@ export class ChatHistoryFileStore {
       const fingerprint = fingerprintThread(thread);
       desiredFiles.add(fileName);
       if (this.managedFiles.get(fileName) !== fingerprint) {
-        await writeJsonAtomic(path.join(this.chatsPath, fileName), {
+        await writeJsonAtomic(path.join(this.rootPath, fileName), {
           schemaVersion: CHAT_HISTORY_SCHEMA_VERSION,
           thread
         });
@@ -77,12 +74,9 @@ export class ChatHistoryFileStore {
 
     for (const fileName of [...this.managedFiles.keys()]) {
       if (desiredFiles.has(fileName)) continue;
-      await removeIfExists(path.join(this.chatsPath, fileName));
+      await removeIfExists(path.join(this.rootPath, fileName));
       this.managedFiles.delete(fileName);
     }
-
-    await writeJsonAtomic(this.indexPath, createIndex(normalized));
-    this.lastLoadHadValidIndex = true;
   }
 
   async migrateLegacyHistory(history) {
@@ -98,40 +92,81 @@ export class ChatHistoryFileStore {
     }
 
     await this.saveHistory(normalized);
-    const verified = await this.loadHistory();
+    const verified = await this.loadHistory(normalized.currentThreadId);
     verifyMigration(normalized, verified);
     return verified;
   }
 
   async removeManagedHistory() {
     for (const fileName of this.managedFiles.keys()) {
-      await removeIfExists(path.join(this.chatsPath, fileName));
+      await removeIfExists(path.join(this.rootPath, fileName));
     }
-    await removeIfExists(this.indexPath);
     this.managedFiles = new Map();
   }
 
   getMigrationBackupPath() {
     return path.join(this.rootPath, MIGRATION_BACKUP_FILE);
   }
+}
 
-  async readIndex() {
+export async function loadLegacyIndexedHistory(vaultBasePath, folder = "pi_sessions") {
+  const rootPath = resolveVaultRelativePath(
+    path.resolve(vaultBasePath),
+    normalizeChatHistoryFolder(folder)
+  );
+  const chatsPath = path.join(rootPath, LEGACY_CHATS_FOLDER);
+  const files = await listJsonFiles(chatsPath);
+  if (files.length === 0) return undefined;
+
+  let currentThreadId;
+  try {
+    const index = JSON.parse(
+      await fs.promises.readFile(path.join(rootPath, LEGACY_INDEX_FILE), "utf8")
+    );
+    currentThreadId = index?.currentThreadId;
+  } catch {
+    // The old index was rebuildable; fall back to the most recently updated chat.
+  }
+
+  const threads = [];
+  for (const fileName of files) {
     try {
-      const index = JSON.parse(await fs.promises.readFile(this.indexPath, "utf8"));
-      if (index?.schemaVersion !== CHAT_HISTORY_SCHEMA_VERSION || !Array.isArray(index.threads)) {
-        throw new Error("Unsupported or malformed history index.");
-      }
-      this.lastLoadHadValidIndex = true;
-      return index;
-    } catch (error) {
-      if (error?.code !== "ENOENT") {
-        this.warnings.push(
-          `${INDEX_FILE}: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-      return undefined;
+      const document = JSON.parse(
+        await fs.promises.readFile(path.join(chatsPath, fileName), "utf8")
+      );
+      threads.push(readLegacyThreadDocument(document));
+    } catch {
+      // Leave unreadable old-layout files in place for manual recovery.
     }
   }
+  if (threads.length === 0) return undefined;
+  return {
+    currentThreadId: threads.some((thread) => thread.id === currentThreadId)
+      ? currentThreadId
+      : getMostRecentThread(threads).id,
+    threads
+  };
+}
+
+export async function removeLegacyIndexedHistory(vaultBasePath, folder = "pi_sessions") {
+  const rootPath = resolveVaultRelativePath(
+    path.resolve(vaultBasePath),
+    normalizeChatHistoryFolder(folder)
+  );
+  const chatsPath = path.join(rootPath, LEGACY_CHATS_FOLDER);
+  for (const fileName of await listJsonFiles(chatsPath)) {
+    const filePath = path.join(chatsPath, fileName);
+    try {
+      readLegacyThreadDocument(JSON.parse(await fs.promises.readFile(filePath, "utf8")));
+      await removeIfExists(filePath);
+    } catch {
+      // Preserve unknown or malformed files.
+    }
+  }
+  await removeIfExists(path.join(rootPath, LEGACY_INDEX_FILE));
+  await removeIfExists(path.join(rootPath, "migration-backup-v0.json"));
+  await removeEmptyDirectory(chatsPath);
+  await removeEmptyDirectory(rootPath);
 }
 
 export function normalizeChatHistoryFolder(value) {
@@ -185,6 +220,14 @@ function normalizeHistorySnapshot(history) {
 }
 
 function readThreadDocument(document, fileName) {
+  const thread = readLegacyThreadDocument(document);
+  if (threadFileName(thread.id) !== fileName) {
+    throw new Error("Thread filename does not match its ID.");
+  }
+  return thread;
+}
+
+function readLegacyThreadDocument(document) {
   if (document?.schemaVersion !== CHAT_HISTORY_SCHEMA_VERSION) {
     throw new Error("Unsupported chat history schema version.");
   }
@@ -210,30 +253,27 @@ function readThreadDocument(document, fileName) {
   ) {
     throw new Error("Invalid message record.");
   }
-  if (threadFileName(thread.id) !== fileName)
-    throw new Error("Thread filename does not match its ID.");
   return cloneJson(thread);
 }
 
-function createIndex(history) {
-  return {
-    schemaVersion: CHAT_HISTORY_SCHEMA_VERSION,
-    currentThreadId: history.currentThreadId,
-    threads: history.threads.map((thread) => ({
-      id: thread.id,
-      file: threadFileName(thread.id),
-      updatedAt: thread.updatedAt
-    }))
-  };
-}
-
 function threadFileName(threadId) {
-  const digest = crypto.createHash("sha256").update(threadId).digest("hex").slice(0, 24);
-  return `thread-${digest}.json`;
+  if (/^[A-Za-z0-9._-]+$/.test(threadId) && threadId.length <= 160) return `${threadId}.json`;
+  const digest = crypto.createHash("sha256").update(threadId).digest("hex").slice(0, 16);
+  const prefix = threadId
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `${prefix || "thread"}-${digest}.json`;
 }
 
 function fingerprintThread(thread) {
   return crypto.createHash("sha256").update(JSON.stringify(thread)).digest("hex");
+}
+
+async function listChatFiles(folder) {
+  return (await listJsonFiles(folder)).filter(
+    (fileName) => !fileName.startsWith(".") && !fileName.startsWith("_")
+  );
 }
 
 async function listJsonFiles(folder) {
@@ -286,6 +326,14 @@ async function removeIfExists(filePath) {
   }
 }
 
+async function removeEmptyDirectory(folder) {
+  try {
+    await fs.promises.rmdir(folder);
+  } catch (error) {
+    if (error?.code !== "ENOENT" && error?.code !== "ENOTEMPTY") throw error;
+  }
+}
+
 function verifyMigration(expected, actual) {
   if (!actual || actual.threads.length !== expected.threads.length) {
     throw new Error("Chat history migration verification failed: thread count differs.");
@@ -293,7 +341,7 @@ function verifyMigration(expected, actual) {
   const actualById = new Map(actual.threads.map((thread) => [thread.id, thread]));
   for (const thread of expected.threads) {
     const migrated = actualById.get(thread.id);
-    if (!migrated || migrated.messages.length !== thread.messages.length) {
+    if (!migrated || JSON.stringify(migrated) !== JSON.stringify(thread)) {
       throw new Error(`Chat history migration verification failed for ${thread.id}.`);
     }
   }

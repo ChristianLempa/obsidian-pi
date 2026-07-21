@@ -1,5 +1,5 @@
 import {
-  CHAT_HISTORY_SCHEMA_VERSION,
+  CHAT_HISTORY_STORAGE_VERSION,
   DEFAULT_CHAT_HISTORY_FOLDER,
   normalizeChatHistoryFolder
 } from "../threads/chat-history-store.mjs";
@@ -69,14 +69,17 @@ export function normalizeSettings(rawSettings = {}) {
   settings.effectiveReasoning = normalizeString(settings.effectiveReasoning);
   settings.dismissedPiSetup = settings.dismissedPiSetup === true;
   settings.desktopNotifications = settings.desktopNotifications !== false;
+  if (settings.chatHistoryStorageVersion === 1 && settings.chatHistoryFolder === "pi_sessions") {
+    settings.chatHistoryFolder = DEFAULT_CHAT_HISTORY_FOLDER;
+  }
   try {
     settings.chatHistoryFolder = normalizeChatHistoryFolder(settings.chatHistoryFolder);
   } catch {
     settings.chatHistoryFolder = DEFAULT_CHAT_HISTORY_FOLDER;
   }
   settings.chatHistoryStorageVersion =
-    settings.chatHistoryStorageVersion === CHAT_HISTORY_SCHEMA_VERSION
-      ? CHAT_HISTORY_SCHEMA_VERSION
+    settings.chatHistoryStorageVersion === CHAT_HISTORY_STORAGE_VERSION
+      ? CHAT_HISTORY_STORAGE_VERSION
       : 0;
   settings.chatHistoryMigrationDismissed = settings.chatHistoryMigrationDismissed === true;
   if (!settings.ignoredFolders.includes(settings.chatHistoryFolder)) {

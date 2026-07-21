@@ -101,11 +101,11 @@ Use non-sensitive PNG, JPEG, and WebP files.
 
 ## Sessions, favorites, and archive
 
-- [ ] **Pending migration:** Start with 0.0.11 `data.json` containing several chats, update/reload, and confirm the one-time migration dialog offers **Migrate existing chats** and **Not now** with `pi_sessions` as the editable default.
-- [ ] **Pending migration:** Choose **Not now**, confirm all legacy chats remain visible and writable after another reload, then migrate from Settings. Confirm `pi_sessions/migration-backup-v0.json`, one versioned file per chat under `pi_sessions/chats`, and a rebuildable `pi_sessions/index.json` are created before legacy `chatHistory` leaves plugin data.
+- [ ] **Pending migration:** Start with 0.0.11 `data.json` containing several chats, update/reload, and confirm the one-time migration dialog offers **Migrate existing chats** and **Not now** with `chats` as the editable default.
+- [ ] **Pending migration:** Choose **Not now**, confirm all legacy chats remain visible and writable after another reload, then migrate from Settings. Confirm `chats/.pi-agent-migration-backup-v0.json` and one versioned JSON file per chat are created before legacy `chatHistory` leaves plugin data; plugin data should retain only `currentChatId` and storage settings rather than a separate history index.
 - [ ] **Pending migration:** Interrupt/retry migration and confirm it resumes without duplicate chats or messages and does not modify `.obsidian/plugins/pi-agent/pi-sessions/*.jsonl`.
 - [ ] **Pending persistence:** Create more than 40 chats, reload Obsidian, and confirm every chat remains available and the current, favorite, archived, renamed, forked, and Pi-session-linked states survive.
-- [ ] **Pending recovery:** Remove or damage only `pi_sessions/index.json`; confirm chat files remain intact and history rebuilds from them. Add a malformed file under `pi_sessions/chats`; confirm it is preserved with a warning rather than overwritten or deleted.
+- [ ] **Pending recovery:** Remove or invalidate `currentChatId` in plugin data and confirm history is rediscovered directly from the chat files with the most recently updated chat selected. Add a malformed JSON file under `chats`; confirm it is preserved with a warning rather than overwritten or deleted.
 - [ ] **Pending location:** Change the history folder in Settings, confirm the destination is validated and verified before the old managed files are removed, then reload and confirm all chats use the new vault-relative location.
 - [ ] **Pending:** Create, rename, switch, favorite/unfavorite, archive/restore, and fork chats; verify ordering and independent continuation.
 - [ ] **Pending:** Toggle the keyboard-accessible favorite in the active-chat header and thread-list row; confirm both stay synchronized.
