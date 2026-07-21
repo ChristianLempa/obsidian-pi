@@ -42,7 +42,7 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 
 // src/plugin/PiAgentPlugin.mjs
-var import_node_fs3 = __toESM(require("node:fs"), 1);
+var import_node_fs4 = __toESM(require("node:fs"), 1);
 var P = __toESM(require("obsidian"), 1);
 
 // src/annotations/annotation-model.mjs
@@ -75,13 +75,13 @@ function normalizeAnnotationData(raw) {
     JSON.stringify({ schemaVersion: ANNOTATION_SCHEMA_VERSION, annotations: {} })
   );
   for (const [rawPath, rawItems] of Object.entries(source).slice(0, ANNOTATION_LIMITS.paths)) {
-    const path4 = boundedString(rawPath, ANNOTATION_LIMITS.path).trim();
-    if (!path4 || !Array.isArray(rawItems)) continue;
+    const path5 = boundedString(rawPath, ANNOTATION_LIMITS.path).trim();
+    if (!path5 || !Array.isArray(rawItems)) continue;
     const items = [];
     const ids = /* @__PURE__ */ new Set();
-    const pathBytes = utf8Bytes(JSON.stringify(path4)) + 4;
+    const pathBytes = utf8Bytes(JSON.stringify(path5)) + 4;
     for (const rawItem of rawItems) {
-      const item = normalizeAnnotation(rawItem, path4);
+      const item = normalizeAnnotation(rawItem, path5);
       if (!item || ids.has(item.id)) continue;
       const itemBytes = utf8Bytes(JSON.stringify(item));
       if (
@@ -96,16 +96,16 @@ function normalizeAnnotationData(raw) {
       storageBytes += itemBytes + (items.length === 1 ? pathBytes : 1);
       if (items.length >= ANNOTATION_LIMITS.perPath) break;
     }
-    if (items.length > 0) annotations[path4] = items;
+    if (items.length > 0) annotations[path5] = items;
   }
   return { schemaVersion: ANNOTATION_SCHEMA_VERSION, annotations };
 }
 function normalizeAnnotation(raw, pathOverride) {
   if (!isRecord(raw)) return void 0;
-  const path4 = boundedString(pathOverride ?? raw.path, ANNOTATION_LIMITS.path).trim();
+  const path5 = boundedString(pathOverride ?? raw.path, ANNOTATION_LIMITS.path).trim();
   const id = boundedString(raw.id, ANNOTATION_LIMITS.id).trim();
   const quote = boundedString(raw.quote, ANNOTATION_LIMITS.quote);
-  if (!path4 || !id || !quote) return void 0;
+  if (!path5 || !id || !quote) return void 0;
   const from = nonNegativeInteger(raw.range?.from);
   const to = nonNegativeInteger(raw.range?.to);
   if (from === void 0 || to === void 0 || to < from) return void 0;
@@ -113,7 +113,7 @@ function normalizeAnnotation(raw, pathOverride) {
   const updatedAt = normalizeTimestamp(raw.updatedAt, createdAt);
   return {
     id,
-    path: path4,
+    path: path5,
     intent: INTENTS.has(raw.intent) ? raw.intent : "question",
     context: boundedString(raw.context, ANNOTATION_LIMITS.context),
     quote,
@@ -292,11 +292,11 @@ var AnnotationStore = class {
   toJSON() {
     return structuredCloneSafe(this.data);
   }
-  list(path4) {
-    return structuredCloneSafe(this.data.annotations[String(path4 ?? "")] ?? []);
+  list(path5) {
+    return structuredCloneSafe(this.data.annotations[String(path5 ?? "")] ?? []);
   }
-  get(path4, id) {
-    return this.list(path4).find((annotation) => annotation.id === id);
+  get(path5, id) {
+    return this.list(path5).find((annotation) => annotation.id === id);
   }
   create(input) {
     const annotation = createAnnotation(input);
@@ -321,8 +321,8 @@ var AnnotationStore = class {
     this.changed();
     return structuredCloneSafe(annotation);
   }
-  update(path4, id, patch) {
-    const items = this.data.annotations[String(path4 ?? "")];
+  update(path5, id, patch) {
+    const items = this.data.annotations[String(path5 ?? "")];
     const index = items?.findIndex((annotation) => annotation.id === id) ?? -1;
     if (index < 0) return void 0;
     const existing = items[index];
@@ -345,8 +345,8 @@ var AnnotationStore = class {
     this.changed();
     return structuredCloneSafe(updated);
   }
-  delete(path4, id) {
-    const key = String(path4 ?? "");
+  delete(path5, id) {
+    const key = String(path5 ?? "");
     const items = this.data.annotations[key];
     if (!items) return false;
     const remaining = items.filter((annotation) => annotation.id !== id);
@@ -380,15 +380,15 @@ var AnnotationStore = class {
     this.changed();
     return true;
   }
-  deletePath(path4) {
-    const key = String(path4 ?? "");
+  deletePath(path5) {
+    const key = String(path5 ?? "");
     if (!this.data.annotations[key]) return false;
     delete this.data.annotations[key];
     this.changed();
     return true;
   }
-  reanchorPath(path4, text) {
-    const key = String(path4 ?? "");
+  reanchorPath(path5, text) {
+    const key = String(path5 ?? "");
     const items = this.data.annotations[key];
     if (!items) return [];
     let didChange = false;
@@ -413,8 +413,8 @@ var AnnotationStore = class {
     }
     return this.list(key);
   }
-  replacePath(path4, annotations) {
-    const key = String(path4 ?? "");
+  replacePath(path5, annotations) {
+    const key = String(path5 ?? "");
     const normalized =
       normalizeAnnotationData({ annotations: { [key]: annotations } }).annotations[key] ?? [];
     const next = { ...this.data.annotations };
@@ -1107,8 +1107,8 @@ var MarkdownAnnotationsController = class {
     const selection = view.state.selection.main;
     if (selection.empty || selection.to <= selection.from) return false;
     const state = this.stateForEditor(view);
-    const path4 = state?.view.file?.path;
-    if (!path4) return false;
+    const path5 = state?.view.file?.path;
+    if (!path5) return false;
     const signature = `${selection.from}:${selection.to}`;
     const previous = this.selectionPicks.get(view);
     const now = Date.now();
@@ -1119,7 +1119,7 @@ var MarkdownAnnotationsController = class {
     }
     this.selectionPicks.set(view, { signature, at: now });
     this.openCreateModal(
-      path4,
+      path5,
       captureAnchor(view.state.doc.toString(), selection.from, selection.to),
       "selection"
     );
@@ -1420,27 +1420,27 @@ var MarkdownAnnotationsController = class {
   isReadingState(state) {
     return state.view.getMode?.() === "preview";
   }
-  openCreateModal(path4, anchor, targetKind) {
-    if (!path4) return;
+  openCreateModal(path5, anchor, targetKind) {
+    if (!path5) return;
     new AnnotationModal(this.plugin.app, {
       anchor,
       onSave: ({ context, intent }) => {
         this.plugin.annotationStore.create({
-          path: path4,
+          path: path5,
           context,
           intent,
           targetKind,
           status: "attached",
           ...anchor
         });
-        this.clearNativeSelection(path4);
+        this.clearNativeSelection(path5);
         this.refresh();
       }
     }).open();
   }
-  clearNativeSelection(path4) {
+  clearNativeSelection(path5) {
     for (const state of this.leaves.values()) {
-      if (state.view.file?.path !== path4) continue;
+      if (state.view.file?.path !== path5) continue;
       if (this.isReadingState(state)) {
         state.view.containerEl.ownerDocument?.getSelection?.()?.removeAllRanges?.();
         continue;
@@ -1460,8 +1460,8 @@ var MarkdownAnnotationsController = class {
     }).open();
   }
   renderList(state) {
-    const path4 = state.view.file?.path;
-    const annotations = path4 ? this.plugin.annotationStore.list(path4) : [];
+    const path5 = state.view.file?.path;
+    const annotations = path5 ? this.plugin.annotationStore.list(path5) : [];
     state.listEl.empty();
     state.listEl.toggleClass("is-empty", annotations.length === 0);
     if (annotations.length === 0) return;
@@ -1474,7 +1474,7 @@ var MarkdownAnnotationsController = class {
     const sendIcon = sendButton.createSpan({ cls: "pi-agent-annotations-send-icon" });
     (0, import_obsidian2.setIcon)(sendIcon, "send");
     sendButton.createSpan({ text: "Send to Pi" });
-    sendButton.addEventListener("click", () => void this.plugin.runAnnotationsPrompt(path4));
+    sendButton.addEventListener("click", () => void this.plugin.runAnnotationsPrompt(path5));
     for (const annotation of annotations) {
       const row = state.listEl.createDiv({
         cls: `pi-agent-annotation-item${annotation.status === "detached" ? " is-detached" : ""}`
@@ -1570,12 +1570,12 @@ var MarkdownAnnotationsController = class {
     }
   }
   annotationsForEditor(view) {
-    const path4 = this.stateForEditor(view)?.view.file?.path;
-    return path4 ? this.plugin.annotationStore.list(path4) : [];
+    const path5 = this.stateForEditor(view)?.view.file?.path;
+    return path5 ? this.plugin.annotationStore.list(path5) : [];
   }
   processingAnnotationsForEditor(view) {
-    const path4 = this.stateForEditor(view)?.view.file?.path;
-    return path4 ? this.processingForPath(path4) : [];
+    const path5 = this.stateForEditor(view)?.view.file?.path;
+    return path5 ? this.processingForPath(path5) : [];
   }
   beginProcessing(threadId, annotations) {
     const key = String(threadId || "");
@@ -1606,9 +1606,9 @@ var MarkdownAnnotationsController = class {
     this.refreshPaths(new Set(annotations.map((annotation) => annotation.path)));
     return true;
   }
-  completeProcessingForPath(threadId, path4) {
+  completeProcessingForPath(threadId, path5) {
     const key = String(threadId || "");
-    const target = String(path4 || "");
+    const target = String(path5 || "");
     const annotations = this.processingByThread.get(key);
     if (!annotations?.some((annotation) => annotation.path === target)) return false;
     const remaining = annotations.filter((annotation) => annotation.path !== target);
@@ -1617,8 +1617,8 @@ var MarkdownAnnotationsController = class {
     this.refreshPath(target);
     return true;
   }
-  processingForPath(path4) {
-    const target = String(path4 || "");
+  processingForPath(path5) {
+    const target = String(path5 || "");
     return [...this.processingByThread.values()].flatMap((annotations) =>
       annotations
         .filter((annotation) => annotation.path === target)
@@ -1657,24 +1657,24 @@ var MarkdownAnnotationsController = class {
         this.modifyGenerations.delete(file.path);
     }
   }
-  clearModifyTimer(path4) {
-    const timer = this.modifyTimers.get(path4);
+  clearModifyTimer(path5) {
+    const timer = this.modifyTimers.get(path5);
     if (timer !== void 0) this.hostWindow?.clearTimeout(timer);
-    this.modifyTimers.delete(path4);
+    this.modifyTimers.delete(path5);
   }
   refreshPaths(paths) {
-    for (const path4 of paths) this.refreshPath(path4);
+    for (const path5 of paths) this.refreshPath(path5);
   }
-  refreshPath(path4) {
+  refreshPath(path5) {
     if (this.destroyed) return;
     for (const state of this.leaves.values()) {
-      if (state.view.file?.path === path4) this.renderList(state);
+      if (state.view.file?.path === path5) this.renderList(state);
     }
     for (const record of this.renderedRecords) {
-      if (record.sourcePath === path4) this.refreshRenderedRecord(record);
+      if (record.sourcePath === path5) this.refreshRenderedRecord(record);
     }
     for (const view of this.editorViews) {
-      if (this.stateForEditor(view)?.view.file?.path === path4) requestAnnotationRefresh(view);
+      if (this.stateForEditor(view)?.view.file?.path === path5) requestAnnotationRefresh(view);
     }
   }
   refreshRenderedRecord(record) {
@@ -1861,6 +1861,298 @@ function truncate(value, limit) {
   return text.length > limit ? `${text.slice(0, limit - 1)}\u2026` : text;
 }
 
+// src/threads/chat-history-store.mjs
+var import_node_crypto = __toESM(require("node:crypto"), 1);
+var import_node_fs = __toESM(require("node:fs"), 1);
+var import_node_path = __toESM(require("node:path"), 1);
+var CHAT_HISTORY_SCHEMA_VERSION = 1;
+var DEFAULT_CHAT_HISTORY_FOLDER = "pi_sessions";
+var INDEX_FILE = "index.json";
+var CHATS_FOLDER = "chats";
+var MIGRATION_BACKUP_FILE = "migration-backup-v0.json";
+var ChatHistoryFileStore = class {
+  constructor(vaultBasePath, folder = DEFAULT_CHAT_HISTORY_FOLDER) {
+    if (!vaultBasePath) throw new Error("The vault path is unavailable.");
+    this.vaultBasePath = import_node_path.default.resolve(vaultBasePath);
+    this.folder = normalizeChatHistoryFolder(folder);
+    this.rootPath = resolveVaultRelativePath(this.vaultBasePath, this.folder);
+    this.chatsPath = import_node_path.default.join(this.rootPath, CHATS_FOLDER);
+    this.indexPath = import_node_path.default.join(this.rootPath, INDEX_FILE);
+    this.managedFiles = /* @__PURE__ */ new Map();
+    this.warnings = [];
+    this.lastLoadHadValidIndex = false;
+  }
+  async loadHistory() {
+    this.warnings = [];
+    this.managedFiles = /* @__PURE__ */ new Map();
+    this.lastLoadHadValidIndex = false;
+    const index = await this.readIndex();
+    const files = await listJsonFiles(this.chatsPath);
+    const threads = [];
+    const seenIds = /* @__PURE__ */ new Set();
+    for (const fileName of files) {
+      const filePath = import_node_path.default.join(this.chatsPath, fileName);
+      try {
+        const document2 = JSON.parse(
+          await import_node_fs.default.promises.readFile(filePath, "utf8")
+        );
+        const thread = readThreadDocument(document2, fileName);
+        if (seenIds.has(thread.id)) throw new Error(`Duplicate thread ID ${thread.id}.`);
+        seenIds.add(thread.id);
+        threads.push(thread);
+        this.managedFiles.set(fileName, fingerprintThread(thread));
+      } catch (error) {
+        this.warnings.push(
+          `${fileName}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+    if (threads.length === 0) return void 0;
+    const currentThreadId = threads.some((thread) => thread.id === index?.currentThreadId)
+      ? index.currentThreadId
+      : getMostRecentThread(threads).id;
+    return { currentThreadId, threads };
+  }
+  async saveHistory(history) {
+    const normalized = normalizeHistorySnapshot(history);
+    await import_node_fs.default.promises.mkdir(this.chatsPath, { recursive: true });
+    const desiredFiles = /* @__PURE__ */ new Set();
+    for (const thread of normalized.threads) {
+      const fileName = threadFileName(thread.id);
+      const fingerprint = fingerprintThread(thread);
+      desiredFiles.add(fileName);
+      if (this.managedFiles.get(fileName) !== fingerprint) {
+        await writeJsonAtomic(import_node_path.default.join(this.chatsPath, fileName), {
+          schemaVersion: CHAT_HISTORY_SCHEMA_VERSION,
+          thread
+        });
+      }
+      this.managedFiles.set(fileName, fingerprint);
+    }
+    for (const fileName of [...this.managedFiles.keys()]) {
+      if (desiredFiles.has(fileName)) continue;
+      await removeIfExists(import_node_path.default.join(this.chatsPath, fileName));
+      this.managedFiles.delete(fileName);
+    }
+    await writeJsonAtomic(this.indexPath, createIndex(normalized));
+    this.lastLoadHadValidIndex = true;
+  }
+  async migrateLegacyHistory(history) {
+    const normalized = normalizeHistorySnapshot(history);
+    await import_node_fs.default.promises.mkdir(this.rootPath, { recursive: true });
+    const backupPath = import_node_path.default.join(this.rootPath, MIGRATION_BACKUP_FILE);
+    if (!(await exists(backupPath))) {
+      await writeJsonAtomic(backupPath, {
+        schemaVersion: 0,
+        exportedAt: /* @__PURE__ */ new Date().toISOString(),
+        chatHistory: normalized
+      });
+    }
+    await this.saveHistory(normalized);
+    const verified = await this.loadHistory();
+    verifyMigration(normalized, verified);
+    return verified;
+  }
+  async removeManagedHistory() {
+    for (const fileName of this.managedFiles.keys()) {
+      await removeIfExists(import_node_path.default.join(this.chatsPath, fileName));
+    }
+    await removeIfExists(this.indexPath);
+    this.managedFiles = /* @__PURE__ */ new Map();
+  }
+  getMigrationBackupPath() {
+    return import_node_path.default.join(this.rootPath, MIGRATION_BACKUP_FILE);
+  }
+  async readIndex() {
+    try {
+      const index = JSON.parse(
+        await import_node_fs.default.promises.readFile(this.indexPath, "utf8")
+      );
+      if (index?.schemaVersion !== CHAT_HISTORY_SCHEMA_VERSION || !Array.isArray(index.threads)) {
+        throw new Error("Unsupported or malformed history index.");
+      }
+      this.lastLoadHadValidIndex = true;
+      return index;
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        this.warnings.push(
+          `${INDEX_FILE}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+      return void 0;
+    }
+  }
+};
+function normalizeChatHistoryFolder(value) {
+  const input = String(value ?? "")
+    .trim()
+    .replaceAll("\\", "/");
+  if (!input) return DEFAULT_CHAT_HISTORY_FOLDER;
+  if (input.startsWith("/") || /^[A-Za-z]:\//.test(input)) {
+    throw new Error("Chat history folder must be a safe vault-relative path.");
+  }
+  const normalized = input.replace(/\/+$/g, "");
+  if (
+    normalized.includes("\0") ||
+    import_node_path.default.posix.isAbsolute(normalized) ||
+    normalized.split("/").some((segment) => !segment || segment === "." || segment === "..")
+  ) {
+    throw new Error("Chat history folder must be a safe vault-relative path.");
+  }
+  return normalized;
+}
+function hasLegacyChatHistory(history, legacyMessages) {
+  if (Array.isArray(legacyMessages) && legacyMessages.length > 0) return true;
+  if (!history || !Array.isArray(history.threads)) return false;
+  return history.threads.some(
+    (thread) =>
+      (Array.isArray(thread?.messages) && thread.messages.length > 0) ||
+      Boolean(thread?.piSessionId ?? thread?.piThreadId) ||
+      thread?.archived === true ||
+      thread?.favorite === true ||
+      (typeof thread?.title === "string" && thread.title.trim() && thread.title !== "New chat")
+  );
+}
+function resolveVaultRelativePath(vaultBasePath, folder) {
+  const resolved = import_node_path.default.resolve(vaultBasePath, ...folder.split("/"));
+  const relative = import_node_path.default.relative(vaultBasePath, resolved);
+  if (relative.startsWith("..") || import_node_path.default.isAbsolute(relative)) {
+    throw new Error("Chat history folder must stay inside the vault.");
+  }
+  return resolved;
+}
+function normalizeHistorySnapshot(history) {
+  const threads = Array.isArray(history?.threads) ? history.threads.map(cloneJson) : [];
+  if (threads.length === 0) throw new Error("Chat history must contain at least one thread.");
+  const currentThreadId = threads.some((thread) => thread.id === history?.currentThreadId)
+    ? history.currentThreadId
+    : getMostRecentThread(threads).id;
+  return { currentThreadId, threads };
+}
+function readThreadDocument(document2, fileName) {
+  if (document2?.schemaVersion !== CHAT_HISTORY_SCHEMA_VERSION) {
+    throw new Error("Unsupported chat history schema version.");
+  }
+  const thread = document2.thread;
+  if (!thread || typeof thread !== "object" || Array.isArray(thread)) {
+    throw new Error("Missing thread object.");
+  }
+  if (typeof thread.id !== "string" || !thread.id.trim()) {
+    throw new Error("Missing thread ID.");
+  }
+  if (!Array.isArray(thread.messages)) throw new Error("Missing message list.");
+  if (
+    thread.messages.some(
+      (message) =>
+        !message ||
+        typeof message !== "object" ||
+        Array.isArray(message) ||
+        (message.role !== "user" && message.role !== "assistant" && message.role !== "system") ||
+        typeof message.content !== "string" ||
+        typeof message.createdAt !== "number" ||
+        !Number.isFinite(message.createdAt)
+    )
+  ) {
+    throw new Error("Invalid message record.");
+  }
+  if (threadFileName(thread.id) !== fileName)
+    throw new Error("Thread filename does not match its ID.");
+  return cloneJson(thread);
+}
+function createIndex(history) {
+  return {
+    schemaVersion: CHAT_HISTORY_SCHEMA_VERSION,
+    currentThreadId: history.currentThreadId,
+    threads: history.threads.map((thread) => ({
+      id: thread.id,
+      file: threadFileName(thread.id),
+      updatedAt: thread.updatedAt
+    }))
+  };
+}
+function threadFileName(threadId) {
+  const digest = import_node_crypto.default
+    .createHash("sha256")
+    .update(threadId)
+    .digest("hex")
+    .slice(0, 24);
+  return `thread-${digest}.json`;
+}
+function fingerprintThread(thread) {
+  return import_node_crypto.default
+    .createHash("sha256")
+    .update(JSON.stringify(thread))
+    .digest("hex");
+}
+async function listJsonFiles(folder) {
+  try {
+    return (await import_node_fs.default.promises.readdir(folder, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => entry.name)
+      .sort();
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+}
+async function writeJsonAtomic(filePath, value) {
+  await import_node_fs.default.promises.mkdir(import_node_path.default.dirname(filePath), {
+    recursive: true
+  });
+  const temporaryPath = `${filePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const content = `${JSON.stringify(value, null, 2)}
+`;
+  try {
+    await import_node_fs.default.promises.writeFile(temporaryPath, content, {
+      encoding: "utf8",
+      flag: "wx"
+    });
+    try {
+      await import_node_fs.default.promises.rename(temporaryPath, filePath);
+    } catch (error) {
+      if (error?.code !== "EEXIST" && error?.code !== "EPERM") throw error;
+      await removeIfExists(filePath);
+      await import_node_fs.default.promises.rename(temporaryPath, filePath);
+    }
+  } finally {
+    await removeIfExists(temporaryPath);
+  }
+}
+async function exists(filePath) {
+  try {
+    await import_node_fs.default.promises.access(filePath);
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
+}
+async function removeIfExists(filePath) {
+  try {
+    await import_node_fs.default.promises.rm(filePath, { force: true });
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+function verifyMigration(expected, actual) {
+  if (!actual || actual.threads.length !== expected.threads.length) {
+    throw new Error("Chat history migration verification failed: thread count differs.");
+  }
+  const actualById = new Map(actual.threads.map((thread) => [thread.id, thread]));
+  for (const thread of expected.threads) {
+    const migrated = actualById.get(thread.id);
+    if (!migrated || migrated.messages.length !== thread.messages.length) {
+      throw new Error(`Chat history migration verification failed for ${thread.id}.`);
+    }
+  }
+}
+function getMostRecentThread(threads) {
+  return [...threads].sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))[0];
+}
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 // src/plugin/settings.mjs
 var CUSTOM_MODEL_VALUE = "__custom";
 var REASONING_LABELS = {
@@ -1888,7 +2180,10 @@ var DEFAULT_SETTINGS = {
   effectiveModel: "",
   effectiveReasoning: "",
   dismissedPiSetup: false,
-  desktopNotifications: true
+  desktopNotifications: true,
+  chatHistoryFolder: DEFAULT_CHAT_HISTORY_FOLDER,
+  chatHistoryStorageVersion: 0,
+  chatHistoryMigrationDismissed: false
 };
 function normalizeSettings(rawSettings = {}) {
   const {
@@ -1920,6 +2215,19 @@ function normalizeSettings(rawSettings = {}) {
   settings.effectiveReasoning = normalizeString(settings.effectiveReasoning);
   settings.dismissedPiSetup = settings.dismissedPiSetup === true;
   settings.desktopNotifications = settings.desktopNotifications !== false;
+  try {
+    settings.chatHistoryFolder = normalizeChatHistoryFolder(settings.chatHistoryFolder);
+  } catch {
+    settings.chatHistoryFolder = DEFAULT_CHAT_HISTORY_FOLDER;
+  }
+  settings.chatHistoryStorageVersion =
+    settings.chatHistoryStorageVersion === CHAT_HISTORY_SCHEMA_VERSION
+      ? CHAT_HISTORY_SCHEMA_VERSION
+      : 0;
+  settings.chatHistoryMigrationDismissed = settings.chatHistoryMigrationDismissed === true;
+  if (!settings.ignoredFolders.includes(settings.chatHistoryFolder)) {
+    settings.ignoredFolders.push(settings.chatHistoryFolder);
+  }
   return settings;
 }
 function getReasoningOptions(settings) {
@@ -2466,7 +2774,7 @@ function formatContextShowResponse(inspection) {
 }
 
 // src/context/skills.mjs
-var import_node_path = __toESM(require("node:path"), 1);
+var import_node_path2 = __toESM(require("node:path"), 1);
 
 // src/shared/paths.mjs
 function normalizeVaultFolder(value, fallback = "Pi") {
@@ -2502,15 +2810,15 @@ function getConfiguredSkillPaths(settings, basePath) {
 function resolveSkillPath(skillPath, basePath) {
   const configured = String(skillPath || "").trim();
   if (!configured || configured.startsWith("~")) return "";
-  if (import_node_path.default.isAbsolute(configured))
-    return import_node_path.default.normalize(configured);
+  if (import_node_path2.default.isAbsolute(configured))
+    return import_node_path2.default.normalize(configured);
   if (!basePath) return "";
-  const base = import_node_path.default.resolve(basePath);
-  const resolved = import_node_path.default.resolve(base, configured);
-  const relative = import_node_path.default.relative(base, resolved);
+  const base = import_node_path2.default.resolve(basePath);
+  const resolved = import_node_path2.default.resolve(base, configured);
+  const relative = import_node_path2.default.relative(base, resolved);
   return relative === ".." ||
-    relative.startsWith(`..${import_node_path.default.sep}`) ||
-    import_node_path.default.isAbsolute(relative)
+    relative.startsWith(`..${import_node_path2.default.sep}`) ||
+    import_node_path2.default.isAbsolute(relative)
     ? ""
     : resolved;
 }
@@ -2526,10 +2834,10 @@ function tokenizeQuery(query) {
     .map((term) => term.trim())
     .filter((term) => term.length > 1);
 }
-function scoreSearchResult(path4, content, terms) {
-  const normalizedPath = path4.toLowerCase();
+function scoreSearchResult(path5, content, terms) {
+  const normalizedPath = path5.toLowerCase();
   const normalizedContent = content.toLowerCase();
-  const basename = path4.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path4;
+  const basename = path5.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? path5;
   let score = 0;
   for (const term of terms) {
     if (basename.includes(term)) score += 12;
@@ -2696,7 +3004,7 @@ var VaultGraph = class {
   }
   async getBacklinks(filePath) {
     const backlinkEntries = Object.entries(this.app.metadataCache.resolvedLinks)
-      .map(([path4, links]) => ({ path: path4, count: links[filePath] || 0 }))
+      .map(([path5, links]) => ({ path: path5, count: links[filePath] || 0 }))
       .filter(
         (backlink) =>
           backlink.path !== filePath && backlink.count > 0 && this.isPathAllowed(backlink.path)
@@ -2723,10 +3031,10 @@ var VaultGraph = class {
   getOutgoingLinks(filePath) {
     const links = this.app.metadataCache.resolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .filter(([path4]) => this.isPathAllowed(path4))
-      .map(([path4, count]) => ({
-        path: path4,
-        display: path4.replace(/\.md$/i, ""),
+      .filter(([path5]) => this.isPathAllowed(path5))
+      .map(([path5, count]) => ({
+        path: path5,
+        display: path5.replace(/\.md$/i, ""),
         count
       }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
@@ -2734,7 +3042,7 @@ var VaultGraph = class {
   getUnresolvedLinks(filePath) {
     const links = this.app.metadataCache.unresolvedLinks[filePath] ?? {};
     return Object.entries(links)
-      .map(([path4, count]) => ({ path: path4, display: path4, count }))
+      .map(([path5, count]) => ({ path: path5, display: path5, count }))
       .sort((left, right) => right.count - left.count || left.path.localeCompare(right.path));
   }
   async getLinkedNeighborhood(filePath, depth = 1) {
@@ -2743,9 +3051,9 @@ var VaultGraph = class {
     const notes = [];
     for (let index = 0; index < depth; index++) {
       const nextFrontier = /* @__PURE__ */ new Set();
-      for (const path4 of frontier) {
-        const outgoingLinks = this.getOutgoingLinks(path4);
-        const backlinks = await this.getBacklinks(path4);
+      for (const path5 of frontier) {
+        const outgoingLinks = this.getOutgoingLinks(path5);
+        const backlinks = await this.getBacklinks(path5);
         for (const link of [...outgoingLinks, ...backlinks]) {
           if (!seen.has(link.path) && link.path.endsWith(".md")) {
             seen.add(link.path);
@@ -2754,9 +3062,9 @@ var VaultGraph = class {
         }
       }
       const limitedNextFrontier = [...nextFrontier].slice(0, CONTEXT_RESULT_LIMIT);
-      for (const path4 of limitedNextFrontier) {
+      for (const path5 of limitedNextFrontier) {
         try {
-          notes.push(await this.getNoteContext(path4));
+          notes.push(await this.getNoteContext(path5));
         } catch {}
       }
       frontier = limitedNextFrontier;
@@ -2872,8 +3180,8 @@ function getErrorMessage(error) {
 }
 
 // src/pi/environment.mjs
-var import_node_fs = __toESM(require("node:fs"), 1);
-var import_node_path2 = __toESM(require("node:path"), 1);
+var import_node_fs2 = __toESM(require("node:fs"), 1);
+var import_node_path3 = __toESM(require("node:path"), 1);
 var POSIX_PI_CANDIDATES = ["/opt/homebrew/bin/pi", "/usr/local/bin/pi", "/usr/bin/pi"];
 var WINDOWS_PI_CANDIDATES = ["pi.cmd", "pi.exe", "pi"];
 var POSIX_PATH_CANDIDATES = [
@@ -2889,7 +3197,7 @@ function findPiExecutable(configuredPath = "") {
   if (configuredExecutable) return configuredExecutable;
   if (process.platform === "win32") return WINDOWS_PI_CANDIDATES[0];
   for (const candidate of POSIX_PI_CANDIDATES) {
-    if (import_node_fs.default.existsSync(candidate)) return candidate;
+    if (import_node_fs2.default.existsSync(candidate)) return candidate;
   }
   const piNode = findPiNodeExecutable();
   if (piNode) return piNode;
@@ -2904,8 +3212,8 @@ function expandHomeDirectory(executablePath) {
   const home = process.env.HOME;
   if (!home) return executablePath;
   if (executablePath === "~") return home;
-  return executablePath.startsWith(`~${import_node_path2.default.sep}`)
-    ? import_node_path2.default.join(home, executablePath.slice(2))
+  return executablePath.startsWith(`~${import_node_path3.default.sep}`)
+    ? import_node_path3.default.join(home, executablePath.slice(2))
     : executablePath;
 }
 function expandEnvironmentVariables(executablePath) {
@@ -2917,15 +3225,15 @@ function expandEnvironmentVariables(executablePath) {
 function findPiNodeExecutable() {
   const home = process.env.HOME;
   if (!home) return null;
-  const root = import_node_path2.default.join(home, ".local", "share", "pi-node");
+  const root = import_node_path3.default.join(home, ".local", "share", "pi-node");
   try {
-    const versions = import_node_fs.default
+    const versions = import_node_fs2.default
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => import_node_path2.default.join(root, d.name));
+      .map((d) => import_node_path3.default.join(root, d.name));
     for (const v of versions) {
-      const candidate = import_node_path2.default.join(v, "bin", "pi");
-      if (import_node_fs.default.existsSync(candidate)) return candidate;
+      const candidate = import_node_path3.default.join(v, "bin", "pi");
+      if (import_node_fs2.default.existsSync(candidate)) return candidate;
     }
   } catch {
     return null;
@@ -2976,55 +3284,55 @@ function buildPosixPath(piExecutable) {
     ...getPiNodePaths(),
     ...getNodeVersionManagerDirectories(),
     ...getExistingPathEntries()
-  ]).join(import_node_path2.default.delimiter);
+  ]).join(import_node_path3.default.delimiter);
 }
 function getPiNodePaths() {
   const home = process.env.HOME;
   if (!home) return [];
-  const root = import_node_path2.default.join(home, ".local", "share", "pi-node");
+  const root = import_node_path3.default.join(home, ".local", "share", "pi-node");
   try {
-    return import_node_fs.default
+    return import_node_fs2.default
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => import_node_path2.default.join(root, d.name, "bin"));
+      .map((d) => import_node_path3.default.join(root, d.name, "bin"));
   } catch {
     return [];
   }
 }
 function getExistingPathEntries() {
-  return (process.env.PATH ?? "").split(import_node_path2.default.delimiter).filter(Boolean);
+  return (process.env.PATH ?? "").split(import_node_path3.default.delimiter).filter(Boolean);
 }
 function getExecutableDirectory(executable) {
-  return import_node_path2.default.isAbsolute(executable)
-    ? [import_node_path2.default.dirname(executable)]
+  return import_node_path3.default.isAbsolute(executable)
+    ? [import_node_path3.default.dirname(executable)]
     : [];
 }
 function getNodeVersionManagerDirectories() {
   const home = process.env.HOME;
   if (!home) return [];
   return [
-    ...getNvmNodeBinDirectories(import_node_path2.default.join(home, ".nvm", "versions", "node")),
-    ...getFnmNodeBinDirectories(import_node_path2.default.join(home, ".fnm", "node-versions")),
-    import_node_path2.default.join(home, ".asdf", "shims"),
-    import_node_path2.default.join(home, ".volta", "bin")
+    ...getNvmNodeBinDirectories(import_node_path3.default.join(home, ".nvm", "versions", "node")),
+    ...getFnmNodeBinDirectories(import_node_path3.default.join(home, ".fnm", "node-versions")),
+    import_node_path3.default.join(home, ".asdf", "shims"),
+    import_node_path3.default.join(home, ".volta", "bin")
   ];
 }
 function getNvmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path2.default.join(directory, "bin")
+    import_node_path3.default.join(directory, "bin")
   );
 }
 function getFnmNodeBinDirectories(root) {
   return getChildDirectories(root).map((directory) =>
-    import_node_path2.default.join(directory, "installation", "bin")
+    import_node_path3.default.join(directory, "installation", "bin")
   );
 }
 function getChildDirectories(root) {
   try {
-    return import_node_fs.default
+    return import_node_fs2.default
       .readdirSync(root, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => import_node_path2.default.join(root, entry.name));
+      .map((entry) => import_node_path3.default.join(root, entry.name));
   } catch {
     return [];
   }
@@ -3032,7 +3340,7 @@ function getChildDirectories(root) {
 function uniqueExistingDirectories(directories) {
   const seen = /* @__PURE__ */ new Set();
   return directories.filter((directory) => {
-    if (!directory || seen.has(directory) || !import_node_fs.default.existsSync(directory))
+    if (!directory || seen.has(directory) || !import_node_fs2.default.existsSync(directory))
       return false;
     seen.add(directory);
     return true;
@@ -3619,8 +3927,8 @@ function getSupportedReasoningLevels(model) {
 
 // src/pi/runner.mjs
 var import_node_child_process3 = require("node:child_process");
-var import_node_fs2 = __toESM(require("node:fs"), 1);
-var import_node_path3 = __toESM(require("node:path"), 1);
+var import_node_fs3 = __toESM(require("node:fs"), 1);
+var import_node_path4 = __toESM(require("node:path"), 1);
 
 // src/pi/token-usage.mjs
 function calculateContextTokens(usage) {
@@ -4091,7 +4399,7 @@ function isSupportedTextFile(fileName, mimeType = "") {
   return SUPPORTED_TEXT_EXTENSIONS.includes(extension || base);
 }
 function createPromptTextAttachment(
-  { bytes, fileName, mimeType = "", source = "local", path: path4, originalSize },
+  { bytes, fileName, mimeType = "", source = "local", path: path5, originalSize },
   remainingBytes = MAX_TOTAL_TEXT_ATTACHMENT_BYTES
 ) {
   const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
@@ -4129,7 +4437,7 @@ function createPromptTextAttachment(
         originalSize: Number.isFinite(originalSize) ? originalSize : data.length,
         truncated: (Number.isFinite(originalSize) ? originalSize : data.length) > allowed,
         source,
-        path: path4
+        path: path5
       }
     ],
     allowed
@@ -4182,7 +4490,7 @@ function toRpcImages(images) {
 function imagePreviewUrl(image) {
   return `data:${image.mimeType};base64,${stripDataUrlPrefix(image.data)}`;
 }
-function bytesToPromptImage({ bytes, fileName, mimeType, source = "vault", path: path4 }) {
+function bytesToPromptImage({ bytes, fileName, mimeType, source = "vault", path: path5 }) {
   const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
   if (!SUPPORTED_IMAGE_MIME_TYPES.includes(mimeType))
     throw new Error("Choose a PNG, JPEG, or WebP image.");
@@ -4197,7 +4505,7 @@ function bytesToPromptImage({ bytes, fileName, mimeType, source = "vault", path:
     data: encodeBase64(binary),
     size: data.length,
     source,
-    path: path4
+    path: path5
   };
 }
 async function fileToPromptImage(file, metadata = {}) {
@@ -4711,38 +5019,38 @@ var PiRunner = class {
     return args;
   }
   getSessionDirectory() {
-    return import_node_path3.default.resolve(this.pluginDirectory ?? ".", "pi-sessions");
+    return import_node_path4.default.resolve(this.pluginDirectory ?? ".", "pi-sessions");
   }
   createSessionFilePath() {
     const sessionDir = this.getSessionDirectory();
-    import_node_fs2.default.mkdirSync(sessionDir, { recursive: true });
-    return import_node_path3.default.join(
+    import_node_fs3.default.mkdirSync(sessionDir, { recursive: true });
+    return import_node_path4.default.join(
       sessionDir,
       `${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
     );
   }
   createSessionReference(sessionPath) {
     const sessionDir = this.getSessionDirectory();
-    const relativePath = import_node_path3.default.relative(
+    const relativePath = import_node_path4.default.relative(
       sessionDir,
-      import_node_path3.default.resolve(sessionPath)
+      import_node_path4.default.resolve(sessionPath)
     );
     return relativePath && isSafeRelativePath(relativePath) ? relativePath : void 0;
   }
   resolveSessionPath(sessionReference) {
     if (!sessionReference) return void 0;
     const sessionDir = this.getSessionDirectory();
-    const resolvedPath = import_node_path3.default.isAbsolute(sessionReference)
-      ? import_node_path3.default.resolve(sessionReference)
-      : import_node_path3.default.resolve(sessionDir, sessionReference);
-    const relativePath = import_node_path3.default.relative(sessionDir, resolvedPath);
+    const resolvedPath = import_node_path4.default.isAbsolute(sessionReference)
+      ? import_node_path4.default.resolve(sessionReference)
+      : import_node_path4.default.resolve(sessionDir, sessionReference);
+    const relativePath = import_node_path4.default.relative(sessionDir, resolvedPath);
     if (!relativePath || !isSafeRelativePath(relativePath)) return void 0;
     return resolvedPath;
   }
   resolveOrCreateSession(sessionReference) {
     const existingPath = this.resolveSessionPath(sessionReference);
     const sessionPath =
-      existingPath && import_node_fs2.default.existsSync(existingPath)
+      existingPath && import_node_fs3.default.existsSync(existingPath)
         ? existingPath
         : this.createSessionFilePath();
     return {
@@ -4752,7 +5060,7 @@ var PiRunner = class {
   }
   async getExistingSessionRpcClient(sessionReference) {
     const sessionPath = this.resolveSessionPath(sessionReference);
-    if (!sessionPath || !import_node_fs2.default.existsSync(sessionPath)) {
+    if (!sessionPath || !import_node_fs3.default.existsSync(sessionPath)) {
       throw new Error("The local Pi session file is not available.");
     }
     return this.getOrCreateRpcClient(sessionReference);
@@ -4764,7 +5072,7 @@ var PiRunner = class {
     const state = await client.request("get_state");
     const cloneReference = this.createSessionReference(state?.sessionFile);
     const clonePath = this.resolveSessionPath(cloneReference);
-    if (!clonePath || !import_node_fs2.default.existsSync(clonePath)) {
+    if (!clonePath || !import_node_fs3.default.existsSync(clonePath)) {
       throw new Error("Pi did not return a portable local clone session.");
     }
     return cloneReference;
@@ -4847,13 +5155,13 @@ var PiRunner = class {
 function isSafeRelativePath(relativePath) {
   return (
     relativePath !== ".." &&
-    !relativePath.startsWith(`..${import_node_path3.default.sep}`) &&
-    !import_node_path3.default.isAbsolute(relativePath)
+    !relativePath.startsWith(`..${import_node_path4.default.sep}`) &&
+    !import_node_path4.default.isAbsolute(relativePath)
   );
 }
 
 // src/plugin/settings-tab.mjs
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/ui/modals/confirm-modal.mjs
 var import_obsidian4 = require("obsidian");
@@ -5046,9 +5354,9 @@ function renderProviderIcon(container, providerOrModel) {
     const svg = iconEl.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("role", "presentation");
-    const path4 = iconEl.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "path");
-    path4.setAttribute("d", brand.icon.path);
-    svg.append(path4);
+    const path5 = iconEl.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "path");
+    path5.setAttribute("d", brand.icon.path);
+    svg.append(path5);
     iconEl.append(svg);
   } else {
     iconEl.setText(brand.mark || "AI");
@@ -5154,6 +5462,66 @@ function formatReasoningLabel(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+// src/ui/modals/chat-history-migration-modal.mjs
+var import_obsidian6 = require("obsidian");
+var ChatHistoryMigrationModal = class extends import_obsidian6.Modal {
+  constructor(plugin) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.folder = plugin.settings.chatHistoryFolder;
+    this.resolved = false;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    new import_obsidian6.Setting(contentEl).setName("Migrate existing chats?").setHeading();
+    contentEl.createEl("p", {
+      text: "The plugin can move existing chat transcripts out of plugin data and store every chat as a separate versioned JSON file in your vault."
+    });
+    contentEl.createEl("p", {
+      text: "The migration keeps a recovery backup and does not modify or delete Pi's runtime session files."
+    });
+    new import_obsidian6.Setting(contentEl)
+      .setName("History folder")
+      .setDesc("Vault-relative folder. You can move it later in agent settings.")
+      .addText((text) =>
+        text.setValue(this.folder).onChange((value) => {
+          this.folder = value;
+        })
+      );
+    const actions = contentEl.createDiv({ cls: "pi-agent-modal-actions" });
+    const laterButton = actions.createEl("button", { text: "Not now" });
+    const migrateButton = actions.createEl("button", {
+      text: "Migrate existing chats",
+      cls: "mod-cta"
+    });
+    laterButton.addEventListener("click", async () => {
+      this.resolved = true;
+      await this.plugin.deferChatHistoryMigration();
+      this.close();
+    });
+    migrateButton.addEventListener("click", async () => {
+      laterButton.disabled = true;
+      migrateButton.disabled = true;
+      migrateButton.setText("Migrating\u2026");
+      try {
+        await this.plugin.migrateChatHistory(this.folder);
+        this.resolved = true;
+        new import_obsidian6.Notice("Existing chats were migrated.");
+        this.close();
+      } catch (error) {
+        new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+        laterButton.disabled = false;
+        migrateButton.disabled = false;
+        migrateButton.setText("Migrate existing chats");
+      }
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
 // src/ui/desktop-notifications.mjs
 async function requestDesktopNotificationPermission(NotificationApi) {
   const activeNotificationApi =
@@ -5234,7 +5602,7 @@ function isDocumentUnfocused(documentRef) {
 }
 
 // src/plugin/settings-tab.mjs
-var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
+var PiAgentSettingTab = class extends import_obsidian7.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -5252,6 +5620,11 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
       this.getToolModeDefinition(),
       this.getDesktopNotificationsDefinition(),
       this.getCustomInstructionsDefinition(),
+      {
+        type: "group",
+        heading: "Chat history",
+        items: [this.getChatHistoryFolderDefinition(), this.getChatHistoryMigrationDefinition()]
+      },
       {
         type: "group",
         heading: "Advanced",
@@ -5286,7 +5659,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
     containerEl.empty();
     for (const definition of this.getSettingDefinitions()) {
       if (definition.type === "group") {
-        new import_obsidian6.Setting(containerEl).setName(definition.heading).setHeading();
+        new import_obsidian7.Setting(containerEl).setName(definition.heading).setHeading();
         for (const item of definition.items ?? []) this.renderLegacyDefinition(containerEl, item);
       } else {
         this.renderLegacyDefinition(containerEl, definition);
@@ -5294,7 +5667,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
     }
   }
   renderLegacyDefinition(containerEl, definition) {
-    const setting = new import_obsidian6.Setting(containerEl).setName(definition.name);
+    const setting = new import_obsidian7.Setting(containerEl).setName(definition.name);
     if (definition.desc) setting.setDesc(definition.desc);
     definition.render?.(setting);
   }
@@ -5321,7 +5694,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
                     this.plugin.refreshOpenModelControls();
                   }).open();
                 } catch (error) {
-                  new import_obsidian6.Notice(
+                  new import_obsidian7.Notice(
                     error instanceof Error ? error.message : String(error)
                   );
                 } finally {
@@ -5340,7 +5713,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
                 try {
                   await this.plugin.refreshModelCatalog(true);
                 } catch (error) {
-                  new import_obsidian6.Notice(
+                  new import_obsidian7.Notice(
                     error instanceof Error ? error.message : String(error)
                   );
                 }
@@ -5370,7 +5743,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
                   this.plugin.refreshOpenModelControls();
                 }).open();
               } catch (error) {
-                new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+                new import_obsidian7.Notice(error instanceof Error ? error.message : String(error));
               } finally {
                 button.setButtonText(label);
                 button.setDisabled(false);
@@ -5420,7 +5793,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
         setting.addToggle((toggle) =>
           toggle.setValue(this.plugin.settings.desktopNotifications).onChange(async (value) => {
             if (value && !(await requestDesktopNotificationPermission())) {
-              new import_obsidian6.Notice(
+              new import_obsidian7.Notice(
                 "Desktop notifications are unavailable or not permitted. You can enable them in your operating-system notification settings."
               );
             }
@@ -5443,6 +5816,57 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
               this.plugin.settings.customInstructions = value;
               await this.plugin.saveSettings();
             })
+        )
+    };
+  }
+  getChatHistoryFolderDefinition() {
+    return {
+      name: "Chat history folder",
+      desc: "Vault-relative folder containing one versioned JSON file per chat. Changing it moves the managed chat files after verification.",
+      render: (setting) => {
+        let pendingFolder = this.plugin.settings.chatHistoryFolder;
+        setting
+          .addText((text) =>
+            text
+              .setPlaceholder("Chat history")
+              .setValue(pendingFolder)
+              .onChange((value) => {
+                pendingFolder = value;
+              })
+          )
+          .addButton((button) =>
+            button
+              .setButtonText(this.plugin.useExternalChatHistory ? "Move chats" : "Use folder")
+              .onClick(async () => {
+                button.setDisabled(true);
+                try {
+                  await this.plugin.changeChatHistoryFolder(pendingFolder);
+                  new import_obsidian7.Notice("Chat history folder updated.");
+                } catch (error) {
+                  new import_obsidian7.Notice(
+                    error instanceof Error ? error.message : String(error)
+                  );
+                } finally {
+                  button.setDisabled(false);
+                }
+              })
+          );
+      }
+    };
+  }
+  getChatHistoryMigrationDefinition() {
+    const migrationNeeded = this.plugin.needsChatHistoryMigration === true;
+    return {
+      name: "Existing chat migration",
+      desc: migrationNeeded
+        ? "Existing chats are still in plugin data. Migrate them into individual JSON files when ready."
+        : "Chat history uses individual versioned JSON files.",
+      render: (setting) =>
+        setting.addButton((button) =>
+          button
+            .setButtonText(migrationNeeded ? "Migrate existing chats" : "Migrated")
+            .setDisabled(!migrationNeeded)
+            .onClick(() => new ChatHistoryMigrationModal(this.plugin).open())
         )
     };
   }
@@ -5602,7 +6026,7 @@ var PI_AGENT_ICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M165.29 165.29H517.36V400H400V517.36H282.65V634.72H165.29ZM282.65 282.65V400H400V282.65Z"/><path fill="currentColor" d="M517.36 400H634.72V634.72H517.36Z"/></svg>';
 
 // src/ui/modals/approval-modal.mjs
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/shared/frontmatter.mjs
 function readFrontmatter(markdown) {
@@ -5706,7 +6130,7 @@ function formatYamlScalar(value) {
 }
 
 // src/ui/modals/approval-modal.mjs
-var ApprovalModal = class extends import_obsidian7.Modal {
+var ApprovalModal = class extends import_obsidian8.Modal {
   constructor(plugin, change, onDone) {
     super(plugin.app);
     this.change = change;
@@ -5718,7 +6142,7 @@ var ApprovalModal = class extends import_obsidian7.Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("pi-agent-approval");
-    new import_obsidian7.Setting(contentEl).setName("Approve vault change").setHeading();
+    new import_obsidian8.Setting(contentEl).setName("Approve vault change").setHeading();
     contentEl.createEl("p", { text: `${this.change.path} - ${this.change.reason}` });
     const previewEl = contentEl.createEl("div", { cls: "pi-agent-change-preview" });
     previewEl.createEl("h3", { text: "Before" });
@@ -5744,7 +6168,7 @@ var ApprovalModal = class extends import_obsidian7.Modal {
   }
   async applyChange() {
     const file = this.app.vault.getAbstractFileByPath(this.change.path);
-    if (file instanceof import_obsidian7.TFile) {
+    if (file instanceof import_obsidian8.TFile) {
       await this.app.vault.process(file, (content) => {
         if (this.change.before !== void 0 && content !== this.change.before) {
           throw new Error("File changed since Pi prepared this change.");
@@ -5756,7 +6180,7 @@ var ApprovalModal = class extends import_obsidian7.Modal {
     } else {
       await this.app.vault.create(this.change.path, this.change.after);
     }
-    new import_obsidian7.Notice(`Applied Pi change to ${this.change.path}`);
+    new import_obsidian8.Notice(`Applied Pi change to ${this.change.path}`);
   }
   finish() {
     if (this.settled) return;
@@ -5766,9 +6190,9 @@ var ApprovalModal = class extends import_obsidian7.Modal {
 };
 
 // src/ui/modals/pi-setup-modal.mjs
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var INSTALL_COMMAND = "npm install -g @earendil-works/pi-coding-agent";
-var PiSetupModal = class extends import_obsidian8.Modal {
+var PiSetupModal = class extends import_obsidian9.Modal {
   constructor(plugin, health) {
     super(plugin.app);
     this.plugin = plugin;
@@ -5777,7 +6201,7 @@ var PiSetupModal = class extends import_obsidian8.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    new import_obsidian8.Setting(contentEl).setName("Set up Pi CLI").setHeading();
+    new import_obsidian9.Setting(contentEl).setName("Set up Pi CLI").setHeading();
     contentEl.createEl("p", {
       text: this.health?.message ?? "Pi Agent needs the Pi CLI before it can run prompts."
     });
@@ -5800,7 +6224,7 @@ pi --version`;
       .createEl("button", { text: needsNode ? "Copy diagnostic commands" : "Copy install command" })
       .addEventListener("click", async () => {
         await navigator.clipboard.writeText(needsNode ? commandText : INSTALL_COMMAND);
-        new import_obsidian8.Notice(
+        new import_obsidian9.Notice(
           needsNode ? "Copied diagnostic commands." : "Copied Pi install command."
         );
       });
@@ -5821,11 +6245,11 @@ pi --version`;
 };
 
 // src/ui/modals/extension-ui-modal.mjs
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 function showExtensionUiDialog(app, request) {
   return new Promise((resolve) => new ExtensionUiModal(app, request, resolve).open());
 }
-var ExtensionUiModal = class extends import_obsidian9.Modal {
+var ExtensionUiModal = class extends import_obsidian10.Modal {
   constructor(app, request, resolve) {
     super(app);
     this.request = request;
@@ -5839,7 +6263,7 @@ var ExtensionUiModal = class extends import_obsidian9.Modal {
       return;
     }
     this.request.signal?.addEventListener("abort", this.abortHandler, { once: true });
-    new import_obsidian9.Setting(this.contentEl)
+    new import_obsidian10.Setting(this.contentEl)
       .setName(this.request.title || "Pi extension")
       .setHeading();
     if (this.request.method === "confirm") {
@@ -5901,14 +6325,14 @@ var ExtensionUiModal = class extends import_obsidian9.Modal {
 var f4 = __toESM(require("obsidian"), 1);
 
 // src/ui/message-actions.mjs
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 var MessageActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
     this.callbacks = callbacks;
   }
   showMessageMenu(event, message, messageIndex) {
-    const menu = new import_obsidian10.Menu();
+    const menu = new import_obsidian11.Menu();
     if (message.role === "user") {
       menu.addItem((item) =>
         item
@@ -5974,12 +6398,12 @@ ${message.content}`)
   }
   async copyResponse(content) {
     await navigator.clipboard.writeText(content);
-    new import_obsidian10.Notice("Copied response.");
+    new import_obsidian11.Notice("Copied response.");
   }
 };
 
 // src/ui/note-actions.mjs
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 var NoteActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -5987,27 +6411,27 @@ var NoteActions = class {
   }
   async copyText(text) {
     await navigator.clipboard.writeText(text);
-    new import_obsidian11.Notice("Copied to clipboard.");
+    new import_obsidian12.Notice("Copied to clipboard.");
   }
   insertIntoCurrentNote(text) {
     const editor = this.plugin.app.workspace.activeEditor?.editor;
     if (!editor) {
-      new import_obsidian11.Notice("Open a note first.");
+      new import_obsidian12.Notice("Open a note first.");
       return;
     }
     editor.replaceSelection(text);
   }
   async createNoteFromResponse(response) {
     const title = this.getResponseTitle(response);
-    const path4 = await this.getAvailableNotePath(`${title}.md`);
+    const path5 = await this.getAvailableNotePath(`${title}.md`);
     await this.ensureFolder("Pi");
-    const file = await this.plugin.app.vault.create(path4, response);
+    const file = await this.plugin.app.vault.create(path5, response);
     await this.plugin.app.workspace.getLeaf(false).openFile(file);
   }
   async openCitedNotes(text) {
     const links = this.extractVaultLinks(text);
     if (links.length === 0) {
-      new import_obsidian11.Notice("No vault links found.");
+      new import_obsidian12.Notice("No vault links found.");
       return;
     }
     for (const link of links.slice(0, 5)) await this.callbacks.openVaultLink(link);
@@ -6061,8 +6485,8 @@ var NoteActions = class {
   }
   async getAvailableNotePath(name, folder = "Pi") {
     const normalizedFolder = normalizeArchiveFolder(folder);
-    const path4 = `${normalizedFolder}/${name}`;
-    if (!this.plugin.app.vault.getAbstractFileByPath(path4)) return path4;
+    const path5 = `${normalizedFolder}/${name}`;
+    if (!this.plugin.app.vault.getAbstractFileByPath(path5)) return path5;
     const basename = name.replace(/\.md$/i, "");
     for (let index = 2; index < 100; index++) {
       const candidate = `${normalizedFolder}/${basename} ${index}.md`;
@@ -6072,7 +6496,7 @@ var NoteActions = class {
   }
 };
 function normalizeArchiveFolder(folder) {
-  return (0, import_obsidian11.normalizePath)(normalizeVaultFolder(folder, "Pi"));
+  return (0, import_obsidian12.normalizePath)(normalizeVaultFolder(folder, "Pi"));
 }
 
 // src/ui/prompt-queue.mjs
@@ -6406,14 +6830,14 @@ __export(thread_list_view_exports, {
 var f2 = __toESM(require("obsidian"), 1);
 
 // src/ui/modals/delete-thread-modal.mjs
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 function chooseThreadDeletion(app, thread) {
   return new Promise((resolve) => new DeleteThreadModal(app, thread, resolve).open());
 }
 function getThreadDeletionChoices(thread) {
   return thread?.piSessionId ? ["cancel", "chat", "both"] : ["cancel", "chat"];
 }
-var DeleteThreadModal = class extends import_obsidian12.Modal {
+var DeleteThreadModal = class extends import_obsidian13.Modal {
   constructor(app, thread, resolve) {
     super(app);
     this.thread = thread;
@@ -6767,7 +7191,7 @@ __export(vault_link_actions_exports, {
   parseVaultLinkTarget: () => parseVaultLinkTarget,
   revealLine: () => revealLine
 });
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 var EXTERNAL_LINK_PATTERN = /^(?:[a-z][a-z\d+.-]*:|\/\/)/i;
 var LEGACY_LINE_PATTERN = /^(.*):(\d+)$/;
 function classifyVaultLinkTarget(value) {
@@ -6793,7 +7217,7 @@ async function openVaultLink(value, newLeaf = false) {
         ? { kind: "internal", linkText: value.path, line: value.line }
         : { kind: "invalid" };
   if (target.kind !== "internal") {
-    if (target.kind === "invalid") new import_obsidian13.Notice(`Note not found: ${String(value)}`);
+    if (target.kind === "invalid") new import_obsidian14.Notice(`Note not found: ${String(value)}`);
     return false;
   }
   try {
@@ -6806,7 +7230,7 @@ async function openVaultLink(value, newLeaf = false) {
     return true;
   } catch (error) {
     console.error("Pi Agent: failed to open vault link", error);
-    new import_obsidian13.Notice(`Note not found: ${this.formatVaultLinkTarget(target)}`);
+    new import_obsidian14.Notice(`Note not found: ${this.formatVaultLinkTarget(target)}`);
     return false;
   }
 }
@@ -7201,8 +7625,8 @@ function formatToolTarget(toolName, toolArgs) {
   if (toolName === "bash") return "command";
   if (toolName === "grep") {
     const pattern = sanitizeActivityDetail(pickNestedString(toolArgs, ["pattern", "query"]));
-    const path4 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
-    return pattern && path4 ? `"${pattern}" in ${path4}` : pattern ? `"${pattern}"` : path4;
+    const path5 = formatPathForActivity(pickNestedString(toolArgs, ["path", "directory", "dir"]));
+    return pattern && path5 ? `"${pattern}" in ${path5}` : pattern ? `"${pattern}"` : path5;
   }
   if (toolName === "find") {
     return sanitizeActivityDetail(pickNestedString(toolArgs, ["glob", "pattern", "query", "path"]));
@@ -7224,8 +7648,8 @@ function formatToolTarget(toolName, toolArgs) {
   );
 }
 function formatPathForActivity(value) {
-  const path4 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
-  return path4 ? path4.split("/").pop() || path4 : "";
+  const path5 = sanitizeActivityDetail(value).replace(/\\/g, "/").replace(/\/$/, "");
+  return path5 ? path5.split("/").pop() || path5 : "";
 }
 function sanitizeActivityDetail(value) {
   return value ? String(value).replace(/\s+/g, " ").trim() : "";
@@ -7495,7 +7919,7 @@ function formatActiveToolStatus() {
 }
 
 // src/ui/run-settings.mjs
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 var RunSettingsControls = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -7544,7 +7968,7 @@ var RunSettingsControls = class {
       attr: { "aria-label": `${name}: ${label}`, title: `${name}: ${label}` }
     });
     if (icon?.provider) renderProviderIcon(buttonEl, icon.provider);
-    else (0, import_obsidian14.setIcon)(buttonEl, icon);
+    else (0, import_obsidian15.setIcon)(buttonEl, icon);
     const labelEl = buttonEl.createSpan({ cls: "pi-agent-control-label", text: label });
     buttonEl.addEventListener("click", async (event) => {
       event.preventDefault();
@@ -7553,7 +7977,7 @@ var RunSettingsControls = class {
       try {
         await onClick();
       } catch (error) {
-        new import_obsidian14.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian15.Notice(error instanceof Error ? error.message : String(error));
       } finally {
         if (buttonEl.isConnected) {
           buttonEl.disabled = false;
@@ -7787,7 +8211,7 @@ var ComposerSuggestions = class {
 };
 
 // src/ui/thread-actions.mjs
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 var ThreadActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -7809,10 +8233,10 @@ var ThreadActions = class {
         this.callbacks.renderMessages();
         this.callbacks.renderToolBadges?.();
       } else {
-        new import_obsidian15.Notice("Nothing to fork yet.");
+        new import_obsidian16.Notice("Nothing to fork yet.");
       }
     } catch (error) {
-      new import_obsidian15.Notice(error instanceof Error ? error.message : String(error));
+      new import_obsidian16.Notice(error instanceof Error ? error.message : String(error));
     }
   }
 };
@@ -7889,23 +8313,23 @@ function getSuccessfulMarkdownMutationPath(event, vaultBasePath = "") {
     !["edit", "write"].includes(String(event.toolName || "").toLowerCase())
   )
     return void 0;
-  let path4 = typeof event.toolArgs?.path === "string" ? event.toolArgs.path.trim() : "";
-  if (!path4) return void 0;
-  path4 = path4.replaceAll("\\", "/");
+  let path5 = typeof event.toolArgs?.path === "string" ? event.toolArgs.path.trim() : "";
+  if (!path5) return void 0;
+  path5 = path5.replaceAll("\\", "/");
   const base = String(vaultBasePath || "")
     .replaceAll("\\", "/")
     .replace(/\/$/, "");
-  if (path4.startsWith("/") || /^[A-Za-z]:\//.test(path4)) {
-    const caseInsensitive = /^[A-Za-z]:\//.test(path4);
-    const comparablePath = caseInsensitive ? path4.toLowerCase() : path4;
+  if (path5.startsWith("/") || /^[A-Za-z]:\//.test(path5)) {
+    const caseInsensitive = /^[A-Za-z]:\//.test(path5);
+    const comparablePath = caseInsensitive ? path5.toLowerCase() : path5;
     const comparableBase = caseInsensitive ? base.toLowerCase() : base;
     if (!comparableBase || !comparablePath.startsWith(`${comparableBase}/`)) return void 0;
-    path4 = path4.slice(base.length + 1);
+    path5 = path5.slice(base.length + 1);
   }
-  const parts = path4.replace(/^\.\//, "").split("/");
+  const parts = path5.replace(/^\.\//, "").split("/");
   if (parts.some((part) => !part || part === "." || part === "..")) return void 0;
-  path4 = parts.join("/");
-  return path4.toLowerCase().endsWith(".md") ? path4 : void 0;
+  path5 = parts.join("/");
+  return path5.toLowerCase().endsWith(".md") ? path5 : void 0;
 }
 async function refreshOpenMarkdownViews(app, file) {
   if (!app?.vault?.read || !file?.path || file.extension !== "md") return 0;
@@ -9023,9 +9447,9 @@ var PiAgentView = class extends f4.ItemView {
     });
   }
   handleSuccessfulToolMutation(event, threadId) {
-    const path4 = getSuccessfulMarkdownMutationPath(event, this.plugin.getVaultBasePath());
-    if (!path4) return;
-    const file = this.plugin.app.vault.getAbstractFileByPath(path4);
+    const path5 = getSuccessfulMarkdownMutationPath(event, this.plugin.getVaultBasePath());
+    if (!path5) return;
+    const file = this.plugin.app.vault.getAbstractFileByPath(path5);
     if (!(file instanceof f4.TFile) || file.extension !== "md") return;
     this.plugin.completeAnnotationProcessingForPath(threadId, file.path);
     void refreshOpenMarkdownViews(this.plugin.app, file).catch((error) => {
@@ -9137,16 +9561,6 @@ Object.assign(
   message_renderer_exports,
   run_activity_state_exports
 );
-
-// src/shared/thread-history.mjs
-function sanitizeThreadHistory(history, limit = 40) {
-  return {
-    currentThreadId: history.currentThreadId,
-    threads: [...(history.threads || [])]
-      .sort((left, right) => right.updatedAt - left.updatedAt)
-      .slice(0, limit)
-  };
-}
 
 // src/threads/thread-store.mjs
 var DEFAULT_THREAD_TITLE = "New chat";
@@ -9327,8 +9741,8 @@ function normalizeThreadHistory(history, legacyMessages, legacyPiSessionId) {
       typeof source.currentThreadId === "string" &&
       threads.some((thread) => thread.id === source.currentThreadId)
         ? source.currentThreadId
-        : (getMostRecentThread(threads.filter((thread) => !thread.archived))?.id ??
-          getMostRecentThread(threads)?.id ??
+        : (getMostRecentThread2(threads.filter((thread) => !thread.archived))?.id ??
+          getMostRecentThread2(threads)?.id ??
           threads[0].id),
     threads
   };
@@ -9439,7 +9853,7 @@ function titleFromPrompt(prompt) {
 function createThreadId(now) {
   return `thread-${now}-${Math.random().toString(36).slice(2, 10)}`;
 }
-function getMostRecentThread(threads) {
+function getMostRecentThread2(threads) {
   return [...threads].sort((left, right) => right.updatedAt - left.updatedAt)[0];
 }
 function compareThreadsForList(left, right) {
@@ -9545,6 +9959,10 @@ var PiAgentPlugin = class extends P.Plugin {
     this.modelCatalogRefreshedAt = 0;
     this.modelCatalogGeneration = 0;
     this.modelCatalogError = "";
+    this.useExternalChatHistory = false;
+    this.needsChatHistoryMigration = false;
+    this.chatHistoryStore = void 0;
+    this.chatHistoryMigrationTimer = void 0;
   }
   async onload() {
     await this.loadSettings();
@@ -9658,32 +10076,86 @@ var PiAgentPlugin = class extends P.Plugin {
     });
     this.settingsTab = new PiAgentSettingTab(this.app, this);
     this.addSettingTab(this.settingsTab);
+    if (this.needsChatHistoryMigration && !this.settings.chatHistoryMigrationDismissed) {
+      this.chatHistoryMigrationTimer = window.setTimeout(() => {
+        this.chatHistoryMigrationTimer = void 0;
+        new ChatHistoryMigrationModal(this).open();
+      }, 500);
+    }
   }
   onunload() {
+    if (this.chatHistoryMigrationTimer !== void 0) {
+      window.clearTimeout(this.chatHistoryMigrationTimer);
+    }
     this.annotationController?.destroy();
     this.cancelPiRun();
     this.disposeThreadRunners();
   }
   async loadSettings() {
-    let e = await this.loadData(),
-      {
-        chatHistory: t,
-        messages: n,
-        threadId: s,
-        sessionId: a,
-        localPromptQueue: q,
-        localPromptSteering: steering,
-        annotationData,
-        ...o
-      } = e != null ? e : {};
-    this.settings = normalizeSettings(o);
-    this.localPromptQueue = restorePersistedLocalPromptQueue(q, steering);
+    const rawData = (await this.loadData()) ?? {};
+    const {
+      chatHistory,
+      messages,
+      threadId,
+      sessionId,
+      localPromptQueue,
+      localPromptSteering,
+      annotationData,
+      ...rawSettings
+    } = rawData;
+    this.settings = normalizeSettings(rawSettings);
+    this.localPromptQueue = restorePersistedLocalPromptQueue(localPromptQueue, localPromptSteering);
     this.localPromptSteering = [];
     this.localPromptQueuePaused = this.localPromptQueue.length > 0;
     this.settings.additionalSkillFolders = normalizeSkillFolderList(
       this.settings.additionalSkillFolders
     );
-    this.threadHistory = new ThreadStore(t, n, a != null ? a : s);
+    const legacyHistory = new ThreadStore(
+      chatHistory,
+      messages,
+      sessionId != null ? sessionId : threadId
+    );
+    this.threadHistory = legacyHistory;
+    const vaultBasePath = this.getVaultBasePath();
+    if (vaultBasePath) {
+      try {
+        this.chatHistoryStore = new ChatHistoryFileStore(
+          vaultBasePath,
+          this.settings.chatHistoryFolder
+        );
+        const externalHistory = await this.chatHistoryStore.loadHistory();
+        const externalHistoryIsCommitted =
+          externalHistory &&
+          (this.settings.chatHistoryStorageVersion === CHAT_HISTORY_SCHEMA_VERSION ||
+            this.chatHistoryStore.lastLoadHadValidIndex);
+        if (externalHistoryIsCommitted) {
+          this.threadHistory = new ThreadStore(externalHistory);
+          this.useExternalChatHistory = true;
+          this.needsChatHistoryMigration = false;
+          this.settings.chatHistoryStorageVersion = CHAT_HISTORY_SCHEMA_VERSION;
+          this.settings.chatHistoryMigrationDismissed = false;
+        } else if (hasLegacyChatHistory(chatHistory, messages)) {
+          this.useExternalChatHistory = false;
+          this.needsChatHistoryMigration = true;
+        } else {
+          this.useExternalChatHistory = true;
+          this.needsChatHistoryMigration = false;
+          this.settings.chatHistoryStorageVersion = CHAT_HISTORY_SCHEMA_VERSION;
+          this.settings.chatHistoryMigrationDismissed = false;
+        }
+        if (this.chatHistoryStore.warnings.length > 0) {
+          console.warn(
+            "Pi Agent: some chat history files could not be loaded",
+            this.chatHistoryStore.warnings
+          );
+        }
+      } catch (error) {
+        this.chatHistoryStore = void 0;
+        this.useExternalChatHistory = false;
+        this.needsChatHistoryMigration = hasLegacyChatHistory(chatHistory, messages);
+        console.warn("Pi Agent: external chat history is unavailable", error);
+      }
+    }
     this.annotationStore = new AnnotationStore(annotationData, () => {
       this.saveAnnotations();
       this.annotationController?.refresh();
@@ -9888,9 +10360,9 @@ var PiAgentPlugin = class extends P.Plugin {
   }
   countPiSessionChatMessages(e) {
     let t = this.pi?.resolveSessionPath(e);
-    if (!t || !import_node_fs3.default.existsSync(t)) return 0;
+    if (!t || !import_node_fs4.default.existsSync(t)) return 0;
     try {
-      return import_node_fs3.default
+      return import_node_fs4.default
         .readFileSync(t, "utf8")
         .split(/\r?\n/)
         .reduce((t2, n) => {
@@ -9941,7 +10413,7 @@ var PiAgentPlugin = class extends P.Plugin {
     if (options.deletePiSession && thread.piSessionId) {
       const resolver = runner ?? this.pi;
       sessionPath = resolver?.resolveSessionPath(thread.piSessionId);
-      if (!sessionPath || !import_node_fs3.default.existsSync(sessionPath)) return false;
+      if (!sessionPath || !import_node_fs4.default.existsSync(sessionPath)) return false;
       const sessionIsShared = this.threadHistory
         .listThreads({ includeArchived: true })
         .some(
@@ -9956,7 +10428,7 @@ var PiAgentPlugin = class extends P.Plugin {
     this.threadRunners.delete(e);
     if (sessionPath) {
       try {
-        import_node_fs3.default.unlinkSync(sessionPath);
+        import_node_fs4.default.unlinkSync(sessionPath);
       } catch (error) {
         console.warn("Pi Agent: could not delete local Pi session", error);
         return false;
@@ -10234,7 +10706,7 @@ var PiAgentPlugin = class extends P.Plugin {
       be,
       this.getVaultBasePath(),
       () => this.piCommands,
-      (path4) => this.getAnnotationsForContext(path4)
+      (path5) => this.getAnnotationsForContext(path5)
     );
     this.catalog = new PiModelCatalog(this.getPluginDirectory(), this.settings);
     this.commandCatalog = new PiCommandCatalog(
@@ -10263,8 +10735,8 @@ var PiAgentPlugin = class extends P.Plugin {
   beginAnnotationProcessing(threadId, annotations) {
     this.annotationController?.beginProcessing(threadId, annotations);
   }
-  completeAnnotationProcessingForPath(threadId, path4) {
-    this.annotationController?.completeProcessingForPath(threadId, path4);
+  completeAnnotationProcessingForPath(threadId, path5) {
+    this.annotationController?.completeProcessingForPath(threadId, path5);
   }
   endAnnotationProcessingForThread(threadId) {
     this.annotationController?.endProcessingForThread(threadId);
@@ -10278,10 +10750,10 @@ var PiAgentPlugin = class extends P.Plugin {
       byPath.set(annotation.path, items);
     }
     try {
-      for (const [path4, items] of byPath) {
-        const current = this.annotationStore.list(path4);
+      for (const [path5, items] of byPath) {
+        const current = this.annotationStore.list(path5);
         const ids = new Set(current.map((annotation) => annotation.id));
-        this.annotationStore.replacePath(path4, [
+        this.annotationStore.replacePath(path5, [
           ...current,
           ...items.filter((annotation) => !ids.has(annotation.id))
         ]);
@@ -10292,21 +10764,90 @@ var PiAgentPlugin = class extends P.Plugin {
       );
     }
   }
-  async getAnnotationsForContext(path4) {
-    const annotations = this.annotationStore.list(path4);
+  async getAnnotationsForContext(path5) {
+    const annotations = this.annotationStore.list(path5);
     if (annotations.length === 0) return annotations;
-    const file = this.app.vault.getAbstractFileByPath(path4);
+    const file = this.app.vault.getAbstractFileByPath(path5);
     if (!(file instanceof P.TFile) || file.extension !== "md") return annotations;
     const activeEditor = this.app.workspace.activeEditor;
-    let content = activeEditor?.file?.path === path4 ? activeEditor.editor?.getValue?.() : void 0;
+    let content = activeEditor?.file?.path === path5 ? activeEditor.editor?.getValue?.() : void 0;
     if (typeof content !== "string") {
       const openLeaf = this.app.workspace
         .getLeavesOfType("markdown")
-        .find((leaf) => leaf.view?.file?.path === path4 && leaf.view?.editor?.getValue);
+        .find((leaf) => leaf.view?.file?.path === path5 && leaf.view?.editor?.getValue);
       content = openLeaf?.view?.editor?.getValue?.();
     }
     if (typeof content !== "string") content = await this.app.vault.read(file);
-    return this.annotationStore.reanchorPath(path4, content);
+    return this.annotationStore.reanchorPath(path5, content);
+  }
+  async migrateChatHistory(folder = this.settings.chatHistoryFolder) {
+    const normalizedFolder = normalizeChatHistoryFolder(folder);
+    const vaultBasePath = this.getVaultBasePath();
+    if (!vaultBasePath) throw new Error("The vault path is unavailable.");
+    const store = new ChatHistoryFileStore(vaultBasePath, normalizedFolder);
+    const history = this.threadHistory.toJSON();
+    const existingHistory = await store.loadHistory();
+    if (store.warnings.length > 0) {
+      throw new Error("The migration destination contains unreadable chat history files.");
+    }
+    if (existingHistory && !historyIsCompatibleSubset(existingHistory, history)) {
+      throw new Error("The migration destination contains a different Pi Agent chat history.");
+    }
+    await store.migrateLegacyHistory(history);
+    this.chatHistoryStore = store;
+    this.useExternalChatHistory = true;
+    this.needsChatHistoryMigration = false;
+    this.settings.chatHistoryFolder = normalizedFolder;
+    this.settings.chatHistoryStorageVersion = CHAT_HISTORY_SCHEMA_VERSION;
+    this.settings.chatHistoryMigrationDismissed = false;
+    this.ensureChatHistoryFolderIgnored(normalizedFolder);
+    this.syncCurrentThreadState();
+    await this.savePluginData();
+    this.settingsTab?.display?.();
+  }
+  async deferChatHistoryMigration() {
+    this.settings.chatHistoryMigrationDismissed = true;
+    await this.savePluginData();
+    this.settingsTab?.display?.();
+  }
+  async changeChatHistoryFolder(folder) {
+    const normalizedFolder = normalizeChatHistoryFolder(folder);
+    if (normalizedFolder === this.settings.chatHistoryFolder) return;
+    const vaultBasePath = this.getVaultBasePath();
+    if (!vaultBasePath) throw new Error("The vault path is unavailable.");
+    if (!this.useExternalChatHistory) {
+      this.settings.chatHistoryFolder = normalizedFolder;
+      this.chatHistoryStore = new ChatHistoryFileStore(vaultBasePath, normalizedFolder);
+      this.ensureChatHistoryFolderIgnored(normalizedFolder);
+      await this.savePluginData();
+      this.settingsTab?.display?.();
+      return;
+    }
+    const nextStore = new ChatHistoryFileStore(vaultBasePath, normalizedFolder);
+    const existingHistory = await nextStore.loadHistory();
+    const history = this.threadHistory.toJSON();
+    if (nextStore.warnings.length > 0) {
+      throw new Error("The destination contains unreadable chat history files.");
+    }
+    if (existingHistory && !historiesContainSameThreads(existingHistory, history)) {
+      throw new Error("The destination already contains a different Pi Agent chat history.");
+    }
+    await nextStore.saveHistory(history);
+    const verifiedHistory = await nextStore.loadHistory();
+    if (!verifiedHistory || !historiesContainSameThreads(verifiedHistory, history)) {
+      throw new Error("Could not verify the moved chat history.");
+    }
+    const previousStore = this.chatHistoryStore;
+    this.chatHistoryStore = nextStore;
+    this.settings.chatHistoryFolder = normalizedFolder;
+    this.settings.chatHistoryStorageVersion = CHAT_HISTORY_SCHEMA_VERSION;
+    this.ensureChatHistoryFolderIgnored(normalizedFolder);
+    await this.savePluginData();
+    await previousStore?.removeManagedHistory();
+    this.settingsTab?.display?.();
+  }
+  ensureChatHistoryFolderIgnored(folder) {
+    if (!this.settings.ignoredFolders.includes(folder)) this.settings.ignoredFolders.push(folder);
   }
   syncCurrentThreadState() {
     this.messages = this.threadHistory.getCurrentMessages();
@@ -10322,17 +10863,22 @@ var PiAgentPlugin = class extends P.Plugin {
     });
   }
   savePluginData() {
-    let e = {
+    const history = this.threadHistory.toJSON();
+    const historyStore = this.useExternalChatHistory ? this.chatHistoryStore : void 0;
+    const data = {
       ...this.settings,
-      chatHistory: sanitizeThreadHistory(this.threadHistory.toJSON()),
+      ...(historyStore ? {} : { chatHistory: history }),
       localPromptQueue: this.localPromptQueue,
       localPromptSteering: this.localPromptSteering,
       annotationData: this.annotationStore.toJSON()
     };
-    return (
-      (this.dataSaveChain = this.dataSaveChain.catch(() => {}).then(() => this.saveData(e))),
-      this.dataSaveChain
-    );
+    this.dataSaveChain = this.dataSaveChain
+      .catch(() => {})
+      .then(async () => {
+        if (historyStore) await historyStore.saveHistory(history);
+        await this.saveData(data);
+      });
+    return this.dataSaveChain;
   }
   refreshCurrentContextFile() {
     this.setCurrentContextFile(this.app.workspace.getActiveFile());
@@ -10361,8 +10907,8 @@ var PiAgentPlugin = class extends P.Plugin {
     }
     new P.Notice("Could not open Pi view.");
   }
-  async runAnnotationsPrompt(path4) {
-    if (this.annotationStore.list(path4).length === 0) {
+  async runAnnotationsPrompt(path5) {
+    if (this.annotationStore.list(path5).length === 0) {
       new P.Notice("There are no annotations to send for this note.");
       return;
     }
@@ -10374,7 +10920,7 @@ var PiAgentPlugin = class extends P.Plugin {
     }
     await view.runAnnotationPrompt(
       "Follow every annotation's user-authored request. Batch non-overlapping Change annotations for this note into one targeted edit call, and answer each Question annotation without modifying its target.",
-      path4
+      path5
     );
   }
   async suggestFrontmatterForCurrentNote() {
@@ -10448,6 +10994,16 @@ var PiAgentPlugin = class extends P.Plugin {
     return n.endsWith(`/${configDir}`) ? `${n}/${s}` : `${n}/${configDir}/${s}`;
   }
 };
+function historiesContainSameThreads(left, right) {
+  return left.threads.length === right.threads.length && historyIsCompatibleSubset(left, right);
+}
+function historyIsCompatibleSubset(candidateHistory, expectedHistory) {
+  const expectedById = new Map(expectedHistory.threads.map((thread) => [thread.id, thread]));
+  return candidateHistory.threads.every((thread) => {
+    const expected = expectedById.get(thread.id);
+    return expected && JSON.stringify(expected) === JSON.stringify(thread);
+  });
+}
 function isLegacyBareModelId(model) {
   return !model.includes("/") && model !== "__custom";
 }

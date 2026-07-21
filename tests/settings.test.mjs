@@ -100,22 +100,32 @@ describe("plugin settings helpers", () => {
       ignoredFolders: ["", ".git"],
       piExecutablePath: " /custom/bin/pi ",
       includeDefaultSkills: undefined,
-      dismissedPiSetup: true
+      dismissedPiSetup: true,
+      chatHistoryFolder: " custom/history ",
+      chatHistoryStorageVersion: 1,
+      chatHistoryMigrationDismissed: true
     });
 
     expect(settings).toMatchObject({
       sandboxMode: "edit",
-      ignoredFolders: [".git"],
+      ignoredFolders: [".git", "custom/history"],
       piExecutablePath: "/custom/bin/pi",
       includeDefaultSkills: true,
       dismissedPiSetup: true,
-      desktopNotifications: true
+      desktopNotifications: true,
+      chatHistoryFolder: "custom/history",
+      chatHistoryStorageVersion: 1,
+      chatHistoryMigrationDismissed: true
     });
     expect(settings).not.toHaveProperty("maxSearchResults");
     expect(settings).not.toHaveProperty("maxSearchFiles");
     expect(settings).not.toHaveProperty("maxFileChars");
     expect(settings).not.toHaveProperty("maxChangeSnapshotFiles");
+    expect(settings.ignoredFolders).toContain("custom/history");
     expect(normalizeSettings({ desktopNotifications: false }).desktopNotifications).toBe(false);
+    expect(normalizeSettings({ chatHistoryFolder: "../outside" }).chatHistoryFolder).toBe(
+      "pi_sessions"
+    );
   });
 
   it("finds custom selected model info and exposes tool modes", () => {

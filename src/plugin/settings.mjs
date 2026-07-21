@@ -1,3 +1,9 @@
+import {
+  CHAT_HISTORY_SCHEMA_VERSION,
+  DEFAULT_CHAT_HISTORY_FOLDER,
+  normalizeChatHistoryFolder
+} from "../threads/chat-history-store.mjs";
+
 export const CUSTOM_MODEL_VALUE = "__custom";
 
 const REASONING_LABELS = {
@@ -26,7 +32,10 @@ export const DEFAULT_SETTINGS = {
   effectiveModel: "",
   effectiveReasoning: "",
   dismissedPiSetup: false,
-  desktopNotifications: true
+  desktopNotifications: true,
+  chatHistoryFolder: DEFAULT_CHAT_HISTORY_FOLDER,
+  chatHistoryStorageVersion: 0,
+  chatHistoryMigrationDismissed: false
 };
 
 export function normalizeSettings(rawSettings = {}) {
@@ -60,6 +69,19 @@ export function normalizeSettings(rawSettings = {}) {
   settings.effectiveReasoning = normalizeString(settings.effectiveReasoning);
   settings.dismissedPiSetup = settings.dismissedPiSetup === true;
   settings.desktopNotifications = settings.desktopNotifications !== false;
+  try {
+    settings.chatHistoryFolder = normalizeChatHistoryFolder(settings.chatHistoryFolder);
+  } catch {
+    settings.chatHistoryFolder = DEFAULT_CHAT_HISTORY_FOLDER;
+  }
+  settings.chatHistoryStorageVersion =
+    settings.chatHistoryStorageVersion === CHAT_HISTORY_SCHEMA_VERSION
+      ? CHAT_HISTORY_SCHEMA_VERSION
+      : 0;
+  settings.chatHistoryMigrationDismissed = settings.chatHistoryMigrationDismissed === true;
+  if (!settings.ignoredFolders.includes(settings.chatHistoryFolder)) {
+    settings.ignoredFolders.push(settings.chatHistoryFolder);
+  }
 
   return settings;
 }

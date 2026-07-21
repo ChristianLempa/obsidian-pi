@@ -60,7 +60,7 @@ Pi Agent can send note content and selected text to the local Pi CLI, which may 
 Short version:
 
 - The plugin does not include ads, telemetry, or an auto-updater.
-- Chat history and Pi sessions are stored locally by the plugin and Pi.
+- Chat history is stored as one versioned JSON file per chat in the configurable vault-relative `pi_sessions` folder. Pi runtime sessions remain separate under the plugin's local `pi-sessions` directory.
 - Network access happens through the separately installed Pi CLI and depends on your Pi/model-provider configuration.
 - Pi discovers project/global extensions, prompt templates, and skills through RPC and applies its own project-trust rules. The plugin passes any explicitly configured absolute or vault-contained skill paths to Pi.
 - Edit and Full agent modes can modify files in your vault/project.

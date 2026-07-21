@@ -1,8 +1,9 @@
-export function sanitizeThreadHistory(history, limit = 40) {
-  return {
-    currentThreadId: history.currentThreadId,
-    threads: [...(history.threads || [])]
-      .sort((left, right) => right.updatedAt - left.updatedAt)
-      .slice(0, limit)
-  };
+export function sanitizeThreadHistory(history) {
+  const threads = [...(history.threads || [])].sort(
+    (left, right) => right.updatedAt - left.updatedAt
+  );
+  const currentThreadId = threads.some((thread) => thread.id === history.currentThreadId)
+    ? history.currentThreadId
+    : threads[0]?.id;
+  return { currentThreadId, threads };
 }

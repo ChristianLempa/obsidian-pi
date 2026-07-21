@@ -9,6 +9,7 @@ import {
 import { normalizeSkillFolderList } from "../context/skills.mjs";
 import { confirmWithModal } from "../ui/modals/confirm-modal.mjs";
 import { ModelPickerModal, ThinkingPickerModal } from "../ui/modals/model-picker-modal.mjs";
+import { ChatHistoryMigrationModal } from "../ui/modals/chat-history-migration-modal.mjs";
 import { requestDesktopNotificationPermission } from "../ui/desktop-notifications.mjs";
 
 export class PiAgentSettingTab extends PluginSettingTab {
@@ -31,6 +32,11 @@ export class PiAgentSettingTab extends PluginSettingTab {
       this.getToolModeDefinition(),
       this.getDesktopNotificationsDefinition(),
       this.getCustomInstructionsDefinition(),
+      {
+        type: "group",
+        heading: "Chat history",
+        items: [this.getChatHistoryFolderDefinition(), this.getChatHistoryMigrationDefinition()]
+      },
       {
         type: "group",
         heading: "Advanced",
@@ -227,6 +233,57 @@ export class PiAgentSettingTab extends PluginSettingTab {
               this.plugin.settings.customInstructions = value;
               await this.plugin.saveSettings();
             })
+        )
+    };
+  }
+
+  getChatHistoryFolderDefinition() {
+    return {
+      name: "Chat history folder",
+      desc: "Vault-relative folder containing one versioned JSON file per chat. Changing it moves the managed chat files after verification.",
+      render: (setting) => {
+        let pendingFolder = this.plugin.settings.chatHistoryFolder;
+        setting
+          .addText((text) =>
+            text
+              .setPlaceholder("Chat history")
+              .setValue(pendingFolder)
+              .onChange((value) => {
+                pendingFolder = value;
+              })
+          )
+          .addButton((button) =>
+            button
+              .setButtonText(this.plugin.useExternalChatHistory ? "Move chats" : "Use folder")
+              .onClick(async () => {
+                button.setDisabled(true);
+                try {
+                  await this.plugin.changeChatHistoryFolder(pendingFolder);
+                  new Notice("Chat history folder updated.");
+                } catch (error) {
+                  new Notice(error instanceof Error ? error.message : String(error));
+                } finally {
+                  button.setDisabled(false);
+                }
+              })
+          );
+      }
+    };
+  }
+
+  getChatHistoryMigrationDefinition() {
+    const migrationNeeded = this.plugin.needsChatHistoryMigration === true;
+    return {
+      name: "Existing chat migration",
+      desc: migrationNeeded
+        ? "Existing chats are still in plugin data. Migrate them into individual JSON files when ready."
+        : "Chat history uses individual versioned JSON files.",
+      render: (setting) =>
+        setting.addButton((button) =>
+          button
+            .setButtonText(migrationNeeded ? "Migrate existing chats" : "Migrated")
+            .setDisabled(!migrationNeeded)
+            .onClick(() => new ChatHistoryMigrationModal(this.plugin).open())
         )
     };
   }
