@@ -102,7 +102,7 @@ describe("plugin settings helpers", () => {
       includeDefaultSkills: undefined,
       dismissedPiSetup: true,
       chatHistoryFolder: " custom/history ",
-      chatHistoryStorageVersion: 2,
+      chatHistoryStorageVersion: 3,
       chatHistoryMigrationDismissed: true
     });
 
@@ -114,7 +114,7 @@ describe("plugin settings helpers", () => {
       dismissedPiSetup: true,
       desktopNotifications: true,
       chatHistoryFolder: "custom/history",
-      chatHistoryStorageVersion: 2,
+      chatHistoryStorageVersion: 3,
       chatHistoryMigrationDismissed: true
     });
     expect(settings).not.toHaveProperty("maxSearchResults");
@@ -126,6 +126,9 @@ describe("plugin settings helpers", () => {
     expect(normalizeSettings({ chatHistoryFolder: "../outside" }).chatHistoryFolder).toBe("chats");
     expect(
       normalizeSettings({ chatHistoryFolder: "pi_sessions", chatHistoryStorageVersion: 1 })
+    ).toMatchObject({ chatHistoryFolder: "chats", chatHistoryStorageVersion: 0 });
+    expect(
+      normalizeSettings({ chatHistoryFolder: "chats", chatHistoryStorageVersion: 2 })
     ).toMatchObject({ chatHistoryFolder: "chats", chatHistoryStorageVersion: 0 });
   });
 

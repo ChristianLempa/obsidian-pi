@@ -13,7 +13,7 @@ export class ChatHistoryMigrationModal extends Modal {
     contentEl.empty();
     new Setting(contentEl).setName("Migrate existing chats?").setHeading();
     contentEl.createEl("p", {
-      text: "The plugin can move existing chat transcripts out of plugin data and store every chat as a separate versioned JSON file in your vault."
+      text: "The plugin can move existing chat transcripts out of plugin data and store every chat as a separate Markdown file with frontmatter in your vault."
     });
     contentEl.createEl("p", {
       text: "The migration keeps a recovery backup and does not modify or delete Pi's runtime session files."

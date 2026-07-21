@@ -240,7 +240,7 @@ export class PiAgentSettingTab extends PluginSettingTab {
   getChatHistoryFolderDefinition() {
     return {
       name: "Chat history folder",
-      desc: "Vault-relative folder containing one versioned JSON file per chat. Changing it moves the managed chat files after verification.",
+      desc: "Vault-relative folder containing one Markdown file with frontmatter per chat. Changing it moves the managed chat files after verification.",
       render: (setting) => {
         let pendingFolder = this.plugin.settings.chatHistoryFolder;
         setting
@@ -276,8 +276,8 @@ export class PiAgentSettingTab extends PluginSettingTab {
     return {
       name: "Existing chat migration",
       desc: migrationNeeded
-        ? "Existing chats are still in plugin data. Migrate them into individual JSON files when ready."
-        : "Chat history uses individual versioned JSON files.",
+        ? "Existing chats are still in plugin data. Migrate them into individual Markdown files when ready."
+        : "Chat history uses individual Markdown files with frontmatter.",
       render: (setting) =>
         setting.addButton((button) =>
           button

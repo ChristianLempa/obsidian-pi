@@ -1866,37 +1866,38 @@ var import_node_crypto = __toESM(require("node:crypto"), 1);
 var import_node_fs = __toESM(require("node:fs"), 1);
 var import_node_path = __toESM(require("node:path"), 1);
 var CHAT_HISTORY_SCHEMA_VERSION = 1;
-var CHAT_HISTORY_STORAGE_VERSION = 2;
+var CHAT_HISTORY_STORAGE_VERSION = 3;
 var DEFAULT_CHAT_HISTORY_FOLDER = "chats";
-var MIGRATION_BACKUP_FILE = ".pi-agent-migration-backup-v0.json";
 var LEGACY_INDEX_FILE = "index.json";
 var LEGACY_CHATS_FOLDER = "chats";
+var MARKDOWN_EXTENSION = ".md";
 var ChatHistoryFileStore = class {
-  constructor(vaultBasePath, folder = DEFAULT_CHAT_HISTORY_FOLDER) {
+  constructor(vaultBasePath, folder = DEFAULT_CHAT_HISTORY_FOLDER, vault) {
     if (!vaultBasePath) throw new Error("The vault path is unavailable.");
     this.vaultBasePath = import_node_path.default.resolve(vaultBasePath);
     this.folder = normalizeChatHistoryFolder(folder);
     this.rootPath = resolveVaultRelativePath(this.vaultBasePath, this.folder);
+    this.vault = vault;
     this.managedFiles = /* @__PURE__ */ new Map();
+    this.fileByThreadId = /* @__PURE__ */ new Map();
     this.warnings = [];
   }
   async loadHistory(currentThreadId) {
     this.warnings = [];
     this.managedFiles = /* @__PURE__ */ new Map();
-    const files = await listChatFiles(this.rootPath);
+    this.fileByThreadId = /* @__PURE__ */ new Map();
+    const files = await this.listManagedMarkdownFiles();
     const threads = [];
     const seenIds = /* @__PURE__ */ new Set();
     for (const fileName of files) {
-      const filePath = import_node_path.default.join(this.rootPath, fileName);
       try {
-        const document2 = JSON.parse(
-          await import_node_fs.default.promises.readFile(filePath, "utf8")
-        );
-        const thread = readThreadDocument(document2, fileName);
+        const thread = readMarkdownThreadDocument(await this.readManagedFile(fileName));
+        if (!thread) continue;
         if (seenIds.has(thread.id)) throw new Error(`Duplicate thread ID ${thread.id}.`);
         seenIds.add(thread.id);
         threads.push(thread);
         this.managedFiles.set(fileName, fingerprintThread(thread));
+        this.fileByThreadId.set(thread.id, fileName);
       } catch (error) {
         this.warnings.push(
           `${fileName}: ${error instanceof Error ? error.message : String(error)}`
@@ -1913,33 +1914,34 @@ var ChatHistoryFileStore = class {
   }
   async saveHistory(history) {
     const normalized = normalizeHistorySnapshot(history);
-    await import_node_fs.default.promises.mkdir(this.rootPath, { recursive: true });
+    await this.ensureManagedFolder();
     const desiredFiles = /* @__PURE__ */ new Set();
     for (const thread of normalized.threads) {
-      const fileName = threadFileName(thread.id);
+      const fileName = this.fileByThreadId.get(thread.id) ?? threadFileName(thread.id);
       const fingerprint = fingerprintThread(thread);
       desiredFiles.add(fileName);
       if (this.managedFiles.get(fileName) !== fingerprint) {
-        await writeJsonAtomic(import_node_path.default.join(this.rootPath, fileName), {
-          schemaVersion: CHAT_HISTORY_SCHEMA_VERSION,
-          thread
-        });
+        await this.writeManagedFile(fileName, renderMarkdownThread(thread));
       }
       this.managedFiles.set(fileName, fingerprint);
+      this.fileByThreadId.set(thread.id, fileName);
     }
-    for (const fileName of [...this.managedFiles.keys()]) {
+    for (const [fileName] of [...this.managedFiles]) {
       if (desiredFiles.has(fileName)) continue;
-      await removeIfExists(import_node_path.default.join(this.rootPath, fileName));
+      await this.removeManagedFile(fileName);
       this.managedFiles.delete(fileName);
     }
+    for (const [threadId, fileName] of [...this.fileByThreadId]) {
+      if (!desiredFiles.has(fileName)) this.fileByThreadId.delete(threadId);
+    }
   }
-  async migrateLegacyHistory(history) {
+  async migrateLegacyHistory(history, sourceVersion = 0) {
     const normalized = normalizeHistorySnapshot(history);
-    await import_node_fs.default.promises.mkdir(this.rootPath, { recursive: true });
-    const backupPath = import_node_path.default.join(this.rootPath, MIGRATION_BACKUP_FILE);
+    await this.ensureManagedFolder();
+    const backupPath = this.getMigrationBackupPath(sourceVersion);
     if (!(await exists(backupPath))) {
       await writeJsonAtomic(backupPath, {
-        schemaVersion: 0,
+        schemaVersion: sourceVersion,
         exportedAt: /* @__PURE__ */ new Date().toISOString(),
         chatHistory: normalized
       });
@@ -1951,22 +1953,102 @@ var ChatHistoryFileStore = class {
   }
   async removeManagedHistory() {
     for (const fileName of this.managedFiles.keys()) {
-      await removeIfExists(import_node_path.default.join(this.rootPath, fileName));
+      await this.removeManagedFile(fileName);
     }
     this.managedFiles = /* @__PURE__ */ new Map();
+    this.fileByThreadId = /* @__PURE__ */ new Map();
   }
-  getMigrationBackupPath() {
-    return import_node_path.default.join(this.rootPath, MIGRATION_BACKUP_FILE);
+  async listManagedMarkdownFiles() {
+    if (!this.vault) return listFilesWithExtension(this.rootPath, MARKDOWN_EXTENSION);
+    return this.vault
+      .getMarkdownFiles()
+      .filter((file) => import_node_path.default.posix.dirname(file.path) === this.folder)
+      .map((file) => file.name)
+      .sort();
+  }
+  async readManagedFile(fileName) {
+    if (!this.vault)
+      return import_node_fs.default.promises.readFile(
+        import_node_path.default.join(this.rootPath, fileName),
+        "utf8"
+      );
+    const file = this.vault.getAbstractFileByPath(`${this.folder}/${fileName}`);
+    if (!file) throw new Error("Chat file is unavailable in the vault.");
+    return this.vault.read(file);
+  }
+  async ensureManagedFolder() {
+    if (!this.vault) {
+      await import_node_fs.default.promises.mkdir(this.rootPath, { recursive: true });
+      return;
+    }
+    let current = "";
+    for (const segment of this.folder.split("/")) {
+      current = current ? `${current}/${segment}` : segment;
+      if (!this.vault.getAbstractFileByPath(current)) await this.vault.createFolder(current);
+    }
+  }
+  async writeManagedFile(fileName, content) {
+    if (!this.vault) {
+      await writeTextAtomic(import_node_path.default.join(this.rootPath, fileName), content);
+      return;
+    }
+    const vaultPath = `${this.folder}/${fileName}`;
+    const file = this.vault.getAbstractFileByPath(vaultPath);
+    if (file) await this.vault.modify(file, content);
+    else await this.vault.create(vaultPath, content);
+  }
+  async removeManagedFile(fileName) {
+    if (!this.vault) {
+      await removeIfExists(import_node_path.default.join(this.rootPath, fileName));
+      return;
+    }
+    const file = this.vault.getAbstractFileByPath(`${this.folder}/${fileName}`);
+    if (file) await this.vault.delete(file, true);
+  }
+  getMigrationBackupPath(sourceVersion = 0) {
+    return import_node_path.default.join(
+      this.rootPath,
+      `.pi-agent-migration-backup-v${sourceVersion}.json`
+    );
   }
 };
+async function loadLegacyJsonHistory(vaultBasePath, folder = "chats", currentThreadId) {
+  const rootPath = resolveVaultRelativePath(
+    import_node_path.default.resolve(vaultBasePath),
+    normalizeChatHistoryFolder(folder)
+  );
+  const threads = await loadLegacyJsonThreads(rootPath);
+  if (threads.length === 0) return void 0;
+  return {
+    currentThreadId: threads.some((thread) => thread.id === currentThreadId)
+      ? currentThreadId
+      : getMostRecentThread(threads).id,
+    threads
+  };
+}
+async function removeLegacyJsonHistory(vaultBasePath, folder = "chats") {
+  const rootPath = resolveVaultRelativePath(
+    import_node_path.default.resolve(vaultBasePath),
+    normalizeChatHistoryFolder(folder)
+  );
+  for (const fileName of await listVisibleJsonFiles(rootPath)) {
+    const filePath = import_node_path.default.join(rootPath, fileName);
+    try {
+      readLegacyThreadDocument(
+        JSON.parse(await import_node_fs.default.promises.readFile(filePath, "utf8"))
+      );
+      await removeIfExists(filePath);
+    } catch {}
+  }
+}
 async function loadLegacyIndexedHistory(vaultBasePath, folder = "pi_sessions") {
   const rootPath = resolveVaultRelativePath(
     import_node_path.default.resolve(vaultBasePath),
     normalizeChatHistoryFolder(folder)
   );
   const chatsPath = import_node_path.default.join(rootPath, LEGACY_CHATS_FOLDER);
-  const files = await listJsonFiles(chatsPath);
-  if (files.length === 0) return void 0;
+  const threads = await loadLegacyJsonThreads(chatsPath);
+  if (threads.length === 0) return void 0;
   let currentThreadId;
   try {
     const index = JSON.parse(
@@ -1977,19 +2059,6 @@ async function loadLegacyIndexedHistory(vaultBasePath, folder = "pi_sessions") {
     );
     currentThreadId = index?.currentThreadId;
   } catch {}
-  const threads = [];
-  for (const fileName of files) {
-    try {
-      const document2 = JSON.parse(
-        await import_node_fs.default.promises.readFile(
-          import_node_path.default.join(chatsPath, fileName),
-          "utf8"
-        )
-      );
-      threads.push(readLegacyThreadDocument(document2));
-    } catch {}
-  }
-  if (threads.length === 0) return void 0;
   return {
     currentThreadId: threads.some((thread) => thread.id === currentThreadId)
       ? currentThreadId
@@ -2003,7 +2072,7 @@ async function removeLegacyIndexedHistory(vaultBasePath, folder = "pi_sessions")
     normalizeChatHistoryFolder(folder)
   );
   const chatsPath = import_node_path.default.join(rootPath, LEGACY_CHATS_FOLDER);
-  for (const fileName of await listJsonFiles(chatsPath)) {
+  for (const fileName of await listVisibleJsonFiles(chatsPath)) {
     const filePath = import_node_path.default.join(chatsPath, fileName);
     try {
       readLegacyThreadDocument(
@@ -2047,6 +2116,181 @@ function hasLegacyChatHistory(history, legacyMessages) {
       (typeof thread?.title === "string" && thread.title.trim() && thread.title !== "New chat")
   );
 }
+function renderMarkdownThread(thread) {
+  const frontmatter = [
+    "---",
+    "pi_agent_chat: true",
+    `pi_agent_schema: ${CHAT_HISTORY_SCHEMA_VERSION}`,
+    `id: ${JSON.stringify(thread.id)}`,
+    `title: ${JSON.stringify(thread.title)}`,
+    `created: ${JSON.stringify(toIsoDate(thread.createdAt))}`,
+    `updated: ${JSON.stringify(toIsoDate(thread.updatedAt))}`,
+    `archived: ${thread.archived === true}`,
+    `favorite: ${thread.favorite === true}`,
+    `pi_session: ${thread.piSessionId ? JSON.stringify(thread.piSessionId) : "null"}`,
+    "---"
+  ];
+  const sections = thread.messages.map((message, index) => {
+    const messageId = createMessageId(thread.id, message, index);
+    const metadata = { ...message };
+    delete metadata.content;
+    const encodedMetadata = Buffer.from(JSON.stringify(metadata), "utf8").toString("base64url");
+    return [
+      `## ${roleHeading(message.role)}`,
+      "",
+      `<!-- pi-agent-message:start ${messageId} ${encodedMetadata} -->`,
+      message.content,
+      `<!-- pi-agent-message:end ${messageId} -->`
+    ].join("\n");
+  });
+  return `${frontmatter.join("\n")}
+
+# ${escapeHeading(thread.title)}${
+    sections.length > 0
+      ? `
+
+${sections.join("\n\n")}`
+      : ""
+  }
+`;
+}
+function readMarkdownThreadDocument(content) {
+  const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!frontmatterMatch) return void 0;
+  const frontmatter = parseFrontmatter(frontmatterMatch[1]);
+  if (frontmatter.pi_agent_chat !== true) return void 0;
+  if (frontmatter.pi_agent_schema !== CHAT_HISTORY_SCHEMA_VERSION) {
+    throw new Error("Unsupported chat history schema version.");
+  }
+  if (typeof frontmatter.id !== "string" || !frontmatter.id.trim()) {
+    throw new Error("Missing thread ID in frontmatter.");
+  }
+  if (typeof frontmatter.title !== "string") throw new Error("Missing chat title.");
+  const messages = parseMarkdownMessages(content.slice(frontmatterMatch[0].length));
+  const createdAt = parseDate(frontmatter.created, "created");
+  const updatedAt = parseDate(frontmatter.updated, "updated");
+  const piSessionId =
+    typeof frontmatter.pi_session === "string" && frontmatter.pi_session.trim()
+      ? frontmatter.pi_session.trim()
+      : void 0;
+  return {
+    id: frontmatter.id,
+    title: frontmatter.title,
+    messages,
+    createdAt,
+    updatedAt,
+    archived: frontmatter.archived === true,
+    favorite: frontmatter.favorite === true,
+    piSessionId
+  };
+}
+function parseMarkdownMessages(content) {
+  const messages = [];
+  const startPattern = /^<!-- pi-agent-message:start ([A-Za-z0-9_-]+) ([A-Za-z0-9_-]+) -->\r?$/gm;
+  let start;
+  while ((start = startPattern.exec(content)) !== null) {
+    const [, messageId, encodedMetadata] = start;
+    const endPattern = new RegExp(`^<!-- pi-agent-message:end ${messageId} -->\\r?$`, "gm");
+    endPattern.lastIndex = startPattern.lastIndex;
+    const end = endPattern.exec(content);
+    if (!end) throw new Error(`Missing end marker for message ${messageId}.`);
+    let contentStart = startPattern.lastIndex;
+    if (content.startsWith("\r\n", contentStart)) contentStart += 2;
+    else if (content.startsWith("\n", contentStart)) contentStart += 1;
+    let contentEnd = end.index;
+    if (content.slice(Math.max(contentStart, contentEnd - 2), contentEnd) === "\r\n") {
+      contentEnd -= 2;
+    } else if (contentEnd > contentStart && content[contentEnd - 1] === "\n") {
+      contentEnd -= 1;
+    }
+    let metadata;
+    try {
+      metadata = JSON.parse(Buffer.from(encodedMetadata, "base64url").toString("utf8"));
+    } catch {
+      throw new Error(`Invalid metadata for message ${messageId}.`);
+    }
+    const message = {
+      role: metadata.role,
+      content: content.slice(contentStart, contentEnd),
+      createdAt: metadata.createdAt,
+      contextUsage: metadata.contextUsage,
+      tokenUsage: metadata.tokenUsage,
+      runMetadata: metadata.runMetadata,
+      thinking: metadata.thinking,
+      toolErrors: metadata.toolErrors
+    };
+    validateMessage(message);
+    messages.push(cloneJson(message));
+    startPattern.lastIndex = endPattern.lastIndex;
+  }
+  return messages;
+}
+function parseFrontmatter(source) {
+  const result = {};
+  for (const line of source.split(/\r?\n/)) {
+    const match = line.match(/^([A-Za-z0-9_]+):\s*(.*)$/);
+    if (!match) continue;
+    const [, key, rawValue] = match;
+    try {
+      result[key] = JSON.parse(rawValue);
+    } catch {
+      result[key] = rawValue.trim();
+    }
+  }
+  return result;
+}
+function parseDate(value, field) {
+  const timestamp = typeof value === "string" ? Date.parse(value) : NaN;
+  if (!Number.isFinite(timestamp)) throw new Error(`Invalid ${field} timestamp.`);
+  return timestamp;
+}
+function toIsoDate(value) {
+  const timestamp = typeof value === "number" && Number.isFinite(value) ? value : Date.now();
+  return new Date(timestamp).toISOString();
+}
+function validateMessage(message) {
+  if (
+    !message ||
+    typeof message !== "object" ||
+    Array.isArray(message) ||
+    (message.role !== "user" && message.role !== "assistant" && message.role !== "system") ||
+    typeof message.content !== "string" ||
+    typeof message.createdAt !== "number" ||
+    !Number.isFinite(message.createdAt)
+  ) {
+    throw new Error("Invalid message record.");
+  }
+}
+async function loadLegacyJsonThreads(folder) {
+  const threads = [];
+  for (const fileName of await listVisibleJsonFiles(folder)) {
+    try {
+      const document2 = JSON.parse(
+        await import_node_fs.default.promises.readFile(
+          import_node_path.default.join(folder, fileName),
+          "utf8"
+        )
+      );
+      threads.push(readLegacyThreadDocument(document2));
+    } catch {}
+  }
+  return threads;
+}
+function readLegacyThreadDocument(document2) {
+  if (document2?.schemaVersion !== CHAT_HISTORY_SCHEMA_VERSION) {
+    throw new Error("Unsupported chat history schema version.");
+  }
+  const thread = document2.thread;
+  if (!thread || typeof thread !== "object" || Array.isArray(thread)) {
+    throw new Error("Missing thread object.");
+  }
+  if (typeof thread.id !== "string" || !thread.id.trim()) {
+    throw new Error("Missing thread ID.");
+  }
+  if (!Array.isArray(thread.messages)) throw new Error("Missing message list.");
+  for (const message of thread.messages) validateMessage(message);
+  return cloneJson(thread);
+}
 function resolveVaultRelativePath(vaultBasePath, folder) {
   const resolved = import_node_path.default.resolve(vaultBasePath, ...folder.split("/"));
   const relative = import_node_path.default.relative(vaultBasePath, resolved);
@@ -2063,43 +2307,10 @@ function normalizeHistorySnapshot(history) {
     : getMostRecentThread(threads).id;
   return { currentThreadId, threads };
 }
-function readThreadDocument(document2, fileName) {
-  const thread = readLegacyThreadDocument(document2);
-  if (threadFileName(thread.id) !== fileName) {
-    throw new Error("Thread filename does not match its ID.");
-  }
-  return thread;
-}
-function readLegacyThreadDocument(document2) {
-  if (document2?.schemaVersion !== CHAT_HISTORY_SCHEMA_VERSION) {
-    throw new Error("Unsupported chat history schema version.");
-  }
-  const thread = document2.thread;
-  if (!thread || typeof thread !== "object" || Array.isArray(thread)) {
-    throw new Error("Missing thread object.");
-  }
-  if (typeof thread.id !== "string" || !thread.id.trim()) {
-    throw new Error("Missing thread ID.");
-  }
-  if (!Array.isArray(thread.messages)) throw new Error("Missing message list.");
-  if (
-    thread.messages.some(
-      (message) =>
-        !message ||
-        typeof message !== "object" ||
-        Array.isArray(message) ||
-        (message.role !== "user" && message.role !== "assistant" && message.role !== "system") ||
-        typeof message.content !== "string" ||
-        typeof message.createdAt !== "number" ||
-        !Number.isFinite(message.createdAt)
-    )
-  ) {
-    throw new Error("Invalid message record.");
-  }
-  return cloneJson(thread);
-}
 function threadFileName(threadId) {
-  if (/^[A-Za-z0-9._-]+$/.test(threadId) && threadId.length <= 160) return `${threadId}.json`;
+  if (/^[A-Za-z0-9._-]+$/.test(threadId) && threadId.length <= 157) {
+    return `${threadId}${MARKDOWN_EXTENSION}`;
+  }
   const digest = import_node_crypto.default
     .createHash("sha256")
     .update(threadId)
@@ -2109,7 +2320,21 @@ function threadFileName(threadId) {
     .replace(/[^A-Za-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-  return `${prefix || "thread"}-${digest}.json`;
+  return `${prefix || "thread"}-${digest}${MARKDOWN_EXTENSION}`;
+}
+function createMessageId(threadId, message, index) {
+  return `message-${import_node_crypto.default.createHash("sha256").update(`${threadId}\0${message.role}\0${message.createdAt}\0${index}`).digest("hex").slice(0, 16)}`;
+}
+function roleHeading(role) {
+  return role === "user" ? "You" : role === "assistant" ? "Agent" : "System";
+}
+function escapeHeading(value) {
+  return (
+    String(value)
+      .replaceAll("\n", " ")
+      .replace(/^#+\s*/, "")
+      .trim() || "New chat"
+  );
 }
 function fingerprintThread(thread) {
   return import_node_crypto.default
@@ -2117,15 +2342,15 @@ function fingerprintThread(thread) {
     .update(JSON.stringify(thread))
     .digest("hex");
 }
-async function listChatFiles(folder) {
-  return (await listJsonFiles(folder)).filter(
+async function listVisibleJsonFiles(folder) {
+  return (await listFilesWithExtension(folder, ".json")).filter(
     (fileName) => !fileName.startsWith(".") && !fileName.startsWith("_")
   );
 }
-async function listJsonFiles(folder) {
+async function listFilesWithExtension(folder, extension) {
   try {
     return (await import_node_fs.default.promises.readdir(folder, { withFileTypes: true }))
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .filter((entry) => entry.isFile() && entry.name.endsWith(extension))
       .map((entry) => entry.name)
       .sort();
   } catch (error) {
@@ -2134,12 +2359,17 @@ async function listJsonFiles(folder) {
   }
 }
 async function writeJsonAtomic(filePath, value) {
+  await writeTextAtomic(
+    filePath,
+    `${JSON.stringify(value, null, 2)}
+`
+  );
+}
+async function writeTextAtomic(filePath, content) {
   await import_node_fs.default.promises.mkdir(import_node_path.default.dirname(filePath), {
     recursive: true
   });
   const temporaryPath = `${filePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const content = `${JSON.stringify(value, null, 2)}
-`;
   try {
     await import_node_fs.default.promises.writeFile(temporaryPath, content, {
       encoding: "utf8",
@@ -5524,7 +5754,7 @@ var ChatHistoryMigrationModal = class extends import_obsidian6.Modal {
     contentEl.empty();
     new import_obsidian6.Setting(contentEl).setName("Migrate existing chats?").setHeading();
     contentEl.createEl("p", {
-      text: "The plugin can move existing chat transcripts out of plugin data and store every chat as a separate versioned JSON file in your vault."
+      text: "The plugin can move existing chat transcripts out of plugin data and store every chat as a separate Markdown file with frontmatter in your vault."
     });
     contentEl.createEl("p", {
       text: "The migration keeps a recovery backup and does not modify or delete Pi's runtime session files."
@@ -5870,7 +6100,7 @@ var PiAgentSettingTab = class extends import_obsidian7.PluginSettingTab {
   getChatHistoryFolderDefinition() {
     return {
       name: "Chat history folder",
-      desc: "Vault-relative folder containing one versioned JSON file per chat. Changing it moves the managed chat files after verification.",
+      desc: "Vault-relative folder containing one Markdown file with frontmatter per chat. Changing it moves the managed chat files after verification.",
       render: (setting) => {
         let pendingFolder = this.plugin.settings.chatHistoryFolder;
         setting
@@ -5907,8 +6137,8 @@ var PiAgentSettingTab = class extends import_obsidian7.PluginSettingTab {
     return {
       name: "Existing chat migration",
       desc: migrationNeeded
-        ? "Existing chats are still in plugin data. Migrate them into individual JSON files when ready."
-        : "Chat history uses individual versioned JSON files.",
+        ? "Existing chats are still in plugin data. Migrate them into individual Markdown files when ready."
+        : "Chat history uses individual Markdown files with frontmatter.",
       render: (setting) =>
         setting.addButton((button) =>
           button
@@ -10012,6 +10242,8 @@ var PiAgentPlugin = class extends P.Plugin {
     this.chatHistoryStore = void 0;
     this.chatHistoryMigrationTimer = void 0;
     this.legacyIndexedHistoryFolder = void 0;
+    this.legacyJsonHistoryFolder = void 0;
+    this.chatHistoryReloadTimer = void 0;
   }
   async onload() {
     await this.loadSettings();
@@ -10052,11 +10284,23 @@ var PiAgentPlugin = class extends P.Plugin {
           new P.Notice(
             "Annotations could not follow the renamed note; their original records were kept."
           );
+        this.scheduleChatHistoryReload(file, oldPath);
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("create", (file) => {
+        this.scheduleChatHistoryReload(file);
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
         if (file.extension === "md") this.annotationStore.deletePath(file.path);
+        this.scheduleChatHistoryReload(file);
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("modify", (file) => {
+        this.scheduleChatHistoryReload(file);
       })
     );
     this.registerView(PI_AGENT_VIEW_TYPE, (e) => new PiAgentView(e, this));
@@ -10136,6 +10380,9 @@ var PiAgentPlugin = class extends P.Plugin {
     if (this.chatHistoryMigrationTimer !== void 0) {
       window.clearTimeout(this.chatHistoryMigrationTimer);
     }
+    if (this.chatHistoryReloadTimer !== void 0) {
+      window.clearTimeout(this.chatHistoryReloadTimer);
+    }
     this.annotationController?.destroy();
     this.cancelPiRun();
     this.disposeThreadRunners();
@@ -10152,6 +10399,7 @@ var PiAgentPlugin = class extends P.Plugin {
       annotationData,
       currentChatId,
       legacyIndexedHistoryFolder,
+      legacyJsonHistoryFolder,
       ...rawSettings
     } = rawData;
     this.settings = normalizeSettings(rawSettings);
@@ -10180,13 +10428,31 @@ var PiAgentPlugin = class extends P.Plugin {
             this.legacyIndexedHistoryFolder = "pi_sessions";
           }
         }
+        const hasDeprecatedJsonHistory =
+          legacyJsonHistoryFolder === "chats" ||
+          (rawSettings.chatHistoryStorageVersion === 2 &&
+            rawSettings.chatHistoryFolder === "chats");
+        if (hasDeprecatedJsonHistory) {
+          const deprecatedHistory = await loadLegacyJsonHistory(
+            vaultBasePath,
+            "chats",
+            currentChatId
+          );
+          if (deprecatedHistory) {
+            this.threadHistory = new ThreadStore(deprecatedHistory);
+            this.legacyJsonHistoryFolder = "chats";
+          }
+        }
         this.chatHistoryStore = new ChatHistoryFileStore(
           vaultBasePath,
-          this.settings.chatHistoryFolder
+          this.settings.chatHistoryFolder,
+          this.app.vault
         );
         const externalHistory = await this.chatHistoryStore.loadHistory(currentChatId);
         const legacyHistoryExists =
-          this.legacyIndexedHistoryFolder !== void 0 || hasLegacyChatHistory(chatHistory, messages);
+          this.legacyIndexedHistoryFolder !== void 0 ||
+          this.legacyJsonHistoryFolder !== void 0 ||
+          hasLegacyChatHistory(chatHistory, messages);
         if (
           externalHistory &&
           this.settings.chatHistoryStorageVersion === CHAT_HISTORY_STORAGE_VERSION
@@ -10215,7 +10481,9 @@ var PiAgentPlugin = class extends P.Plugin {
         this.chatHistoryStore = void 0;
         this.useExternalChatHistory = false;
         this.needsChatHistoryMigration =
-          this.legacyIndexedHistoryFolder !== void 0 || hasLegacyChatHistory(chatHistory, messages);
+          this.legacyIndexedHistoryFolder !== void 0 ||
+          this.legacyJsonHistoryFolder !== void 0 ||
+          hasLegacyChatHistory(chatHistory, messages);
         console.warn("Pi Agent: external chat history is unavailable", error);
       }
     }
@@ -10843,11 +11111,44 @@ var PiAgentPlugin = class extends P.Plugin {
     if (typeof content !== "string") content = await this.app.vault.read(file);
     return this.annotationStore.reanchorPath(path5, content);
   }
+  scheduleChatHistoryReload(file, previousPath) {
+    if (
+      !this.useExternalChatHistory ||
+      file?.extension !== "md" ||
+      (!isPathInsideFolder(file.path, this.settings.chatHistoryFolder) &&
+        !isPathInsideFolder(previousPath, this.settings.chatHistoryFolder))
+    ) {
+      return;
+    }
+    if (this.chatHistoryReloadTimer !== void 0) {
+      window.clearTimeout(this.chatHistoryReloadTimer);
+    }
+    this.chatHistoryReloadTimer = window.setTimeout(() => {
+      this.chatHistoryReloadTimer = void 0;
+      this.reloadChatHistoryFromFiles();
+    }, 200);
+  }
+  async reloadChatHistoryFromFiles() {
+    if (!this.chatHistoryStore || this.hasActivePiRuns()) return;
+    try {
+      const history = await this.chatHistoryStore.loadHistory(this.threadHistory.currentThreadId);
+      if (!history) return;
+      this.threadHistory = new ThreadStore(history);
+      this.syncCurrentThreadState();
+      for (const leaf of this.app.workspace.getLeavesOfType(PI_AGENT_VIEW_TYPE)) {
+        leaf.view?.renderThreadTitle?.();
+        leaf.view?.renderMessages?.();
+        leaf.view?.renderThreadListIfVisible?.();
+      }
+    } catch (error) {
+      console.warn("Pi Agent: could not reload edited chat history", error);
+    }
+  }
   async migrateChatHistory(folder = this.settings.chatHistoryFolder) {
     const normalizedFolder = normalizeChatHistoryFolder(folder);
     const vaultBasePath = this.getVaultBasePath();
     if (!vaultBasePath) throw new Error("The vault path is unavailable.");
-    const store = new ChatHistoryFileStore(vaultBasePath, normalizedFolder);
+    const store = new ChatHistoryFileStore(vaultBasePath, normalizedFolder, this.app.vault);
     const history = this.threadHistory.toJSON();
     const existingHistory = await store.loadHistory(history.currentThreadId);
     if (store.warnings.length > 0) {
@@ -10856,7 +11157,12 @@ var PiAgentPlugin = class extends P.Plugin {
     if (existingHistory && !historyIsCompatibleSubset(existingHistory, history)) {
       throw new Error("The migration destination contains a different Pi Agent chat history.");
     }
-    await store.migrateLegacyHistory(history);
+    const sourceVersion = this.legacyJsonHistoryFolder
+      ? 2
+      : this.legacyIndexedHistoryFolder
+        ? 1
+        : 0;
+    await store.migrateLegacyHistory(history, sourceVersion);
     this.chatHistoryStore = store;
     this.useExternalChatHistory = true;
     this.needsChatHistoryMigration = false;
@@ -10865,11 +11171,16 @@ var PiAgentPlugin = class extends P.Plugin {
     this.settings.chatHistoryMigrationDismissed = false;
     this.ensureChatHistoryFolderIgnored(normalizedFolder);
     this.syncCurrentThreadState();
-    const deprecatedFolder = this.legacyIndexedHistoryFolder;
+    const deprecatedIndexedFolder = this.legacyIndexedHistoryFolder;
+    const deprecatedJsonFolder = this.legacyJsonHistoryFolder;
     this.legacyIndexedHistoryFolder = void 0;
+    this.legacyJsonHistoryFolder = void 0;
     await this.savePluginData();
-    if (deprecatedFolder) {
-      await removeLegacyIndexedHistory(vaultBasePath, deprecatedFolder);
+    if (deprecatedIndexedFolder) {
+      await removeLegacyIndexedHistory(vaultBasePath, deprecatedIndexedFolder);
+    }
+    if (deprecatedJsonFolder) {
+      await removeLegacyJsonHistory(vaultBasePath, deprecatedJsonFolder);
     }
     this.settingsTab?.display?.();
   }
@@ -10885,13 +11196,17 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!vaultBasePath) throw new Error("The vault path is unavailable.");
     if (!this.useExternalChatHistory) {
       this.settings.chatHistoryFolder = normalizedFolder;
-      this.chatHistoryStore = new ChatHistoryFileStore(vaultBasePath, normalizedFolder);
+      this.chatHistoryStore = new ChatHistoryFileStore(
+        vaultBasePath,
+        normalizedFolder,
+        this.app.vault
+      );
       this.ensureChatHistoryFolderIgnored(normalizedFolder);
       await this.savePluginData();
       this.settingsTab?.display?.();
       return;
     }
-    const nextStore = new ChatHistoryFileStore(vaultBasePath, normalizedFolder);
+    const nextStore = new ChatHistoryFileStore(vaultBasePath, normalizedFolder, this.app.vault);
     const history = this.threadHistory.toJSON();
     const existingHistory = await nextStore.loadHistory(history.currentThreadId);
     if (nextStore.warnings.length > 0) {
@@ -10938,6 +11253,9 @@ var PiAgentPlugin = class extends P.Plugin {
       ...(historyStore ? { currentChatId: history.currentThreadId } : { chatHistory: history }),
       ...(this.legacyIndexedHistoryFolder
         ? { legacyIndexedHistoryFolder: this.legacyIndexedHistoryFolder }
+        : {}),
+      ...(this.legacyJsonHistoryFolder
+        ? { legacyJsonHistoryFolder: this.legacyJsonHistoryFolder }
         : {}),
       localPromptQueue: this.localPromptQueue,
       localPromptSteering: this.localPromptSteering,
@@ -11065,6 +11383,13 @@ var PiAgentPlugin = class extends P.Plugin {
     return n.endsWith(`/${configDir}`) ? `${n}/${s}` : `${n}/${configDir}/${s}`;
   }
 };
+function isPathInsideFolder(filePath, folder) {
+  const normalizedFile = String(filePath ?? "").replaceAll("\\", "/");
+  const normalizedFolder = String(folder ?? "")
+    .replaceAll("\\", "/")
+    .replace(/\/+$/, "");
+  return normalizedFile.startsWith(`${normalizedFolder}/`);
+}
 function historiesContainSameThreads(left, right) {
   return left.threads.length === right.threads.length && historyIsCompatibleSubset(left, right);
 }
