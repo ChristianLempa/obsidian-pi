@@ -1,0 +1,46 @@
+tests/settings.test.mjs
+  s_eee29254f5a8ef::t_fcbfd724efef0c 105,117,126-129
+src/threads/chat-history-store.mjs
+  s_eee29254f5a8ef::t_d0f7f74569e5e1 6-7,9-11,23,27,32,49-54,59,67,77,95,102,110-129,131-132,137-163,166-169,223-230,260-261,266,273-278,329-336,344
+  s_eee29254f5a8ef::t_f5f7e7ce424ba2 134-136,262-265
+src/plugin/PiAgentPlugin.mjs
+  s_eee29254f5a8ef::t_f5f7e7ce424ba2 1108
+  s_eee29254f5a8ef::t_4330f4129b3740 298,318-320,1109-1111
+  s_eee29254f5a8ef::t_cc6baec4484034 335-336
+  s_eee29254f5a8ef::t_1d3daf36e8d10c 30,33-35,152,297,309,317,321-328,333-334,337,339-340,345,349,352,364-366
+  s_eee29254f5a8ef::t_1f6d831b98bdc9 1019,1031,1040,1065,1073,1081
+  s_eee29254f5a8ef::t_faceb2907bdb8c 1035-1036,1038-1039
+README.md
+  s_eee29254f5a8ef::t_f10f85f360afd7 63
+PRIVACY.md
+  s_eee29254f5a8ef::t_bb564e715640bb 31,37
+src/plugin/settings.mjs
+  s_eee29254f5a8ef::t_f5f7e7ce424ba2 72
+  s_eee29254f5a8ef::t_56ef558fb9f43e 73-74
+  s_eee29254f5a8ef::t_d046929904f12b 2,81-82
+tests/chat-history-store.test.mjs
+  s_eee29254f5a8ef::t_043c701e212b39 8-10,22,28-29,32,35,38,44,54,77,85,94-116
+  s_eee29254f5a8ef::t_9e3fb9c791c0c2 117-118
+CHANGELOG.md
+  s_eee29254f5a8ef::t_895e9f7db11d3e 5
+TESTING.md
+  s_eee29254f5a8ef::t_26fd56a0221693 104-105,108
+main.js
+  s_eee29254f5a8ef::t_f5f7e7ce424ba2 1869-1873,1883,1886,1890,1907-1912,1916,1923,1932,1948,1954,1961-1981,1983-1987,1989-1990,1992-2019,2067-2073,2102,2107-2112,2120-2124,2175-2181,2189,2263-2265,2272-2273,10014,10153-10154,10164,10172-10182,10187-10190,10192-10193,10198,10202,10205,10217-10218,10852,10864,10868-10869,10871-10873,10896,10904,10911,10938-10941
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "72d08c737208852102b3f036396a2313d93fd0a4",
+  "prompts": {},
+  "sessions": {
+    "s_eee29254f5a8ef": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7fb0-ada3-73ae-97f0-518d80c23997",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
