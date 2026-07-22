@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a dedicated live **SKILL · name** activity state for explicit `/skill:name` commands and on-demand `SKILL.md` reads, instead of presenting skill loading as generic reading or thinking.
 - Added durable per-chat history storage with one frontmatter-identified Markdown file per chat in the configurable vault-relative `chats` folder. Existing `data.json` history receives an optional, resumable migration prompt with a verified recovery backup; new storage removes the silent 40-chat limit, discovers chats directly without a separate index, round-trips editable message bodies through hidden metadata markers, preserves malformed files for recovery, and leaves Pi runtime JSONL sessions separate. (#78)
 - Tightened the native thinking disclosure introduced in 0.0.11 with a clearer answer separator, label-aligned thinking content, and reduced Markdown section spacing while preserving expandable Markdown rendering. (#77)
 

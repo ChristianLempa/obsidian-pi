@@ -7815,7 +7815,9 @@ __export(run_activity_state_exports, {
 
 // src/ui/activity.mjs
 function isStickyActivityKind(kind) {
-  return kind === "read" || kind === "search" || kind === "edit" || kind === "shell";
+  return (
+    kind === "skill" || kind === "read" || kind === "search" || kind === "edit" || kind === "shell"
+  );
 }
 function shouldBypassActivityStickiness(kind) {
   return kind === "answer" || kind === "finishing" || kind === "error";
@@ -7834,11 +7836,24 @@ function getToolKind(toolName) {
 }
 function formatToolStatus(toolName, toolArgs, phase = "running") {
   const name = String(toolName || "tool").toLowerCase();
+  const skillName = getReadSkillName(name, toolArgs);
+  if (skillName) {
+    return {
+      label: truncateActivityText(`Skill \xB7 ${skillName}`),
+      kind: "skill",
+      detail: phase === "preparing" ? "Loading skill instructions" : "Using skill instructions"
+    };
+  }
   const kind = getToolKind(name);
   const target = formatToolTarget(name, toolArgs);
   const verb = getToolVerb(name, phase);
   const label = target ? `${verb} ${target}` : verb;
   return { label: truncateActivityText(label), kind, detail: "" };
+}
+function getSkillCommandName(prompt) {
+  return String(prompt ?? "")
+    .trimStart()
+    .match(/^\/skill:([a-z0-9-]+)(?:\s|$)/i)?.[1];
 }
 function getToolEventKey(event) {
   return String(
@@ -7868,6 +7883,15 @@ function formatRetryDetail(event) {
   return [attempt, event.errorMessage ? String(event.errorMessage).slice(0, 120) : ""]
     .filter(Boolean)
     .join(" \u2014 ");
+}
+function getReadSkillName(toolName, toolArgs) {
+  if (toolName !== "read") return "";
+  const target = pickNestedString(toolArgs, ["path", "filePath", "file", "target"])
+    .replaceAll("\\", "/")
+    .replace(/\/+$/, "");
+  const segments = target.split("/").filter(Boolean);
+  if (segments.at(-1)?.toLowerCase() !== "skill.md") return "";
+  return segments.at(-2) || "skill";
 }
 function getToolVerb(toolName, phase) {
   if (phase === "preparing") {
@@ -8056,7 +8080,11 @@ function handleRunEvent(e) {
     return;
   }
   if (t === "context_ready") {
-    this.setActivity("Starting Pi", "context");
+    const skillName = this.getCurrentThreadRun()?.skillName;
+    this.setActivity(
+      skillName ? `Skill \xB7 ${skillName}` : "Starting Pi",
+      skillName ? "skill" : "context"
+    );
     return;
   }
   if (t === "compaction_start") {
@@ -9534,6 +9562,7 @@ var PiAgentView = class extends f4.ItemView {
       runner: this.plugin.createPiRunner(t),
       accepted: false,
       notificationRunId: `${t}:${this.nextDesktopNotificationRunId++}`,
+      skillName: getSkillCommandName(e),
       thinking: "",
       thinkingExpanded: false,
       thinkingUserSet: false,

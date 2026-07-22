@@ -123,7 +123,11 @@ export function handleRunEvent(e) {
     return;
   }
   if (t === "context_ready") {
-    this.setActivity("Starting Pi", "context");
+    const skillName = this.getCurrentThreadRun()?.skillName;
+    this.setActivity(
+      skillName ? `Skill · ${skillName}` : "Starting Pi",
+      skillName ? "skill" : "context"
+    );
     return;
   }
   if (t === "compaction_start") {

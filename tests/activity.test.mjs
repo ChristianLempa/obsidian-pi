@@ -1,14 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   formatRetryDetail,
   formatToolError,
   formatToolStatus,
+  getSkillCommandName,
   getThinkingDelta,
   getToolEventKey,
   getToolKind,
   isStickyActivityKind,
   shouldBypassActivityStickiness
 } from "../src/ui/activity.mjs";
+import { handleRunEvent } from "../src/ui/run-activity-state.mjs";
 
 describe("activity helpers", () => {
   it("classifies tool kinds", () => {
@@ -31,8 +33,46 @@ describe("activity helpers", () => {
     });
   });
 
+  it("recognizes explicit and on-demand skill usage", () => {
+    expect(getSkillCommandName("/skill:github inspect issue 78")).toBe("github");
+    expect(getSkillCommandName("ordinary prompt")).toBeUndefined();
+    expect(
+      formatToolStatus("read", { path: "/Users/example/.pi/agent/skills/github/SKILL.md" })
+    ).toEqual({
+      label: "Skill · github",
+      kind: "skill",
+      detail: "Using skill instructions"
+    });
+    expect(
+      formatToolStatus(
+        "read",
+        { path: "C:\\Users\\example\\.pi\\agent\\skills\\github\\SKILL.md" },
+        "preparing"
+      )
+    ).toEqual({
+      label: "Skill · github",
+      kind: "skill",
+      detail: "Loading skill instructions"
+    });
+  });
+
+  it("shows an explicit skill while Pi expands its command", () => {
+    const setActivity = vi.fn();
+    handleRunEvent.call(
+      {
+        captureContextUsage: vi.fn(),
+        normalizeRunEventType: (type) => type,
+        getCurrentThreadRun: () => ({ skillName: "github" }),
+        setActivity
+      },
+      { type: "context_ready" }
+    );
+    expect(setActivity).toHaveBeenCalledWith("Skill · github", "skill");
+  });
+
   it("handles sticky and bypass activity kinds", () => {
     expect(isStickyActivityKind("edit")).toBe(true);
+    expect(isStickyActivityKind("skill")).toBe(true);
     expect(isStickyActivityKind("thinking")).toBe(false);
     expect(shouldBypassActivityStickiness("answer")).toBe(true);
   });

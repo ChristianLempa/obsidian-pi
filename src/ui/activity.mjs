@@ -1,5 +1,7 @@
 export function isStickyActivityKind(kind) {
-  return kind === "read" || kind === "search" || kind === "edit" || kind === "shell";
+  return (
+    kind === "skill" || kind === "read" || kind === "search" || kind === "edit" || kind === "shell"
+  );
 }
 
 export function shouldBypassActivityStickiness(kind) {
@@ -31,31 +33,47 @@ export function getToolIcon(kind) {
 }
 
 export function getActivityIcon(kind) {
-  return kind === "context"
-    ? "paperclip"
-    : kind === "answer"
-      ? "message-square"
-      : kind === "shell"
-        ? "terminal"
-        : kind === "edit"
-          ? "pencil-line"
-          : kind === "search"
-            ? "search"
-            : kind === "read"
-              ? "file-text"
-              : kind === "done" || kind === "finishing"
-                ? "check-circle"
-                : "brain";
+  return kind === "skill"
+    ? "book-open-check"
+    : kind === "context"
+      ? "paperclip"
+      : kind === "answer"
+        ? "message-square"
+        : kind === "shell"
+          ? "terminal"
+          : kind === "edit"
+            ? "pencil-line"
+            : kind === "search"
+              ? "search"
+              : kind === "read"
+                ? "file-text"
+                : kind === "done" || kind === "finishing"
+                  ? "check-circle"
+                  : "brain";
 }
 
 export function formatToolStatus(toolName, toolArgs, phase = "running") {
   const name = String(toolName || "tool").toLowerCase();
+  const skillName = getReadSkillName(name, toolArgs);
+  if (skillName) {
+    return {
+      label: truncateActivityText(`Skill · ${skillName}`),
+      kind: "skill",
+      detail: phase === "preparing" ? "Loading skill instructions" : "Using skill instructions"
+    };
+  }
   const kind = getToolKind(name);
   const target = formatToolTarget(name, toolArgs);
   const verb = getToolVerb(name, phase);
   const label = target ? `${verb} ${target}` : verb;
 
   return { label: truncateActivityText(label), kind, detail: "" };
+}
+
+export function getSkillCommandName(prompt) {
+  return String(prompt ?? "")
+    .trimStart()
+    .match(/^\/skill:([a-z0-9-]+)(?:\s|$)/i)?.[1];
 }
 
 export function getToolEventKey(event) {
@@ -91,6 +109,16 @@ export function formatRetryDetail(event) {
   return [attempt, event.errorMessage ? String(event.errorMessage).slice(0, 120) : ""]
     .filter(Boolean)
     .join(" — ");
+}
+
+function getReadSkillName(toolName, toolArgs) {
+  if (toolName !== "read") return "";
+  const target = pickNestedString(toolArgs, ["path", "filePath", "file", "target"])
+    .replaceAll("\\", "/")
+    .replace(/\/+$/, "");
+  const segments = target.split("/").filter(Boolean);
+  if (segments.at(-1)?.toLowerCase() !== "skill.md") return "";
+  return segments.at(-2) || "skill";
 }
 
 function getToolVerb(toolName, phase) {

@@ -29,7 +29,7 @@ import {
   textAttachmentBytes,
   MAX_TOTAL_TEXT_ATTACHMENT_BYTES
 } from "./prompt-payload.mjs";
-import { formatToolError, getThinkingDelta } from "./activity.mjs";
+import { formatToolError, getSkillCommandName, getThinkingDelta } from "./activity.mjs";
 import { getSendActionState } from "./send-state.mjs";
 import {
   getSuccessfulMarkdownMutationPath,
@@ -930,6 +930,7 @@ export class PiAgentView extends f.ItemView {
       runner: this.plugin.createPiRunner(t),
       accepted: false,
       notificationRunId: `${t}:${this.nextDesktopNotificationRunId++}`,
+      skillName: getSkillCommandName(e),
       thinking: "",
       thinkingExpanded: false,
       thinkingUserSet: false,
