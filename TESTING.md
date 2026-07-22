@@ -45,8 +45,11 @@ Then open `ObsidianTesting`, reload or disable/re-enable Pi Agent, and keep the 
 - [ ] **Pending:** Confirm recognized OpenAI, Anthropic/Claude, xAI/Grok, Google/Gemini, Mistral, OpenRouter, DeepSeek, Ollama, Meta, Groq, Cohere, Azure, and Bedrock providers receive distinct brand icons/marks in the control and picker; custom providers use the neutral fallback. Switch models and confirm only supported thinking levels appear, including `xhigh`/`max`, and the runtime-configured level is restored on switch.
 - [ ] **Pending:** Send a short prompt and confirm response metadata identifies the selected provider/model and thinking state.
 
-## Persistent RPC, cancellation, retry, and compaction
+## Chat history, persistent RPC, cancellation, retry, and compaction
 
+- [ ] **Pending:** Create more than 40 chats, reload Obsidian, and confirm all chats, messages, titles, favorites, archives, thinking disclosures, and current-chat selection survive in `.obsidian/plugins/pi-agent/data.json`.
+- [ ] **Pending:** Confirm `chat-history.backup.json` and `chat-history.backup.previous.json` are checksummed JSON snapshots in the plugin directory; temporarily remove `chatHistory` from `data.json`, reload, and confirm recovery from backup.
+- [ ] **Pending:** Starting from a development build that wrote chat files into the vault, reload this build and confirm every chat is verified in plugin data before only Pi-managed vault chat files are removed. Unrecognized or malformed files must remain untouched.
 - [ ] **Pending:** Send two prompts in one chat; confirm process reuse, conversation continuity, and no duplicated stable instructions/history in each prompt.
 - [ ] **Pending:** Use two chats and confirm isolated histories and Pi sessions.
 - [ ] **Pending:** Cancel a long response promptly, then send again successfully in the same chat.
@@ -101,12 +104,6 @@ Use non-sensitive PNG, JPEG, and WebP files.
 
 ## Sessions, favorites, and archive
 
-- [ ] **Pending migration:** Start with 0.0.11 `data.json` containing several chats, update/reload, and confirm the one-time migration dialog offers **Migrate existing chats** and **Not now** with `chats` as the editable default.
-- [ ] **Pending migration:** Choose **Not now**, confirm all legacy chats remain visible and writable after another reload, then migrate from Settings. Confirm `chats/.pi-agent-migration-backup-v0.json` and one frontmatter-identified Markdown file per chat are created before legacy `chatHistory` leaves plugin data; plugin data should retain only `currentChatId` and storage settings rather than a separate history index.
-- [ ] **Pending migration:** Interrupt/retry migration and confirm it resumes without duplicate chats or messages and does not modify `.obsidian/plugins/pi-agent/pi-sessions/*.jsonl`.
-- [ ] **Pending persistence:** Create more than 40 chats, reload Obsidian, and confirm every chat remains available and the current, favorite, archived, renamed, forked, and Pi-session-linked states survive.
-- [ ] **Pending recovery:** Remove or invalidate `currentChatId` in plugin data and confirm history is rediscovered directly from the chat files with the most recently updated chat selected. Damage the frontmatter or message markers in a chat Markdown file under `chats`; confirm it is preserved with a warning rather than overwritten or deleted.
-- [ ] **Pending location:** Change the history folder in Settings, confirm the destination is validated and verified before the old managed files are removed, then reload and confirm all chats use the new vault-relative location.
 - [ ] **Pending:** Create, rename, switch, favorite/unfavorite, archive/restore, and fork chats; verify ordering and independent continuation.
 - [ ] **Pending:** Toggle the keyboard-accessible favorite in the active-chat header and thread-list row; confirm both stay synchronized.
 - [ ] **Pending:** Use **Archive all chats** and verify the confirmation gives the correct count, running chats are refused/skipped, the result notice is accurate, and no Pi session file is deleted.

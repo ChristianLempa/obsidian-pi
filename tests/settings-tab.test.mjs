@@ -61,8 +61,6 @@ describe("Pi agent settings tab API compatibility", () => {
       "Tool mode",
       "Desktop completion notifications",
       "Custom instructions",
-      "Chat history folder",
-      "Existing chat migration",
       "Custom model slug",
       "Pi executable path",
       "Check Pi installation",
@@ -79,7 +77,7 @@ describe("Pi agent settings tab API compatibility", () => {
 
     tab.display();
     expect(tab.containerEl.empty).toHaveBeenCalledOnce();
-    expect(tab.renderLegacyDefinition).toHaveBeenCalledTimes(13);
+    expect(tab.renderLegacyDefinition).toHaveBeenCalledTimes(11);
 
     tab.containerEl.empty.mockClear();
     tab.update = vi.fn();

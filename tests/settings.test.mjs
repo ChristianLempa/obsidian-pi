@@ -100,36 +100,22 @@ describe("plugin settings helpers", () => {
       ignoredFolders: ["", ".git"],
       piExecutablePath: " /custom/bin/pi ",
       includeDefaultSkills: undefined,
-      dismissedPiSetup: true,
-      chatHistoryFolder: " custom/history ",
-      chatHistoryStorageVersion: 3,
-      chatHistoryMigrationDismissed: true
+      dismissedPiSetup: true
     });
 
     expect(settings).toMatchObject({
       sandboxMode: "edit",
-      ignoredFolders: [".git", "custom/history"],
+      ignoredFolders: [".git"],
       piExecutablePath: "/custom/bin/pi",
       includeDefaultSkills: true,
       dismissedPiSetup: true,
-      desktopNotifications: true,
-      chatHistoryFolder: "custom/history",
-      chatHistoryStorageVersion: 3,
-      chatHistoryMigrationDismissed: true
+      desktopNotifications: true
     });
     expect(settings).not.toHaveProperty("maxSearchResults");
     expect(settings).not.toHaveProperty("maxSearchFiles");
     expect(settings).not.toHaveProperty("maxFileChars");
     expect(settings).not.toHaveProperty("maxChangeSnapshotFiles");
-    expect(settings.ignoredFolders).toContain("custom/history");
     expect(normalizeSettings({ desktopNotifications: false }).desktopNotifications).toBe(false);
-    expect(normalizeSettings({ chatHistoryFolder: "../outside" }).chatHistoryFolder).toBe("chats");
-    expect(
-      normalizeSettings({ chatHistoryFolder: "pi_sessions", chatHistoryStorageVersion: 1 })
-    ).toMatchObject({ chatHistoryFolder: "chats", chatHistoryStorageVersion: 0 });
-    expect(
-      normalizeSettings({ chatHistoryFolder: "chats", chatHistoryStorageVersion: 2 })
-    ).toMatchObject({ chatHistoryFolder: "chats", chatHistoryStorageVersion: 0 });
   });
 
   it("finds custom selected model info and exposes tool modes", () => {

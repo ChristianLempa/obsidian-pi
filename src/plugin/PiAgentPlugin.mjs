@@ -21,21 +21,16 @@ import {
 } from "./constants.mjs";
 import { ApprovalModal } from "../ui/modals/approval-modal.mjs";
 import { PiSetupModal } from "../ui/modals/pi-setup-modal.mjs";
-import { ChatHistoryMigrationModal } from "../ui/modals/chat-history-migration-modal.mjs";
 import { showExtensionUiDialog } from "../ui/modals/extension-ui-modal.mjs";
 import { PiAgentView } from "../ui/PiAgentView.mjs";
 import { requestDesktopNotificationPermission } from "../ui/desktop-notifications.mjs";
 import { previewFrontmatterPatch } from "../shared/frontmatter.mjs";
+import { sanitizeThreadHistory } from "../shared/thread-history.mjs";
+import { readChatHistoryBackup, writeChatHistoryBackup } from "../threads/chat-history-backup.mjs";
 import {
-  CHAT_HISTORY_STORAGE_VERSION,
-  ChatHistoryFileStore,
-  hasLegacyChatHistory,
-  loadLegacyIndexedHistory,
-  loadLegacyJsonHistory,
-  normalizeChatHistoryFolder,
-  removeLegacyIndexedHistory,
-  removeLegacyJsonHistory
-} from "../threads/chat-history-store.mjs";
+  importVaultChatHistory,
+  removeImportedVaultChatHistory
+} from "../threads/chat-history-import.mjs";
 import { ThreadStore } from "../threads/thread-store.mjs";
 import {
   enqueueLocalPrompt,
@@ -147,13 +142,6 @@ export class PiAgentPlugin extends P.Plugin {
     this.modelCatalogRefreshedAt = 0;
     this.modelCatalogGeneration = 0;
     this.modelCatalogError = "";
-    this.useExternalChatHistory = false;
-    this.needsChatHistoryMigration = false;
-    this.chatHistoryStore = undefined;
-    this.chatHistoryMigrationTimer = undefined;
-    this.legacyIndexedHistoryFolder = undefined;
-    this.legacyJsonHistoryFolder = undefined;
-    this.chatHistoryReloadTimer = undefined;
   }
   async onload() {
     await this.loadSettings();
@@ -200,23 +188,11 @@ export class PiAgentPlugin extends P.Plugin {
           new P.Notice(
             "Annotations could not follow the renamed note; their original records were kept."
           );
-        this.scheduleChatHistoryReload(file, oldPath);
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        this.scheduleChatHistoryReload(file);
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
         if (file.extension === "md") this.annotationStore.deletePath(file.path);
-        this.scheduleChatHistoryReload(file);
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        this.scheduleChatHistoryReload(file);
       })
     );
     this.registerView(T, (e) => new PiAgentView(e, this));
@@ -285,20 +261,8 @@ export class PiAgentPlugin extends P.Plugin {
     });
     this.settingsTab = new PiAgentSettingTab(this.app, this);
     this.addSettingTab(this.settingsTab);
-    if (this.needsChatHistoryMigration && !this.settings.chatHistoryMigrationDismissed) {
-      this.chatHistoryMigrationTimer = window.setTimeout(() => {
-        this.chatHistoryMigrationTimer = undefined;
-        new ChatHistoryMigrationModal(this).open();
-      }, 500);
-    }
   }
   onunload() {
-    if (this.chatHistoryMigrationTimer !== undefined) {
-      window.clearTimeout(this.chatHistoryMigrationTimer);
-    }
-    if (this.chatHistoryReloadTimer !== undefined) {
-      window.clearTimeout(this.chatHistoryReloadTimer);
-    }
     this.annotationController?.destroy();
     this.cancelPiRun();
     this.disposeThreadRunners();
@@ -313,11 +277,36 @@ export class PiAgentPlugin extends P.Plugin {
       localPromptQueue,
       localPromptSteering,
       annotationData,
-      currentChatId,
-      legacyIndexedHistoryFolder,
-      legacyJsonHistoryFolder,
+      currentChatId: _currentChatId,
+      chatHistoryFolder,
+      chatHistoryStorageVersion,
+      chatHistoryMigrationDismissed: _chatHistoryMigrationDismissed,
+      legacyIndexedHistoryFolder: _indexedHistoryFolder,
+      legacyJsonHistoryFolder: _jsonHistoryFolder,
       ...rawSettings
     } = rawData;
+    const shouldImportVaultHistory = [1, 2, 3].includes(chatHistoryStorageVersion);
+    let importedHistory;
+    if (shouldImportVaultHistory) {
+      try {
+        importedHistory = await importVaultChatHistory(this.getVaultBasePath(), rawData);
+      } catch (error) {
+        console.warn("Pi Agent: could not import vault chat history", error);
+      }
+      if (Array.isArray(rawSettings.ignoredFolders) && chatHistoryFolder) {
+        rawSettings.ignoredFolders = rawSettings.ignoredFolders.filter(
+          (folder) => folder !== chatHistoryFolder
+        );
+      }
+    }
+
+    let restoredHistory = importedHistory?.history;
+    if (!restoredHistory && isStoredChatHistory(chatHistory)) restoredHistory = chatHistory;
+    if (!restoredHistory) {
+      restoredHistory = await readChatHistoryBackup(this.getPluginDirectory());
+      if (restoredHistory) new P.Notice("Pi Agent recovered chat history from its local backup.");
+    }
+
     this.settings = normalizeSettings(rawSettings);
     this.localPromptQueue = restorePersistedLocalPromptQueue(localPromptQueue, localPromptSteering);
     this.localPromptSteering = [];
@@ -325,87 +314,11 @@ export class PiAgentPlugin extends P.Plugin {
     this.settings.additionalSkillFolders = normalizeSkillFolderList(
       this.settings.additionalSkillFolders
     );
-
     this.threadHistory = new ThreadStore(
-      chatHistory,
+      restoredHistory,
       messages,
       sessionId != null ? sessionId : threadId
     );
-    const vaultBasePath = this.getVaultBasePath();
-    if (vaultBasePath) {
-      try {
-        const hasDeprecatedIndexedHistory =
-          legacyIndexedHistoryFolder === "pi_sessions" ||
-          (rawSettings.chatHistoryStorageVersion === 1 &&
-            rawSettings.chatHistoryFolder === "pi_sessions");
-        if (hasDeprecatedIndexedHistory) {
-          const deprecatedHistory = await loadLegacyIndexedHistory(vaultBasePath);
-          if (deprecatedHistory) {
-            this.threadHistory = new ThreadStore(deprecatedHistory);
-            this.legacyIndexedHistoryFolder = "pi_sessions";
-          }
-        }
-        const hasDeprecatedJsonHistory =
-          legacyJsonHistoryFolder === "chats" ||
-          (rawSettings.chatHistoryStorageVersion === 2 &&
-            rawSettings.chatHistoryFolder === "chats");
-        if (hasDeprecatedJsonHistory) {
-          const deprecatedHistory = await loadLegacyJsonHistory(
-            vaultBasePath,
-            "chats",
-            currentChatId
-          );
-          if (deprecatedHistory) {
-            this.threadHistory = new ThreadStore(deprecatedHistory);
-            this.legacyJsonHistoryFolder = "chats";
-          }
-        }
-
-        this.chatHistoryStore = new ChatHistoryFileStore(
-          vaultBasePath,
-          this.settings.chatHistoryFolder,
-          this.app.vault
-        );
-        const externalHistory = await this.chatHistoryStore.loadHistory(currentChatId);
-        const legacyHistoryExists =
-          this.legacyIndexedHistoryFolder !== undefined ||
-          this.legacyJsonHistoryFolder !== undefined ||
-          hasLegacyChatHistory(chatHistory, messages);
-        if (
-          externalHistory &&
-          this.settings.chatHistoryStorageVersion === CHAT_HISTORY_STORAGE_VERSION
-        ) {
-          this.threadHistory = new ThreadStore(externalHistory);
-          this.useExternalChatHistory = true;
-          this.needsChatHistoryMigration = false;
-          this.settings.chatHistoryMigrationDismissed = false;
-        } else if (legacyHistoryExists) {
-          this.useExternalChatHistory = false;
-          this.needsChatHistoryMigration = true;
-        } else {
-          if (externalHistory) this.threadHistory = new ThreadStore(externalHistory);
-          this.useExternalChatHistory = true;
-          this.needsChatHistoryMigration = false;
-          this.settings.chatHistoryStorageVersion = CHAT_HISTORY_STORAGE_VERSION;
-          this.settings.chatHistoryMigrationDismissed = false;
-        }
-        if (this.chatHistoryStore.warnings.length > 0) {
-          console.warn(
-            "Pi Agent: some chat history files could not be loaded",
-            this.chatHistoryStore.warnings
-          );
-        }
-      } catch (error) {
-        this.chatHistoryStore = undefined;
-        this.useExternalChatHistory = false;
-        this.needsChatHistoryMigration =
-          this.legacyIndexedHistoryFolder !== undefined ||
-          this.legacyJsonHistoryFolder !== undefined ||
-          hasLegacyChatHistory(chatHistory, messages);
-        console.warn("Pi Agent: external chat history is unavailable", error);
-      }
-    }
-
     this.annotationStore = new AnnotationStore(annotationData, () => {
       this.saveAnnotations();
       this.annotationController?.refresh();
@@ -415,6 +328,28 @@ export class PiAgentPlugin extends P.Plugin {
     if (this.settings.model && isLegacyBareModelId(this.settings.model)) {
       this.settings.customModel = `openai/${this.settings.model}`;
       this.settings.model = "__custom";
+    }
+
+    if (importedHistory?.history) {
+      await this.savePluginData();
+      const persisted = (await this.loadData())?.chatHistory;
+      if (!historiesMatch(persisted, this.threadHistory.toJSON())) {
+        throw new Error("Could not verify imported chat history in plugin data.");
+      }
+      await removeImportedVaultChatHistory(
+        this.getVaultBasePath(),
+        importedHistory.managedFiles,
+        this.app.vault
+      );
+      if (importedHistory.warnings.length > 0) {
+        console.warn(
+          "Pi Agent: some unrecognized chat files were left in place",
+          importedHistory.warnings
+        );
+        new P.Notice("Chat history was restored, but unreadable chat files were left in place.");
+      } else {
+        new P.Notice("Chat history was restored to Pi Agent's local plugin data.");
+      }
     }
   }
   async saveSettings() {
@@ -1047,131 +982,6 @@ export class PiAgentPlugin extends P.Plugin {
     if (typeof content !== "string") content = await this.app.vault.read(file);
     return this.annotationStore.reanchorPath(path, content);
   }
-  scheduleChatHistoryReload(file, previousPath) {
-    if (
-      !this.useExternalChatHistory ||
-      file?.extension !== "md" ||
-      (!isPathInsideFolder(file.path, this.settings.chatHistoryFolder) &&
-        !isPathInsideFolder(previousPath, this.settings.chatHistoryFolder))
-    ) {
-      return;
-    }
-    if (this.chatHistoryReloadTimer !== undefined) {
-      window.clearTimeout(this.chatHistoryReloadTimer);
-    }
-    this.chatHistoryReloadTimer = window.setTimeout(() => {
-      this.chatHistoryReloadTimer = undefined;
-      this.reloadChatHistoryFromFiles();
-    }, 200);
-  }
-  async reloadChatHistoryFromFiles() {
-    if (!this.chatHistoryStore || this.hasActivePiRuns()) return;
-    try {
-      const history = await this.chatHistoryStore.loadHistory(this.threadHistory.currentThreadId);
-      if (!history) return;
-      this.threadHistory = new ThreadStore(history);
-      this.syncCurrentThreadState();
-      for (const leaf of this.app.workspace.getLeavesOfType(T)) {
-        leaf.view?.renderThreadTitle?.();
-        leaf.view?.renderMessages?.();
-        leaf.view?.renderThreadListIfVisible?.();
-      }
-    } catch (error) {
-      console.warn("Pi Agent: could not reload edited chat history", error);
-    }
-  }
-  async migrateChatHistory(folder = this.settings.chatHistoryFolder) {
-    const normalizedFolder = normalizeChatHistoryFolder(folder);
-    const vaultBasePath = this.getVaultBasePath();
-    if (!vaultBasePath) throw new Error("The vault path is unavailable.");
-
-    const store = new ChatHistoryFileStore(vaultBasePath, normalizedFolder, this.app.vault);
-    const history = this.threadHistory.toJSON();
-    const existingHistory = await store.loadHistory(history.currentThreadId);
-    if (store.warnings.length > 0) {
-      throw new Error("The migration destination contains unreadable chat history files.");
-    }
-    if (existingHistory && !historyIsCompatibleSubset(existingHistory, history)) {
-      throw new Error("The migration destination contains a different Pi Agent chat history.");
-    }
-    const sourceVersion = this.legacyJsonHistoryFolder
-      ? 2
-      : this.legacyIndexedHistoryFolder
-        ? 1
-        : 0;
-    await store.migrateLegacyHistory(history, sourceVersion);
-    this.chatHistoryStore = store;
-    this.useExternalChatHistory = true;
-    this.needsChatHistoryMigration = false;
-    this.settings.chatHistoryFolder = normalizedFolder;
-    this.settings.chatHistoryStorageVersion = CHAT_HISTORY_STORAGE_VERSION;
-    this.settings.chatHistoryMigrationDismissed = false;
-    this.ensureChatHistoryFolderIgnored(normalizedFolder);
-    this.syncCurrentThreadState();
-    const deprecatedIndexedFolder = this.legacyIndexedHistoryFolder;
-    const deprecatedJsonFolder = this.legacyJsonHistoryFolder;
-    this.legacyIndexedHistoryFolder = undefined;
-    this.legacyJsonHistoryFolder = undefined;
-    await this.savePluginData();
-    if (deprecatedIndexedFolder) {
-      await removeLegacyIndexedHistory(vaultBasePath, deprecatedIndexedFolder);
-    }
-    if (deprecatedJsonFolder) {
-      await removeLegacyJsonHistory(vaultBasePath, deprecatedJsonFolder);
-    }
-    this.settingsTab?.display?.();
-  }
-  async deferChatHistoryMigration() {
-    this.settings.chatHistoryMigrationDismissed = true;
-    await this.savePluginData();
-    this.settingsTab?.display?.();
-  }
-  async changeChatHistoryFolder(folder) {
-    const normalizedFolder = normalizeChatHistoryFolder(folder);
-    if (normalizedFolder === this.settings.chatHistoryFolder) return;
-    const vaultBasePath = this.getVaultBasePath();
-    if (!vaultBasePath) throw new Error("The vault path is unavailable.");
-
-    if (!this.useExternalChatHistory) {
-      this.settings.chatHistoryFolder = normalizedFolder;
-      this.chatHistoryStore = new ChatHistoryFileStore(
-        vaultBasePath,
-        normalizedFolder,
-        this.app.vault
-      );
-      this.ensureChatHistoryFolderIgnored(normalizedFolder);
-      await this.savePluginData();
-      this.settingsTab?.display?.();
-      return;
-    }
-
-    const nextStore = new ChatHistoryFileStore(vaultBasePath, normalizedFolder, this.app.vault);
-    const history = this.threadHistory.toJSON();
-    const existingHistory = await nextStore.loadHistory(history.currentThreadId);
-    if (nextStore.warnings.length > 0) {
-      throw new Error("The destination contains unreadable chat history files.");
-    }
-    if (existingHistory && !historiesContainSameThreads(existingHistory, history)) {
-      throw new Error("The destination already contains a different Pi Agent chat history.");
-    }
-    await nextStore.saveHistory(history);
-    const verifiedHistory = await nextStore.loadHistory(history.currentThreadId);
-    if (!verifiedHistory || !historiesContainSameThreads(verifiedHistory, history)) {
-      throw new Error("Could not verify the moved chat history.");
-    }
-
-    const previousStore = this.chatHistoryStore;
-    this.chatHistoryStore = nextStore;
-    this.settings.chatHistoryFolder = normalizedFolder;
-    this.settings.chatHistoryStorageVersion = CHAT_HISTORY_STORAGE_VERSION;
-    this.ensureChatHistoryFolderIgnored(normalizedFolder);
-    await this.savePluginData();
-    await previousStore?.removeManagedHistory();
-    this.settingsTab?.display?.();
-  }
-  ensureChatHistoryFolderIgnored(folder) {
-    if (!this.settings.ignoredFolders.includes(folder)) this.settings.ignoredFolders.push(folder);
-  }
   syncCurrentThreadState() {
     this.messages = this.threadHistory.getCurrentMessages();
   }
@@ -1186,17 +996,10 @@ export class PiAgentPlugin extends P.Plugin {
     });
   }
   savePluginData() {
-    const history = this.threadHistory.toJSON();
-    const historyStore = this.useExternalChatHistory ? this.chatHistoryStore : undefined;
+    const history = sanitizeThreadHistory(this.threadHistory.toJSON());
     const data = {
       ...this.settings,
-      ...(historyStore ? { currentChatId: history.currentThreadId } : { chatHistory: history }),
-      ...(this.legacyIndexedHistoryFolder
-        ? { legacyIndexedHistoryFolder: this.legacyIndexedHistoryFolder }
-        : {}),
-      ...(this.legacyJsonHistoryFolder
-        ? { legacyJsonHistoryFolder: this.legacyJsonHistoryFolder }
-        : {}),
+      chatHistory: history,
       localPromptQueue: this.localPromptQueue,
       localPromptSteering: this.localPromptSteering,
       annotationData: this.annotationStore.toJSON()
@@ -1204,8 +1007,8 @@ export class PiAgentPlugin extends P.Plugin {
     this.dataSaveChain = this.dataSaveChain
       .catch(() => {})
       .then(async () => {
-        if (historyStore) await historyStore.saveHistory(history);
         await this.saveData(data);
+        await writeChatHistoryBackup(this.getPluginDirectory(), history);
       });
     return this.dataSaveChain;
   }
@@ -1323,22 +1126,20 @@ export class PiAgentPlugin extends P.Plugin {
     return n.endsWith(`/${configDir}`) ? `${n}/${s}` : `${n}/${configDir}/${s}`;
   }
 }
-function isPathInsideFolder(filePath, folder) {
-  const normalizedFile = String(filePath ?? "").replaceAll("\\", "/");
-  const normalizedFolder = String(folder ?? "")
-    .replaceAll("\\", "/")
-    .replace(/\/+$/, "");
-  return normalizedFile.startsWith(`${normalizedFolder}/`);
+function isStoredChatHistory(history) {
+  return (
+    history &&
+    typeof history === "object" &&
+    !Array.isArray(history) &&
+    Array.isArray(history.threads) &&
+    history.threads.length > 0
+  );
 }
-function historiesContainSameThreads(left, right) {
-  return left.threads.length === right.threads.length && historyIsCompatibleSubset(left, right);
-}
-function historyIsCompatibleSubset(candidateHistory, expectedHistory) {
-  const expectedById = new Map(expectedHistory.threads.map((thread) => [thread.id, thread]));
-  return candidateHistory.threads.every((thread) => {
-    const expected = expectedById.get(thread.id);
-    return expected && JSON.stringify(expected) === JSON.stringify(thread);
-  });
+function historiesMatch(left, right) {
+  return (
+    isStoredChatHistory(left) &&
+    JSON.stringify(sanitizeThreadHistory(left)) === JSON.stringify(sanitizeThreadHistory(right))
+  );
 }
 function isLegacyBareModelId(model) {
   return !model.includes("/") && model !== "__custom";
