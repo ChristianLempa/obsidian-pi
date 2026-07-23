@@ -646,6 +646,37 @@ export class PiAgentPlugin extends P.Plugin {
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
       : false;
   }
+  deleteThreads(threadIds) {
+    const requested = new Set(threadIds);
+    const threads = this.threadHistory
+      .listThreads({ includeArchived: true })
+      .filter((thread) => requested.has(thread.id));
+    const skippedIds = threads
+      .filter((thread) => this.threadRunners.get(thread.id)?.isRunning)
+      .map((thread) => thread.id);
+    const skipped = new Set(skippedIds);
+    const deleteIds = threads
+      .filter((thread) => !skipped.has(thread.id))
+      .map((thread) => thread.id);
+
+    for (const threadId of deleteIds) {
+      this.threadRunners.get(threadId)?.rpcClient?.dispose();
+      this.threadRunners.delete(threadId);
+    }
+
+    const result = this.threadHistory.deleteThreads(deleteIds);
+    if (result.deletedIds.length > 0) {
+      this.syncCurrentThreadState();
+      this.saveThreadHistory();
+    }
+    return {
+      deletedIds: result.deletedIds,
+      deletedCount: result.deletedIds.length,
+      skippedIds,
+      skippedCount: skippedIds.length,
+      createdThreadId: result.createdThreadId
+    };
+  }
   clearArchivedThreads() {
     let e = this.threadHistory.clearArchivedThreads();
     return e === 0 ? 0 : (this.syncCurrentThreadState(), this.saveThreadHistory(), e);

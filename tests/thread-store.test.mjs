@@ -88,6 +88,48 @@ describe("ThreadStore", () => {
     );
   });
 
+  it("bulk deletes selected chats, preserves favorites, and creates an empty replacement", () => {
+    const store = new ThreadStore({
+      currentThreadId: "current",
+      threads: [
+        {
+          id: "current",
+          title: "Current",
+          messages: [{ role: "user", content: "Delete me", createdAt: 1 }],
+          createdAt: 1,
+          updatedAt: 1,
+          piSessionId: "current.jsonl"
+        },
+        {
+          id: "favorite",
+          title: "Favorite",
+          messages: [],
+          createdAt: 2,
+          updatedAt: 2,
+          favorite: true,
+          piSessionId: "favorite.jsonl"
+        }
+      ]
+    });
+
+    expect(store.deleteThreads(["current"])).toEqual({
+      deletedIds: ["current"],
+      createdThreadId: undefined
+    });
+    expect(store.getCurrentThread()).toMatchObject({
+      id: "favorite",
+      favorite: true,
+      piSessionId: "favorite.jsonl"
+    });
+
+    const result = store.deleteThreads(["favorite"]);
+    expect(result.deletedIds).toEqual(["favorite"]);
+    expect(result.createdThreadId).toBeTruthy();
+    expect(store.listThreads({ includeArchived: true })).toEqual([
+      expect.objectContaining({ id: result.createdThreadId, title: "New chat", messages: [] })
+    ]);
+  });
+
   it("preserves completed thinking and visible tool errors", () => {
     const store = new ThreadStore();
     store.addMessage({

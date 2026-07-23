@@ -6420,8 +6420,8 @@ function formatBytes(bytes) {
 // src/ui/thread-list-view.mjs
 var thread_list_view_exports = {};
 __export(thread_list_view_exports, {
-  archiveAllChats: () => archiveAllChats,
   countSessionEntries: () => countSessionEntries,
+  deleteChats: () => deleteChats,
   deleteThreadFromList: () => deleteThreadFromList,
   formatThreadDate: () => formatThreadDate,
   formatThreadMeta: () => formatThreadMeta,
@@ -6480,28 +6480,102 @@ var DeleteThreadModal = class extends import_obsidian12.Modal {
   }
 };
 
+// src/ui/modals/delete-threads-modal.mjs
+var import_obsidian13 = require("obsidian");
+function chooseBulkThreadDeletion(app, plan) {
+  return new Promise((resolve) => new DeleteThreadsModal(app, plan, resolve).open());
+}
+function getBulkThreadDeletionChoices(plan) {
+  return [
+    {
+      id: "except-favorites",
+      label: `Delete all except favorites (${plan.exceptFavorites.deleteCount})`,
+      disabled: plan.exceptFavorites.deleteCount === 0
+    },
+    {
+      id: "all",
+      label: `Delete all chats (${plan.all.deleteCount})`,
+      disabled: plan.all.deleteCount === 0
+    }
+  ];
+}
+var DeleteThreadsModal = class extends import_obsidian13.Modal {
+  constructor(app, plan, resolve) {
+    super(app);
+    this.plan = plan;
+    this.resolve = resolve;
+    this.choice = "cancel";
+  }
+  onOpen() {
+    this.contentEl.empty();
+    this.contentEl.createEl("h2", { text: "Delete chats?" });
+    this.contentEl.createEl("p", {
+      text: "Choose which chat history to delete. Local Pi session files will be kept."
+    });
+    if (this.plan.favoriteCount > 0) {
+      this.contentEl.createEl("p", {
+        text: `${this.plan.favoriteCount} favorite chat${this.plan.favoriteCount === 1 ? " is" : "s are"} protected by the first option.`
+      });
+    }
+    if (this.plan.all.skippedCount > 0) {
+      this.contentEl.createEl("p", {
+        text: `${this.plan.all.skippedCount} active chat${this.plan.all.skippedCount === 1 ? " cannot" : "s cannot"} be deleted until the agent run finishes.`
+      });
+    }
+    const actions = this.contentEl.createDiv({ cls: "pi-agent-modal-actions" });
+    this.addButton(actions, "Cancel", "cancel");
+    for (const choice of getBulkThreadDeletionChoices(this.plan))
+      this.addButton(actions, choice.label, choice.id, choice.disabled);
+  }
+  addButton(container, label, choice, disabled = false) {
+    const button = container.createEl("button", {
+      text: label,
+      ...(disabled ? { attr: { disabled: "" } } : {})
+    });
+    if (choice !== "cancel") button.addClass("mod-warning");
+    button.addEventListener("click", () => {
+      if (disabled) return;
+      this.choice = choice;
+      this.close();
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+    this.resolve(this.choice);
+  }
+};
+
 // src/ui/thread-bulk-actions.mjs
-function planArchiveAllThreads(threads, runningThreadIds = []) {
+function planBulkThreadDeletion(threads, runningThreadIds = []) {
   const running = new Set(runningThreadIds);
-  const candidates = threads.filter((thread) => !thread.archived);
-  const skippedIds = candidates
-    .filter((thread) => running.has(thread.id))
-    .map((thread) => thread.id);
-  const archiveIds = candidates
-    .filter((thread) => !running.has(thread.id))
-    .map((thread) => thread.id);
+  const createScope = (candidates) => {
+    const deleteIds = candidates
+      .filter((thread) => !running.has(thread.id))
+      .map((thread) => thread.id);
+    const skippedIds = candidates
+      .filter((thread) => running.has(thread.id))
+      .map((thread) => thread.id);
+    return {
+      deleteIds,
+      skippedIds,
+      deleteCount: deleteIds.length,
+      skippedCount: skippedIds.length
+    };
+  };
   return {
-    archiveIds,
-    skippedIds,
-    archiveCount: archiveIds.length,
-    skippedCount: skippedIds.length
+    all: createScope(threads),
+    exceptFavorites: createScope(threads.filter((thread) => thread.favorite !== true)),
+    favoriteCount: threads.filter((thread) => thread.favorite === true).length
   };
 }
-function formatArchiveAllResult({ archivedCount, skippedCount }) {
-  const archived = `${archivedCount} chat${archivedCount === 1 ? "" : "s"} archived`;
-  return skippedCount > 0
-    ? `${archived}; ${skippedCount} active chat${skippedCount === 1 ? " was" : "s were"} skipped.`
-    : `${archived}.`;
+function formatBulkDeleteResult({ deletedCount, skippedCount, createdEmptyChat }) {
+  const deleted = `${deletedCount} chat${deletedCount === 1 ? "" : "s"} deleted`;
+  const skipped =
+    skippedCount > 0
+      ? `; ${skippedCount} active chat${skippedCount === 1 ? " was" : "s were"} skipped`
+      : "";
+  const replacement = createdEmptyChat ? "; a new empty chat was created" : "";
+  return `${deleted}${skipped}${replacement}. Local Pi sessions were kept.`;
 }
 
 // src/ui/thread-list-view.mjs
@@ -6541,12 +6615,12 @@ function renderThreadList() {
     cls: "pi-agent-thread-list-subtitle",
     text: `${t.length} chat${t.length === 1 ? "" : "s"}`
   });
-  let archiveButton = s.createEl("button", {
+  let deleteChatsButton = s.createEl("button", {
     cls: "clickable-icon pi-agent-header-action",
-    attr: { "aria-label": "Archive all chats", title: "Archive all chats" }
+    attr: { "aria-label": "Delete chats", title: "Delete chats" }
   });
-  (0, f2.setIcon)(archiveButton, "archive");
-  archiveButton.addEventListener("click", () => this.archiveAllChats());
+  (0, f2.setIcon)(deleteChatsButton, "trash-2");
+  deleteChatsButton.addEventListener("click", () => this.deleteChats());
   let d = s.createEl("button", {
     cls: "clickable-icon pi-agent-header-action",
     attr: { "aria-label": "New chat", title: "New chat" }
@@ -6619,30 +6693,29 @@ function renderThreadListRow(e, t, n) {
     this.showThreadRowMenu(u, t, n, o);
   });
 }
-async function archiveAllChats() {
+async function deleteChats() {
   const threads = this.plugin.listThreads({ includeArchived: true });
-  const plan = planArchiveAllThreads(threads, [...this.activeRuns.keys()]);
-  if (plan.archiveCount === 0) {
+  const plan = planBulkThreadDeletion(threads, [...this.activeRuns.keys()]);
+  if (plan.all.deleteCount === 0) {
     new f2.Notice(
-      plan.skippedCount > 0
-        ? `No chats archived; ${plan.skippedCount} active chat${plan.skippedCount === 1 ? " was" : "s were"} skipped.`
-        : "There are no chats to archive."
+      plan.all.skippedCount > 0
+        ? "Wait for active agent runs to finish before deleting chats."
+        : "There are no chats to delete."
     );
     return;
   }
-  const confirmed = await confirmWithModal(this.plugin.app, {
-    title: "Archive all chats?",
-    message: `Archive ${plan.archiveCount} chat${plan.archiveCount === 1 ? "" : "s"}?${plan.skippedCount > 0 ? ` ${plan.skippedCount} active chat${plan.skippedCount === 1 ? " will" : "s will"} be skipped.` : ""} Pi session files will be kept.`,
-    confirmText: "Archive all"
-  });
-  if (!confirmed) return;
-  const newlyRunningIds = plan.archiveIds.filter((threadId) => this.isThreadRunning(threadId));
-  const safeArchiveIds = plan.archiveIds.filter((threadId) => !this.isThreadRunning(threadId));
-  const result = this.plugin.archiveThreads(safeArchiveIds);
+  const choice = await chooseBulkThreadDeletion(this.plugin.app, plan);
+  if (choice === "cancel") return;
+  const scope = choice === "except-favorites" ? plan.exceptFavorites : plan.all;
+  if (scope.deleteCount === 0) return;
+  const newlyRunningIds = scope.deleteIds.filter((threadId) => this.isThreadRunning(threadId));
+  const safeDeleteIds = scope.deleteIds.filter((threadId) => !this.isThreadRunning(threadId));
+  const result = this.plugin.deleteThreads(safeDeleteIds);
   new f2.Notice(
-    formatArchiveAllResult({
-      archivedCount: result.archivedCount,
-      skippedCount: plan.skippedCount + newlyRunningIds.length
+    formatBulkDeleteResult({
+      deletedCount: result.deletedCount,
+      skippedCount: scope.skippedCount + newlyRunningIds.length + result.skippedCount,
+      createdEmptyChat: Boolean(result.createdThreadId)
     })
   );
   this.renderThreadList();
@@ -6796,7 +6869,7 @@ __export(vault_link_actions_exports, {
   parseVaultLinkTarget: () => parseVaultLinkTarget,
   revealLine: () => revealLine
 });
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 var EXTERNAL_LINK_PATTERN = /^(?:[a-z][a-z\d+.-]*:|\/\/)/i;
 var LEGACY_LINE_PATTERN = /^(.*):(\d+)$/;
 function classifyVaultLinkTarget(value) {
@@ -6822,7 +6895,7 @@ async function openVaultLink(value, newLeaf = false) {
         ? { kind: "internal", linkText: value.path, line: value.line }
         : { kind: "invalid" };
   if (target.kind !== "internal") {
-    if (target.kind === "invalid") new import_obsidian13.Notice(`Note not found: ${String(value)}`);
+    if (target.kind === "invalid") new import_obsidian14.Notice(`Note not found: ${String(value)}`);
     return false;
   }
   try {
@@ -6835,7 +6908,7 @@ async function openVaultLink(value, newLeaf = false) {
     return true;
   } catch (error) {
     console.error("Pi Agent: failed to open vault link", error);
-    new import_obsidian13.Notice(`Note not found: ${this.formatVaultLinkTarget(target)}`);
+    new import_obsidian14.Notice(`Note not found: ${this.formatVaultLinkTarget(target)}`);
     return false;
   }
 }
@@ -7569,7 +7642,7 @@ function formatActiveToolStatus() {
 }
 
 // src/ui/run-settings.mjs
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 var RunSettingsControls = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -7618,7 +7691,7 @@ var RunSettingsControls = class {
       attr: { "aria-label": `${name}: ${label}`, title: `${name}: ${label}` }
     });
     if (icon?.provider) renderProviderIcon(buttonEl, icon.provider);
-    else (0, import_obsidian14.setIcon)(buttonEl, icon);
+    else (0, import_obsidian15.setIcon)(buttonEl, icon);
     const labelEl = buttonEl.createSpan({ cls: "pi-agent-control-label", text: label });
     buttonEl.addEventListener("click", async (event) => {
       event.preventDefault();
@@ -7627,7 +7700,7 @@ var RunSettingsControls = class {
       try {
         await onClick();
       } catch (error) {
-        new import_obsidian14.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian15.Notice(error instanceof Error ? error.message : String(error));
       } finally {
         if (buttonEl.isConnected) {
           buttonEl.disabled = false;
@@ -7861,7 +7934,7 @@ var ComposerSuggestions = class {
 };
 
 // src/ui/thread-actions.mjs
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 var ThreadActions = class {
   constructor(plugin, callbacks) {
     this.plugin = plugin;
@@ -7883,10 +7956,10 @@ var ThreadActions = class {
         this.callbacks.renderMessages();
         this.callbacks.renderToolBadges?.();
       } else {
-        new import_obsidian15.Notice("Nothing to fork yet.");
+        new import_obsidian16.Notice("Nothing to fork yet.");
       }
     } catch (error) {
-      new import_obsidian15.Notice(error instanceof Error ? error.message : String(error));
+      new import_obsidian16.Notice(error instanceof Error ? error.message : String(error));
     }
   }
 };
@@ -9718,16 +9791,29 @@ var ThreadStore = class {
     return archivedIds;
   }
   deleteThread(threadId) {
-    const threads = this.history.threads.filter((thread) => thread.id !== threadId);
-    if (threads.length === this.history.threads.length) return false;
+    return this.deleteThreads([threadId]).deletedIds.length === 1;
+  }
+  deleteThreads(threadIds) {
+    const requested = new Set(threadIds);
+    const deletedIds = this.history.threads
+      .filter((thread) => requested.has(thread.id))
+      .map((thread) => thread.id);
+    if (deletedIds.length === 0) return { deletedIds, createdThreadId: void 0 };
+    const threads = this.history.threads.filter((thread) => !requested.has(thread.id));
     this.history.threads = threads;
-    if (this.history.currentThreadId === threadId) {
+    let createdThreadId;
+    if (!threads.some((thread) => thread.id === this.history.currentThreadId)) {
       const nextThread =
         this.getMostRecentThread(threads.filter((thread) => !thread.archived)) ??
         this.getMostRecentThread(threads);
-      this.history.currentThreadId = nextThread?.id ?? this.startNewThread().id;
+      if (nextThread) {
+        this.history.currentThreadId = nextThread.id;
+      } else {
+        const replacement = this.startNewThread();
+        createdThreadId = replacement.id;
+      }
     }
-    return true;
+    return { deletedIds, createdThreadId };
   }
   clearArchivedThreads() {
     const previousCount = this.history.threads.length;
@@ -10516,6 +10602,35 @@ var PiAgentPlugin = class extends P.Plugin {
     return this.threadHistory.deleteThread(e)
       ? (this.syncCurrentThreadState(), this.saveThreadHistory(), true)
       : false;
+  }
+  deleteThreads(threadIds) {
+    const requested = new Set(threadIds);
+    const threads = this.threadHistory
+      .listThreads({ includeArchived: true })
+      .filter((thread) => requested.has(thread.id));
+    const skippedIds = threads
+      .filter((thread) => this.threadRunners.get(thread.id)?.isRunning)
+      .map((thread) => thread.id);
+    const skipped = new Set(skippedIds);
+    const deleteIds = threads
+      .filter((thread) => !skipped.has(thread.id))
+      .map((thread) => thread.id);
+    for (const threadId of deleteIds) {
+      this.threadRunners.get(threadId)?.rpcClient?.dispose();
+      this.threadRunners.delete(threadId);
+    }
+    const result = this.threadHistory.deleteThreads(deleteIds);
+    if (result.deletedIds.length > 0) {
+      this.syncCurrentThreadState();
+      this.saveThreadHistory();
+    }
+    return {
+      deletedIds: result.deletedIds,
+      deletedCount: result.deletedIds.length,
+      skippedIds,
+      skippedCount: skippedIds.length,
+      createdThreadId: result.createdThreadId
+    };
   }
   clearArchivedThreads() {
     let e = this.threadHistory.clearArchivedThreads();

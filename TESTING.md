@@ -106,7 +106,7 @@ Use non-sensitive PNG, JPEG, and WebP files.
 
 - [ ] **Pending:** Create, rename, switch, favorite/unfavorite, archive/restore, and fork chats; verify ordering and independent continuation.
 - [ ] **Pending:** Toggle the keyboard-accessible favorite in the active-chat header and thread-list row; confirm both stay synchronized.
-- [ ] **Pending:** Use **Archive all chats** and verify the confirmation gives the correct count, running chats are refused/skipped, the result notice is accurate, and no Pi session file is deleted.
+- [ ] **Pending:** Use **Delete chats** and verify the dialog offers **delete all** and **delete all except favorites** with correct counts, running chats are refused/skipped, favorites are preserved by the protected scope, the result notice is accurate, and no Pi session file is deleted.
 - [ ] **Pending:** Open Pi session info; verify path, messages, tokens, and cost are plausible.
 - [ ] **Pending:** Inspect original/fork JSONL with Pi and confirm valid session trees and portable plugin-relative references.
 - [ ] **Pending:** Copy/sync to a differently located test vault and confirm references do not retain the prior absolute vault path.

@@ -1,7 +1,7 @@
 import * as f from "obsidian";
 import { chooseThreadDeletion } from "./modals/delete-thread-modal.mjs";
-import { confirmWithModal } from "./modals/confirm-modal.mjs";
-import { formatArchiveAllResult, planArchiveAllThreads } from "./thread-bulk-actions.mjs";
+import { chooseBulkThreadDeletion } from "./modals/delete-threads-modal.mjs";
+import { formatBulkDeleteResult, planBulkThreadDeletion } from "./thread-bulk-actions.mjs";
 
 const PI_BRAND_NAME = "Pi";
 
@@ -41,12 +41,12 @@ export function renderThreadList() {
     cls: "pi-agent-thread-list-subtitle",
     text: `${t.length} chat${t.length === 1 ? "" : "s"}`
   });
-  let archiveButton = s.createEl("button", {
+  let deleteChatsButton = s.createEl("button", {
     cls: "clickable-icon pi-agent-header-action",
-    attr: { "aria-label": "Archive all chats", title: "Archive all chats" }
+    attr: { "aria-label": "Delete chats", title: "Delete chats" }
   });
-  (0, f.setIcon)(archiveButton, "archive");
-  archiveButton.addEventListener("click", () => this.archiveAllChats());
+  (0, f.setIcon)(deleteChatsButton, "trash-2");
+  deleteChatsButton.addEventListener("click", () => this.deleteChats());
   let d = s.createEl("button", {
     cls: "clickable-icon pi-agent-header-action",
     attr: { "aria-label": "New chat", title: "New chat" }
@@ -121,30 +121,31 @@ export function renderThreadListRow(e, t, n) {
   });
 }
 
-export async function archiveAllChats() {
+export async function deleteChats() {
   const threads = this.plugin.listThreads({ includeArchived: true });
-  const plan = planArchiveAllThreads(threads, [...this.activeRuns.keys()]);
-  if (plan.archiveCount === 0) {
+  const plan = planBulkThreadDeletion(threads, [...this.activeRuns.keys()]);
+  if (plan.all.deleteCount === 0) {
     new f.Notice(
-      plan.skippedCount > 0
-        ? `No chats archived; ${plan.skippedCount} active chat${plan.skippedCount === 1 ? " was" : "s were"} skipped.`
-        : "There are no chats to archive."
+      plan.all.skippedCount > 0
+        ? "Wait for active agent runs to finish before deleting chats."
+        : "There are no chats to delete."
     );
     return;
   }
-  const confirmed = await confirmWithModal(this.plugin.app, {
-    title: "Archive all chats?",
-    message: `Archive ${plan.archiveCount} chat${plan.archiveCount === 1 ? "" : "s"}?${plan.skippedCount > 0 ? ` ${plan.skippedCount} active chat${plan.skippedCount === 1 ? " will" : "s will"} be skipped.` : ""} Pi session files will be kept.`,
-    confirmText: "Archive all"
-  });
-  if (!confirmed) return;
-  const newlyRunningIds = plan.archiveIds.filter((threadId) => this.isThreadRunning(threadId));
-  const safeArchiveIds = plan.archiveIds.filter((threadId) => !this.isThreadRunning(threadId));
-  const result = this.plugin.archiveThreads(safeArchiveIds);
+
+  const choice = await chooseBulkThreadDeletion(this.plugin.app, plan);
+  if (choice === "cancel") return;
+  const scope = choice === "except-favorites" ? plan.exceptFavorites : plan.all;
+  if (scope.deleteCount === 0) return;
+
+  const newlyRunningIds = scope.deleteIds.filter((threadId) => this.isThreadRunning(threadId));
+  const safeDeleteIds = scope.deleteIds.filter((threadId) => !this.isThreadRunning(threadId));
+  const result = this.plugin.deleteThreads(safeDeleteIds);
   new f.Notice(
-    formatArchiveAllResult({
-      archivedCount: result.archivedCount,
-      skippedCount: plan.skippedCount + newlyRunningIds.length
+    formatBulkDeleteResult({
+      deletedCount: result.deletedCount,
+      skippedCount: scope.skippedCount + newlyRunningIds.length + result.skippedCount,
+      createdEmptyChat: Boolean(result.createdThreadId)
     })
   );
   this.renderThreadList();

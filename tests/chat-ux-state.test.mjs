@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getSendActionState } from "../src/ui/send-state.mjs";
-import { formatArchiveAllResult, planArchiveAllThreads } from "../src/ui/thread-bulk-actions.mjs";
+import { formatBulkDeleteResult, planBulkThreadDeletion } from "../src/ui/thread-bulk-actions.mjs";
 
 describe("chat UX state", () => {
   it("keeps send, queue, cancel, and canceling actions distinct", () => {
@@ -19,24 +19,52 @@ describe("chat UX state", () => {
     });
   });
 
-  it("plans archive-all while refusing active and already archived chats", () => {
-    const plan = planArchiveAllThreads(
+  it("plans bulk deletion with favorite protection and active-run safety", () => {
+    const plan = planBulkThreadDeletion(
       [
-        { id: "ready", archived: false },
-        { id: "running", archived: false },
-        { id: "old", archived: true }
+        { id: "ready", favorite: false },
+        { id: "favorite", favorite: true },
+        { id: "running", favorite: false },
+        { id: "running-favorite", favorite: true }
       ],
-      ["running"]
+      ["running", "running-favorite"]
     );
 
     expect(plan).toEqual({
-      archiveIds: ["ready"],
-      skippedIds: ["running"],
-      archiveCount: 1,
-      skippedCount: 1
+      all: {
+        deleteIds: ["ready", "favorite"],
+        skippedIds: ["running", "running-favorite"],
+        deleteCount: 2,
+        skippedCount: 2
+      },
+      exceptFavorites: {
+        deleteIds: ["ready"],
+        skippedIds: ["running"],
+        deleteCount: 1,
+        skippedCount: 1
+      },
+      favoriteCount: 2
     });
-    expect(formatArchiveAllResult({ archivedCount: 1, skippedCount: 1 })).toBe(
-      "1 chat archived; 1 active chat was skipped."
+    expect(
+      formatBulkDeleteResult({ deletedCount: 1, skippedCount: 1, createdEmptyChat: true })
+    ).toBe(
+      "1 chat deleted; 1 active chat was skipped; a new empty chat was created. Local Pi sessions were kept."
     );
+  });
+
+  it("handles zero favorites and all-favorite histories", () => {
+    expect(
+      planBulkThreadDeletion([
+        { id: "one", favorite: false },
+        { id: "two", favorite: false }
+      ]).exceptFavorites.deleteIds
+    ).toEqual(["one", "two"]);
+
+    const allFavorites = planBulkThreadDeletion([
+      { id: "one", favorite: true },
+      { id: "two", favorite: true }
+    ]);
+    expect(allFavorites.exceptFavorites.deleteCount).toBe(0);
+    expect(allFavorites.all.deleteIds).toEqual(["one", "two"]);
   });
 });

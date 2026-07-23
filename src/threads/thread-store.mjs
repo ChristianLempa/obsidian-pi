@@ -96,19 +96,33 @@ export class ThreadStore {
   }
 
   deleteThread(threadId) {
-    const threads = this.history.threads.filter((thread) => thread.id !== threadId);
-    if (threads.length === this.history.threads.length) return false;
+    return this.deleteThreads([threadId]).deletedIds.length === 1;
+  }
 
+  deleteThreads(threadIds) {
+    const requested = new Set(threadIds);
+    const deletedIds = this.history.threads
+      .filter((thread) => requested.has(thread.id))
+      .map((thread) => thread.id);
+    if (deletedIds.length === 0) return { deletedIds, createdThreadId: undefined };
+
+    const threads = this.history.threads.filter((thread) => !requested.has(thread.id));
     this.history.threads = threads;
 
-    if (this.history.currentThreadId === threadId) {
+    let createdThreadId;
+    if (!threads.some((thread) => thread.id === this.history.currentThreadId)) {
       const nextThread =
         this.getMostRecentThread(threads.filter((thread) => !thread.archived)) ??
         this.getMostRecentThread(threads);
-      this.history.currentThreadId = nextThread?.id ?? this.startNewThread().id;
+      if (nextThread) {
+        this.history.currentThreadId = nextThread.id;
+      } else {
+        const replacement = this.startNewThread();
+        createdThreadId = replacement.id;
+      }
     }
 
-    return true;
+    return { deletedIds, createdThreadId };
   }
 
   clearArchivedThreads() {

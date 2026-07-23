@@ -242,11 +242,12 @@ describe("native chat polish", () => {
     expect(viewSource).toContain("this.liveThinkingSetExpanded?.(n.thinkingExpanded)");
   });
 
-  it("keeps archive-all directly visible and removes the empty history overflow", () => {
-    expect(threadListSource).toContain('setIcon)(archiveButton, "archive")');
-    expect(threadListSource).toContain('"aria-label": "Archive all chats"');
-    expect(threadListSource).not.toContain("showThreadListMenu");
-    expect(threadListSource).not.toContain('setIcon)(menuButton, "more-vertical")');
+  it("keeps guarded bulk deletion directly visible and removes archive-all", () => {
+    expect(threadListSource).toContain('setIcon)(deleteChatsButton, "trash-2")');
+    expect(threadListSource).toContain('"aria-label": "Delete chats"');
+    expect(threadListSource).toContain("chooseBulkThreadDeletion");
+    expect(threadListSource).not.toContain("Archive all chats");
+    expect(threadListSource).not.toContain("archiveAllChats");
   });
 
   it("fills selected favorite stars with non-accent current color", () => {
