@@ -1,7 +1,7 @@
 {
   "id": "pi-agent",
   "name": "Pi Agent",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "minAppVersion": "1.12.3",
   "description": "Chat with Pi using context from your notes, links, backlinks, tags, and search results.",
   "author": "Christian Lempa",
