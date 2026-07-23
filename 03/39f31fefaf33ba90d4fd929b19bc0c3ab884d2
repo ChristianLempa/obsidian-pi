@@ -1,0 +1,50 @@
+src/ui/thread-list-view.mjs
+  s_eee29254f5a8ef::t_e8c1c55607b284 3-4,44,46,48-49,124,126-127,129-131,135-143,145-148
+src/ui/thread-bulk-actions.mjs
+  s_eee29254f5a8ef::t_6dd1228df34ab7 1,3-17,20-22,26-33
+tests/native-chat-polish.test.mjs
+  s_eee29254f5a8ef::t_d82565837b6478 245-250
+TESTING.md
+  s_eee29254f5a8ef::t_2be087b5292067 109
+CHANGELOG.md
+  s_eee29254f5a8ef::t_e8c8fabfcbd377 5
+tests/chat-ux-state.test.mjs
+  s_eee29254f5a8ef::t_080260af968fce 3
+  s_eee29254f5a8ef::t_c021c9eda8293b 22-23,25-28,30,34-46,48-51
+  s_eee29254f5a8ef::t_3d600d159693e0 54-69
+tests/delete-thread-modal.test.mjs
+  s_eee29254f5a8ef::t_9e0a30c610ee22 30-31
+  s_eee29254f5a8ef::t_080260af968fce 7-8
+  s_eee29254f5a8ef::t_b76ef3594b0460 22-29,32-42
+src/threads/thread-store.mjs
+  s_eee29254f5a8ef::t_ab20538b726c1f 99-107,109,112-113,117-122,125
+src/plugin/PiAgentPlugin.mjs
+  s_eee29254f5a8ef::t_883ec73b920957 649-679
+tests/thread-store.test.mjs
+  s_eee29254f5a8ef::t_abefd6f30aef94 91-132
+main.js
+  s_eee29254f5a8ef::t_080260af968fce 6424,6483-6491,6493-6496,6498-6547,6549,6551-6564,6566-6568,6571-6578,6618,6620,6622-6623,6696,6698-6699,6701-6703,6707-6713,6715-6718,6872,6898,6911,7645,7694,7703,7937,7959,7962,9794-9802,9804-9805,9809-9814,9816,10606-10634
+  s_eee29254f5a8ef::t_21d103f43742c1 6492,6497
+src/ui/modals/delete-threads-modal.mjs
+  s_eee29254f5a8ef::t_b9355f3cb25094 1-10,12-15,17-56,58-71
+  s_eee29254f5a8ef::t_a60717b95770c7 11,16
+  s_eee29254f5a8ef::t_eddb7d57ad08f0 57
+styles.css
+  s_eee29254f5a8ef::t_6ae7e13f100663 1215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0339f31fefaf33ba90d4fd929b19bc0c3ab884d2",
+  "prompts": {},
+  "sessions": {
+    "s_eee29254f5a8ef": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7fb0-ada3-73ae-97f0-518d80c23997",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
