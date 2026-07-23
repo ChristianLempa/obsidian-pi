@@ -1,0 +1,59 @@
+tests/model-picker.test.mjs
+  s_73e698799187b3::t_261cb3cea0688e 36
+  s_73e698799187b3::t_e72acefae0bf0a 48,54,65,70-71,76,98,100
+  s_73e698799187b3::t_3ab212336e062e 30,33,38-40
+src/plugin/settings-tab.mjs
+  s_73e698799187b3::t_166f54ea213840 366
+CHANGELOG.md
+  s_73e698799187b3::t_fcf8ba9f301d51 5-10
+package.json
+  s_73e698799187b3::t_0075031bd25883 3
+src/ui/model-picker.mjs
+  s_73e698799187b3::t_3bfaeb3094c4a5 32-40,46
+  s_73e698799187b3::t_603d7ec58b78a7 50-53,62
+src/ui/run-settings.mjs
+  s_73e698799187b3::t_c05def9a45b337 96
+src/plugin/PiAgentPlugin.mjs
+  s_73e698799187b3::t_742aa63ac73bf6 363,777-781
+  s_73e698799187b3::t_bc6f0215b50916 168-169
+src/pi/runner.mjs
+  s_73e698799187b3::t_f74d505258cdd6 208-209,483
+  s_73e698799187b3::t_b90a1ec67f2272 152,472-474
+src/ui/view/run-metadata.mjs
+  s_73e698799187b3::t_87cde3940acc3d 3,5-7,23-32,35-36
+src/pi/model-catalog.mjs
+  s_73e698799187b3::t_9a632657db872c 21-22
+src/ui/PiAgentView.mjs
+  s_73e698799187b3::t_f2b734274e8ec0 1030
+tests/runner.test.mjs
+  s_73e698799187b3::t_a80014a8ed7e3b 262
+  s_73e698799187b3::t_8a19e1db702277 49-50,56-59,168,170,227,255,257
+  s_73e698799187b3::t_5310c21de2b32b 289,294,297-298,300,304,311,316,346,348
+  s_73e698799187b3::t_1d0b005c7341f2 60
+manifest.json
+  s_73e698799187b3::t_581ca7ff4023a2 4
+main.js
+  s_73e698799187b3::t_867583a518ac79 10304,10702-10706
+  s_73e698799187b3::t_9e5fbca248522a 3575-3576,4452-4453,4699,4937-4945,4949,4952-4955,4962,5566,7687,7930,7932-7937,7951-7960,7962-7963,9053
+  s_73e698799187b3::t_7b5f6c2a8a15c8 4398
+versions.json
+  s_73e698799187b3::t_0782cedc283454 13-14
+package-lock.json
+  s_73e698799187b3::t_617719fa5aa2a3 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "dd1f5e037464c898dcc2e5912969346ea32a6646",
+  "prompts": {},
+  "sessions": {
+    "s_73e698799187b3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f8e4d-d5b9-757a-8415-2eab8499bffb",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
