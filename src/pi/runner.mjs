@@ -107,7 +107,6 @@ export class PiRunner {
       this.rpcSession ??= this.resolveOrCreateSession(sessionReference);
       try {
         await client.start();
-        await this.configureRpcState(client);
         return { client, session: this.rpcSession };
       } catch (error) {
         this.resetRpcClientAfterStartupFailure(client);
@@ -126,7 +125,6 @@ export class PiRunner {
     this.rpcSession = session;
     try {
       await client.start();
-      await this.configureRpcState(client);
       return { client, session };
     } catch (error) {
       this.resetRpcClientAfterStartupFailure(client);
@@ -138,31 +136,6 @@ export class PiRunner {
     client.dispose?.();
     if (this.rpcClient === client) this.rpcClient = undefined;
     this.rpcSession = undefined;
-    this.rpcConfigured = false;
-    this.rpcConfiguredProcess = undefined;
-  }
-
-  async configureRpcState(client) {
-    if (this.rpcConfigured && this.rpcConfiguredProcess === client.child) return;
-
-    const selectedModel =
-      this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
-    const model = selectedModel || this.settings.effectiveModel;
-    if (model) {
-      const separator = model.indexOf("/");
-      if (separator <= 0 || separator === model.length - 1) {
-        throw new Error(`Invalid Pi model ID: ${model}. Expected provider/model.`);
-      }
-      await client.request("set_model", {
-        provider: model.slice(0, separator),
-        modelId: model.slice(separator + 1)
-      });
-    }
-    if (this.settings.reasoningEffort) {
-      await client.request("set_thinking_level", { level: this.settings.reasoningEffort });
-    }
-    this.rpcConfigured = true;
-    this.rpcConfiguredProcess = client.child;
   }
 
   async runPiRpc(prompt, sessionId, callbacks, images = []) {
@@ -176,6 +149,7 @@ export class PiRunner {
       const { client, session } = await this.getOrCreateRpcClient(sessionId);
       if (this.cancelRequested || callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
 
+      const runtimeState = await client.request("get_state").catch(() => undefined);
       const events = [];
       let finalResponse = "";
       let runState;
@@ -231,7 +205,8 @@ export class PiRunner {
         events,
         contextUsage: this.getRunContextUsage(runState?.tokenUsage, events),
         contextCompacted: this.didCompactContext(events),
-        tokenUsage: runState?.tokenUsage ?? undefined
+        tokenUsage: runState?.tokenUsage ?? undefined,
+        runtimeState
       };
     } catch (error) {
       if (this.cancelRequested || callbacks?.isCanceled?.())
@@ -494,6 +469,9 @@ export class PiRunner {
     const args = ["--mode", mode, "--session", sessionId];
     const selectedModel =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
+    // Keep an empty plugin selection as "Pi default", but launch the runtime
+    // with the concrete default Pi reported to the picker. This avoids Pi's
+    // unknown/unknown startup fallback without introducing a second model change.
     const model = selectedModel || this.settings.effectiveModel;
     if (model) {
       const separator = model.indexOf("/");
@@ -502,6 +480,7 @@ export class PiRunner {
       }
       args.push("--provider", model.slice(0, separator), "--model", model.slice(separator + 1));
     }
+    if (this.settings.reasoningEffort) args.push("--thinking", this.settings.reasoningEffort);
     const instructions = this.contextBuilder.getSystemInstructions?.();
     if (instructions) args.push("--append-system-prompt", instructions);
     if (this.settings.includeDefaultSkills === false) args.push("--no-skills");

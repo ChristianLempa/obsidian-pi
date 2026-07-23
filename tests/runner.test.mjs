@@ -46,16 +46,18 @@ describe("PiRunner", () => {
       "provider",
       "--model",
       "model",
+      "--thinking",
+      "high",
       "--no-skills",
       "--skill",
       path.join("/vault", ".pi/skills")
     ]);
 
-    expect(
-      createRunner({ effectiveModel: "openai-codex/gpt-5.6-sol", sandboxMode: "chat" }).buildPiArgs(
-        "session.jsonl"
-      )
-    ).toEqual(
+    const defaultArgs = createRunner({
+      effectiveModel: "openai-codex/gpt-5.6-sol",
+      sandboxMode: "chat"
+    }).buildPiArgs("session.jsonl");
+    expect(defaultArgs).toEqual(
       expect.arrayContaining(["--provider", "openai-codex", "--model", "gpt-5.6-sol", "--no-tools"])
     );
     expect(createRunner({ sandboxMode: "review" }).buildPiArgs("session.jsonl")).toContain(
@@ -163,7 +165,9 @@ describe("PiRunner", () => {
     expect(first.finalResponse).toBe("echo:one");
     expect(second.finalResponse).toBe("echo:two");
     expect(requests).toEqual([
+      { type: "get_state", payload: undefined },
       { type: "prompt", payload: { message: "one" } },
+      { type: "get_state", payload: undefined },
       { type: "prompt", payload: { message: "two" } }
     ]);
     expect(rpcClient.start).toHaveBeenCalledTimes(2);
@@ -220,7 +224,7 @@ describe("PiRunner", () => {
     });
   });
 
-  it("configures model and thinking through RPC before the first prompt", async () => {
+  it("does not duplicate CLI model and thinking selection through RPC", async () => {
     const requests = [];
     const listeners = new Set();
     const rpcClient = {
@@ -248,14 +252,14 @@ describe("PiRunner", () => {
     await runner.runPiRpc("two", runner.rpcSession.reference);
 
     expect(requests).toEqual([
-      { type: "set_model", payload: { provider: "provider", modelId: "model/name" } },
-      { type: "set_thinking_level", payload: { level: "max" } },
+      { type: "get_state", payload: undefined },
       { type: "prompt", payload: { message: "one" } },
+      { type: "get_state", payload: undefined },
       { type: "prompt", payload: { message: "two" } }
     ]);
   });
 
-  it("pins Pi's resolved effective model before prompting", async () => {
+  it("launches Pi's effective default without RPC re-selection", async () => {
     const requests = [];
     const listeners = new Set();
     const rpcClient = {
@@ -282,37 +286,34 @@ describe("PiRunner", () => {
     await runner.runPiRpc("one", undefined);
 
     expect(requests.slice(0, 2)).toEqual([
-      {
-        type: "set_model",
-        payload: { provider: "openai-codex", modelId: "gpt-5.6-sol" }
-      },
+      { type: "get_state", payload: undefined },
       { type: "prompt", payload: { message: "one" } }
     ]);
   });
 
-  it("disposes a Pi process whose initial model configuration fails", async () => {
+  it("disposes a Pi process whose startup fails", async () => {
     const rpcClient = {
       child: { pid: 1 },
-      start: vi.fn(async () => {}),
-      request: vi.fn(async () => {
-        throw new Error("Model unavailable");
+      start: vi.fn(async () => {
+        throw new Error("Startup failed");
       }),
+      request: vi.fn(),
       dispose: vi.fn()
     };
     const runner = new PiRunner(
-      { ...DEFAULT_SETTINGS, effectiveModel: "provider/model" },
+      DEFAULT_SETTINGS,
       { formatPrompt: (prompt) => prompt },
       "/vault",
       createTempDir(),
       rpcClient
     );
 
-    await expect(runner.getOrCreateRpcClient()).rejects.toThrow("Model unavailable");
+    await expect(runner.getOrCreateRpcClient()).rejects.toThrow("Startup failed");
     expect(rpcClient.dispose).toHaveBeenCalledOnce();
     expect(runner.rpcClient).toBeUndefined();
   });
 
-  it("reapplies RPC overrides after the Pi process restarts", async () => {
+  it("reads runtime display state after the Pi process restarts", async () => {
     const requests = [];
     const listeners = new Set();
     const rpcClient = {
@@ -342,11 +343,9 @@ describe("PiRunner", () => {
     await runner.runPiRpc("two", runner.rpcSession.reference);
 
     expect(requests.map(({ type }) => type)).toEqual([
-      "set_model",
-      "set_thinking_level",
+      "get_state",
       "prompt",
-      "set_model",
-      "set_thinking_level",
+      "get_state",
       "prompt"
     ]);
   });

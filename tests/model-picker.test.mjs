@@ -27,21 +27,17 @@ const resolvedSettings = {
 };
 
 describe("native model picker state", () => {
-  it("pins the resolved friendly model without a Default prefix", () => {
+  it("marks Pi's effective model as the default without duplicating it", () => {
     const items = buildModelPickerItems(resolvedSettings);
 
-    expect(items.map((item) => item.value)).toEqual(["", model.slug]);
+    expect(items.map((item) => item.value)).toEqual([""]);
     expect(getModelPickerPrimary(items[0])).toBe("GPT-5");
     expect(getModelPickerSecondary(items[0])).toBe(
-      "openai/gpt-5 · thinking · images · 200K context"
+      "openai/gpt-5 · Pi default · thinking · images · 200K context"
     );
-  });
-
-  it("never creates a selectable ambiguous default", () => {
-    expect(buildModelPickerItems({ ...resolvedSettings, effectiveModel: "" })).toEqual([]);
-    expect(buildModelPickerItems({ ...resolvedSettings, effectiveModel: "missing/model" })).toEqual(
-      []
-    );
+    expect(
+      buildModelPickerItems({ ...resolvedSettings, effectiveModel: "missing/model" })[0].value
+    ).toBe(model.slug);
   });
 
   it("requires refresh for startup gaps and stale runtime state", () => {
@@ -49,13 +45,13 @@ describe("native model picker state", () => {
     expect(needsRuntimeCatalogRefresh(resolvedSettings, 1_000, 2_000, 1_000)).toBe(true);
     expect(
       needsRuntimeCatalogRefresh({ ...resolvedSettings, effectiveReasoning: "" }, 1_000, 1_100)
-    ).toBe(true);
+    ).toBe(false);
     expect(
       needsRuntimeCatalogRefresh({ ...resolvedSettings, availableModels: [] }, 1_000, 1_100)
     ).toBe(true);
   });
 
-  it("validates get_state against the runtime catalog before atomic application", () => {
+  it("keeps get_state as optional display metadata", () => {
     expect(
       createRuntimeCatalogSnapshot([model], {
         effectiveModel: model.slug,
@@ -66,18 +62,18 @@ describe("native model picker state", () => {
       effectiveModel: model.slug,
       effectiveReasoning: "high"
     });
-    expect(() =>
+    expect(
       createRuntimeCatalogSnapshot([model], {
         effectiveModel: "other/model",
         effectiveReasoning: "high"
       })
-    ).toThrow("missing from its model catalog");
-    expect(() =>
+    ).toEqual({ availableModels: [model], effectiveModel: "", effectiveReasoning: "" });
+    expect(
       createRuntimeCatalogSnapshot([model], {
         effectiveModel: model.slug,
         effectiveReasoning: "max"
       })
-    ).toThrow("effective thinking level (max) is not supported");
+    ).toEqual({ availableModels: [model], effectiveModel: model.slug, effectiveReasoning: "" });
   });
 
   it("coalesces concurrent startup/open refreshes and permits a later refresh", async () => {
@@ -99,9 +95,9 @@ describe("native model picker state", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
-  it("only treats a fully matched last-known runtime value as safe on transient failure", () => {
+  it("treats a cached non-empty catalog as safe independently of runtime display state", () => {
     expect(hasSafeRuntimeCatalog(resolvedSettings)).toBe(true);
-    expect(hasSafeRuntimeCatalog({ ...resolvedSettings, effectiveReasoning: "" })).toBe(false);
+    expect(hasSafeRuntimeCatalog({ ...resolvedSettings, effectiveReasoning: "" })).toBe(true);
     expect(hasSafeRuntimeCatalog({ ...resolvedSettings, availableModels: [] })).toBe(false);
   });
 });

@@ -1,9 +1,10 @@
 import { CUSTOM_MODEL_VALUE } from "../../plugin/settings.mjs";
 
-export function getCurrentRunMetadata(settings) {
+export function getCurrentRunMetadata(settings, runtimeState) {
   return {
-    model: getDisplayedModel(settings),
-    reasoning: settings.reasoningEffort || settings.effectiveReasoning || "Unknown",
+    model: getDisplayedModel(settings, runtimeState),
+    reasoning:
+      runtimeState?.thinkingLevel || settings.reasoningEffort || settings.effectiveReasoning || "Pi default",
     toolMode: settings.sandboxMode,
     toolModeLabel: formatToolModeLabel(settings.sandboxMode)
   };
@@ -19,10 +20,18 @@ export function formatToolModeLabel(toolMode) {
         : "Review";
 }
 
-function getDisplayedModel(settings) {
+function getDisplayedModel(settings, runtimeState) {
+  const runtimeSlug = runtimeState?.model
+    ? `${runtimeState.model.provider}/${runtimeState.model.id}`
+    : "";
+  if (runtimeSlug) {
+    const runtimeModel = settings.availableModels?.find(
+      (candidate) => candidate.slug === runtimeSlug
+    );
+    return runtimeModel?.displayName || runtimeState.model.name || runtimeSlug;
+  }
   if (settings.model === CUSTOM_MODEL_VALUE) return settings.customModel || "Custom";
 
-  const slug = settings.model || settings.effectiveModel;
-  const model = settings.availableModels?.find((candidate) => candidate.slug === slug);
-  return model?.displayName || slug || "Unknown model";
+  const model = settings.availableModels?.find((candidate) => candidate.slug === settings.model);
+  return model?.displayName || settings.model || "Pi default";
 }

@@ -165,9 +165,8 @@ export class PiAgentPlugin extends P.Plugin {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
 
-    this.refreshModelCatalog(false)
-      .then(() => this.refreshCommandCatalog(false))
-      .catch(() => {});
+    // Runtime catalogs are loaded on demand by their pickers. Agent runs use
+    // Pi directly and must not depend on background discovery processes.
     this.refreshCurrentContextFile();
 
     this.registerEvent(
@@ -361,10 +360,7 @@ export class PiAgentPlugin extends P.Plugin {
     this.modelCatalogRefreshedAt = 0;
     await this.savePluginData();
     if (this.hasActivePiRuns()) this.pendingServiceRebuild = true;
-    else {
-      this.rebuildServices();
-      this.refreshCommandCatalog(false);
-    }
+    else this.rebuildServices();
   }
   hasActivePiRuns() {
     return [...this.threadRunners.values()].some((runner) => runner.isRunning);
@@ -373,7 +369,6 @@ export class PiAgentPlugin extends P.Plugin {
     if (this.pendingServiceRebuild && !this.hasActivePiRuns()) {
       this.pendingServiceRebuild = false;
       this.rebuildServices();
-      this.refreshCommandCatalog(false);
     }
   }
   showPiSetupIfNeeded() {
@@ -779,8 +774,11 @@ export class PiAgentPlugin extends P.Plugin {
     )
       throw new Error("Pi services are not available.");
     let s = this.getEditorSelection();
-    await this.ensureRuntimeModelState();
-    if (getCompactInstructions(e) === undefined && !this.commandCatalogLoaded)
+    if (
+      e.trim().startsWith("/") &&
+      getCompactInstructions(e) === undefined &&
+      !this.commandCatalogLoaded
+    )
       await this.refreshCommandCatalog(false);
     let a =
       getCompactInstructions(e) === undefined

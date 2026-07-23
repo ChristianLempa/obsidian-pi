@@ -3572,10 +3572,8 @@ var PiModelCatalog = class {
       args: ["--mode", "rpc", "--no-session", "--no-tools"]
     });
     try {
-      const [catalog, state] = await Promise.all([
-        client.request("get_available_models"),
-        client.request("get_state")
-      ]);
+      const catalog = await client.request("get_available_models");
+      const state = await client.request("get_state").catch(() => void 0);
       this.effectiveConfig = {
         effectiveModel: state?.model ? `${state.model.provider}/${state.model.id}` : "",
         effectiveReasoning: state?.thinkingLevel ?? ""
@@ -4360,7 +4358,6 @@ var PiRunner = class {
       this.rpcSession ??= this.resolveOrCreateSession(sessionReference);
       try {
         await client2.start();
-        await this.configureRpcState(client2);
         return { client: client2, session: this.rpcSession };
       } catch (error) {
         this.resetRpcClientAfterStartupFailure(client2);
@@ -4378,7 +4375,6 @@ var PiRunner = class {
     this.rpcSession = session;
     try {
       await client.start();
-      await this.configureRpcState(client);
       return { client, session };
     } catch (error) {
       this.resetRpcClientAfterStartupFailure(client);
@@ -4389,29 +4385,6 @@ var PiRunner = class {
     client.dispose?.();
     if (this.rpcClient === client) this.rpcClient = void 0;
     this.rpcSession = void 0;
-    this.rpcConfigured = false;
-    this.rpcConfiguredProcess = void 0;
-  }
-  async configureRpcState(client) {
-    if (this.rpcConfigured && this.rpcConfiguredProcess === client.child) return;
-    const selectedModel =
-      this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
-    const model = selectedModel || this.settings.effectiveModel;
-    if (model) {
-      const separator = model.indexOf("/");
-      if (separator <= 0 || separator === model.length - 1) {
-        throw new Error(`Invalid Pi model ID: ${model}. Expected provider/model.`);
-      }
-      await client.request("set_model", {
-        provider: model.slice(0, separator),
-        modelId: model.slice(separator + 1)
-      });
-    }
-    if (this.settings.reasoningEffort) {
-      await client.request("set_thinking_level", { level: this.settings.reasoningEffort });
-    }
-    this.rpcConfigured = true;
-    this.rpcConfiguredProcess = client.child;
   }
   async runPiRpc(prompt, sessionId, callbacks, images = []) {
     if (!this.pluginDirectory) throw new Error("Plugin directory is not available.");
@@ -4422,6 +4395,7 @@ var PiRunner = class {
     try {
       const { client, session } = await this.getOrCreateRpcClient(sessionId);
       if (this.cancelRequested || callbacks?.isCanceled?.()) throw new Error("Pi run canceled.");
+      const runtimeState = await client.request("get_state").catch(() => void 0);
       const events = [];
       let finalResponse = "";
       let runState;
@@ -4475,7 +4449,8 @@ var PiRunner = class {
         events,
         contextUsage: this.getRunContextUsage(runState?.tokenUsage, events),
         contextCompacted: this.didCompactContext(events),
-        tokenUsage: runState?.tokenUsage ?? void 0
+        tokenUsage: runState?.tokenUsage ?? void 0,
+        runtimeState
       };
     } catch (error) {
       if (this.cancelRequested || callbacks?.isCanceled?.())
@@ -4721,6 +4696,7 @@ var PiRunner = class {
       }
       args.push("--provider", model.slice(0, separator), "--model", model.slice(separator + 1));
     }
+    if (this.settings.reasoningEffort) args.push("--thinking", this.settings.reasoningEffort);
     const instructions = this.contextBuilder.getSystemInstructions?.();
     if (instructions) args.push("--append-system-prompt", instructions);
     if (this.settings.includeDefaultSkills === false) args.push("--no-skills");
@@ -4950,8 +4926,6 @@ function needsRuntimeCatalogRefresh(settings, refreshedAt, now = Date.now(), max
   return (
     !Array.isArray(settings.availableModels) ||
     settings.availableModels.length === 0 ||
-    !settings.effectiveModel ||
-    !settings.effectiveReasoning ||
     !refreshedAt ||
     now - refreshedAt >= maxAge
   );
@@ -4960,44 +4934,32 @@ function createRuntimeCatalogSnapshot(models, effectiveConfig) {
   if (!Array.isArray(models) || models.length === 0) {
     throw new Error("Pi returned no models.");
   }
-  const effectiveModel = String(effectiveConfig?.effectiveModel || "").trim();
-  const effectiveReasoning = String(effectiveConfig?.effectiveReasoning || "").trim();
-  if (!effectiveModel || !effectiveReasoning) {
-    throw new Error("Pi did not return its effective model and thinking level.");
-  }
-  const effectiveModelInfo = models.find((model) => model.slug === effectiveModel);
-  if (!effectiveModelInfo) {
-    throw new Error(`Pi's effective model (${effectiveModel}) is missing from its model catalog.`);
-  }
-  if (!effectiveModelInfo.supportedReasoningLevels?.includes(effectiveReasoning)) {
-    throw new Error(
-      `Pi's effective thinking level (${effectiveReasoning}) is not supported by ${effectiveModel}.`
-    );
-  }
+  const reportedModel = String(effectiveConfig?.effectiveModel || "").trim();
+  const effectiveModelInfo = models.find((model) => model.slug === reportedModel);
+  const reportedReasoning = String(effectiveConfig?.effectiveReasoning || "").trim();
+  const effectiveModel = effectiveModelInfo ? reportedModel : "";
+  const effectiveReasoning = effectiveModelInfo?.supportedReasoningLevels?.includes(
+    reportedReasoning
+  )
+    ? reportedReasoning
+    : "";
   return { availableModels: models, effectiveModel, effectiveReasoning };
 }
 function hasSafeRuntimeCatalog(settings) {
-  return Boolean(
-    settings.effectiveModel &&
-    settings.effectiveReasoning &&
-    settings.availableModels?.some((model) => model.slug === settings.effectiveModel)
-  );
+  return Array.isArray(settings.availableModels) && settings.availableModels.length > 0;
 }
 function buildModelPickerItems(settings) {
-  const effective = settings.availableModels.find(
-    (model) => model.slug === settings.effectiveModel
-  );
-  if (!effective) return [];
-  return [
-    { value: "", model: effective, isDefault: true },
-    ...settings.availableModels.map((model) => ({ value: model.slug, model, isDefault: false }))
-  ];
+  return settings.availableModels.map((model) => {
+    const isDefault = model.slug === settings.effectiveModel;
+    return { value: isDefault ? "" : model.slug, model, isDefault };
+  });
 }
 function getModelPickerPrimary(item) {
   return item.model.displayName || item.model.id || item.model.slug;
 }
 function getModelPickerSecondary(item) {
   const capabilities = [
+    item.isDefault ? "Pi default" : "",
     item.model.reasoning ? "thinking" : "",
     item.model.supportsImages ? "images" : "",
     item.model.contextWindow ? `${formatTokenAmount(item.model.contextWindow)} context` : ""
@@ -5601,7 +5563,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
     const effective = this.plugin.settings.availableModels.find(
       (model) => model.slug === this.plugin.settings.effectiveModel
     );
-    return effective?.displayName || this.plugin.settings.effectiveModel || "Loading model\u2026";
+    return effective?.displayName || this.plugin.settings.effectiveModel || "Pi default";
   }
   getReasoningButtonLabel() {
     const value = this.getReasoningDropdownValue();
@@ -7722,7 +7684,7 @@ var RunSettingsControls = class {
     const effective = this.plugin.settings.availableModels.find(
       (candidate) => candidate.slug === this.plugin.settings.effectiveModel
     );
-    return effective?.displayName || this.plugin.settings.effectiveModel || "Loading model\u2026";
+    return effective?.displayName || this.plugin.settings.effectiveModel || "Pi default";
   }
   getModelProvider() {
     if (this.plugin.settings.model === CUSTOM_MODEL_VALUE) {
@@ -7965,10 +7927,14 @@ var ThreadActions = class {
 };
 
 // src/ui/view/run-metadata.mjs
-function getCurrentRunMetadata(settings) {
+function getCurrentRunMetadata(settings, runtimeState) {
   return {
-    model: getDisplayedModel(settings),
-    reasoning: settings.reasoningEffort || settings.effectiveReasoning || "Unknown",
+    model: getDisplayedModel(settings, runtimeState),
+    reasoning:
+      runtimeState?.thinkingLevel ||
+      settings.reasoningEffort ||
+      settings.effectiveReasoning ||
+      "Pi default",
     toolMode: settings.sandboxMode,
     toolModeLabel: formatToolModeLabel(settings.sandboxMode)
   };
@@ -7982,11 +7948,19 @@ function formatToolModeLabel(toolMode) {
         ? "Full agent"
         : "Review";
 }
-function getDisplayedModel(settings) {
+function getDisplayedModel(settings, runtimeState) {
+  const runtimeSlug = runtimeState?.model
+    ? `${runtimeState.model.provider}/${runtimeState.model.id}`
+    : "";
+  if (runtimeSlug) {
+    const runtimeModel = settings.availableModels?.find(
+      (candidate) => candidate.slug === runtimeSlug
+    );
+    return runtimeModel?.displayName || runtimeState.model.name || runtimeSlug;
+  }
   if (settings.model === CUSTOM_MODEL_VALUE) return settings.customModel || "Custom";
-  const slug = settings.model || settings.effectiveModel;
-  const model = settings.availableModels?.find((candidate) => candidate.slug === slug);
-  return model?.displayName || slug || "Unknown model";
+  const model = settings.availableModels?.find((candidate) => candidate.slug === settings.model);
+  return model?.displayName || settings.model || "Pi default";
 }
 
 // src/ui/send-state.mjs
@@ -8147,7 +8121,6 @@ var PiAgentView = class extends f4.ItemView {
       })
     );
     this.renderChatView();
-    this.plugin.refreshCommandCatalog(false);
   }
   renderChatView() {
     this.showingThreadList = false;
@@ -9031,7 +9004,6 @@ var PiAgentView = class extends f4.ItemView {
     this.setRunningState(this.running);
     if (!queuedId) addUserMessage();
     this.renderThreadListIfVisible();
-    let s = getCurrentRunMetadata(this.plugin.settings);
     try {
       let a = await this.plugin.runPiPrompt(
         e,
@@ -9078,6 +9050,7 @@ var PiAgentView = class extends f4.ItemView {
         thinkingKey,
         n.thinkingUserSet ? n.thinkingExpanded : false
       );
+      const s = getCurrentRunMetadata(this.plugin.settings, a.runtimeState);
       this.streamingAssistantContent = "";
       this.streamingThinkingContent = "";
       this.streamingItemEl = void 0;
@@ -10141,9 +10114,6 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!this.settings.dryRun) {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
-    this.refreshModelCatalog(false)
-      .then(() => this.refreshCommandCatalog(false))
-      .catch(() => {});
     this.refreshCurrentContextFile();
     this.registerEvent(
       this.app.workspace.on("file-open", (e) => {
@@ -10331,10 +10301,7 @@ var PiAgentPlugin = class extends P.Plugin {
     this.modelCatalogRefreshedAt = 0;
     await this.savePluginData();
     if (this.hasActivePiRuns()) this.pendingServiceRebuild = true;
-    else {
-      this.rebuildServices();
-      this.refreshCommandCatalog(false);
-    }
+    else this.rebuildServices();
   }
   hasActivePiRuns() {
     return [...this.threadRunners.values()].some((runner) => runner.isRunning);
@@ -10343,7 +10310,6 @@ var PiAgentPlugin = class extends P.Plugin {
     if (this.pendingServiceRebuild && !this.hasActivePiRuns()) {
       this.pendingServiceRebuild = false;
       this.rebuildServices();
-      this.refreshCommandCatalog(false);
     }
   }
   showPiSetupIfNeeded() {
@@ -10733,8 +10699,11 @@ var PiAgentPlugin = class extends P.Plugin {
     )
       throw new Error("Pi services are not available.");
     let s = this.getEditorSelection();
-    await this.ensureRuntimeModelState();
-    if (getCompactInstructions(e) === void 0 && !this.commandCatalogLoaded)
+    if (
+      e.trim().startsWith("/") &&
+      getCompactInstructions(e) === void 0 &&
+      !this.commandCatalogLoaded
+    )
       await this.refreshCommandCatalog(false);
     let a =
       getCompactInstructions(e) === void 0

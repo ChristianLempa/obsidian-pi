@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.0.13
+
+- Fixed model switching and Pi-default startup failures by resolving one concrete startup model, passing it to Pi exactly once, and removing the redundant RPC model change and unreliable authentication preflight.
+- Prevented intermittent OAuth and model-availability races by removing background Pi catalog processes from chat startup and settings saves; model discovery now runs from the picker, while Pi command discovery is lazy for slash commands.
+- Kept Pi runtime state as display metadata only, restarted chat runners after settings changes, and preserved the effective Pi model as the single non-duplicated default entry in the model picker.
+
 ## 0.0.12
 
 - Updated the transitive lint-tooling dependency set to clear the remaining npm security advisory; the release candidate now reports zero known vulnerabilities.

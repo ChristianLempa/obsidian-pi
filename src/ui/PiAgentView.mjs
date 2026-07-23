@@ -99,7 +99,6 @@ export class PiAgentView extends f.ItemView {
       })
     );
     this.renderChatView();
-    this.plugin.refreshCommandCatalog(false);
   }
   renderChatView() {
     this.showingThreadList = !1;
@@ -982,7 +981,6 @@ export class PiAgentView extends f.ItemView {
     this.setRunningState(this.running);
     if (!queuedId) addUserMessage();
     this.renderThreadListIfVisible();
-    let s = getCurrentRunMetadata(this.plugin.settings);
     try {
       let a = await this.plugin.runPiPrompt(
         e,
@@ -1029,6 +1027,7 @@ export class PiAgentView extends f.ItemView {
         thinkingKey,
         n.thinkingUserSet ? n.thinkingExpanded : false
       );
+      const s = getCurrentRunMetadata(this.plugin.settings, a.runtimeState);
       this.streamingAssistantContent = "";
       this.streamingThinkingContent = "";
       this.streamingItemEl = void 0;

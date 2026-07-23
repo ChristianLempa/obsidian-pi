@@ -363,7 +363,7 @@ export class PiAgentSettingTab extends PluginSettingTab {
     const effective = this.plugin.settings.availableModels.find(
       (model) => model.slug === this.plugin.settings.effectiveModel
     );
-    return effective?.displayName || this.plugin.settings.effectiveModel || "Loading model…";
+    return effective?.displayName || this.plugin.settings.effectiveModel || "Pi default";
   }
 
   getReasoningButtonLabel() {

@@ -18,10 +18,8 @@ export class PiModelCatalog {
     });
 
     try {
-      const [catalog, state] = await Promise.all([
-        client.request("get_available_models"),
-        client.request("get_state")
-      ]);
+      const catalog = await client.request("get_available_models");
+      const state = await client.request("get_state").catch(() => undefined);
       this.effectiveConfig = {
         effectiveModel: state?.model ? `${state.model.provider}/${state.model.id}` : "",
         effectiveReasoning: state?.thinkingLevel ?? ""

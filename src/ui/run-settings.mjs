@@ -93,7 +93,7 @@ export class RunSettingsControls {
     const effective = this.plugin.settings.availableModels.find(
       (candidate) => candidate.slug === this.plugin.settings.effectiveModel
     );
-    return effective?.displayName || this.plugin.settings.effectiveModel || "Loading model…";
+    return effective?.displayName || this.plugin.settings.effectiveModel || "Pi default";
   }
 
   getModelProvider() {

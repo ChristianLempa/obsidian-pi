@@ -19,8 +19,6 @@ export function needsRuntimeCatalogRefresh(
   return (
     !Array.isArray(settings.availableModels) ||
     settings.availableModels.length === 0 ||
-    !settings.effectiveModel ||
-    !settings.effectiveReasoning ||
     !refreshedAt ||
     now - refreshedAt >= maxAge
   );
@@ -31,42 +29,28 @@ export function createRuntimeCatalogSnapshot(models, effectiveConfig) {
     throw new Error("Pi returned no models.");
   }
 
-  const effectiveModel = String(effectiveConfig?.effectiveModel || "").trim();
-  const effectiveReasoning = String(effectiveConfig?.effectiveReasoning || "").trim();
-  if (!effectiveModel || !effectiveReasoning) {
-    throw new Error("Pi did not return its effective model and thinking level.");
-  }
-  const effectiveModelInfo = models.find((model) => model.slug === effectiveModel);
-  if (!effectiveModelInfo) {
-    throw new Error(`Pi's effective model (${effectiveModel}) is missing from its model catalog.`);
-  }
-  if (!effectiveModelInfo.supportedReasoningLevels?.includes(effectiveReasoning)) {
-    throw new Error(
-      `Pi's effective thinking level (${effectiveReasoning}) is not supported by ${effectiveModel}.`
-    );
-  }
+  const reportedModel = String(effectiveConfig?.effectiveModel || "").trim();
+  const effectiveModelInfo = models.find((model) => model.slug === reportedModel);
+  const reportedReasoning = String(effectiveConfig?.effectiveReasoning || "").trim();
+  const effectiveModel = effectiveModelInfo ? reportedModel : "";
+  const effectiveReasoning = effectiveModelInfo?.supportedReasoningLevels?.includes(
+    reportedReasoning
+  )
+    ? reportedReasoning
+    : "";
 
   return { availableModels: models, effectiveModel, effectiveReasoning };
 }
 
 export function hasSafeRuntimeCatalog(settings) {
-  return Boolean(
-    settings.effectiveModel &&
-    settings.effectiveReasoning &&
-    settings.availableModels?.some((model) => model.slug === settings.effectiveModel)
-  );
+  return Array.isArray(settings.availableModels) && settings.availableModels.length > 0;
 }
 
 export function buildModelPickerItems(settings) {
-  const effective = settings.availableModels.find(
-    (model) => model.slug === settings.effectiveModel
-  );
-  if (!effective) return [];
-
-  return [
-    { value: "", model: effective, isDefault: true },
-    ...settings.availableModels.map((model) => ({ value: model.slug, model, isDefault: false }))
-  ];
+  return settings.availableModels.map((model) => {
+    const isDefault = model.slug === settings.effectiveModel;
+    return { value: isDefault ? "" : model.slug, model, isDefault };
+  });
 }
 
 export function getModelPickerPrimary(item) {
@@ -75,6 +59,7 @@ export function getModelPickerPrimary(item) {
 
 export function getModelPickerSecondary(item) {
   const capabilities = [
+    item.isDefault ? "Pi default" : "",
     item.model.reasoning ? "thinking" : "",
     item.model.supportsImages ? "images" : "",
     item.model.contextWindow ? `${formatTokenAmount(item.model.contextWindow)} context` : ""
