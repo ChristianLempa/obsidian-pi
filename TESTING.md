@@ -150,13 +150,13 @@ Use non-sensitive PNG, JPEG, and WebP files.
 - [ ] **Pending:** Disable Pi Agent, fully reload Obsidian, repeat every failing native File Explorer/Quick Switcher/wiki-link case, and record whether the failure remains.
 - [ ] **Pending:** Verify headings, lists, tables, code, blockquotes, emphasis, aliases, relative links, links with spaces/case differences, heading/block references, and external HTTPS links.
 - [ ] **Pending:** Click internal links normally and with Ctrl/Cmd; confirm expected leaf behavior, one navigation per click, and no unsafe external scheme opens.
-- [ ] **Pending:** Keyboard-test model, thinking, queue/Steer now, activity, image, thread, favorite/archive-all, annotation, and message controls with visible focus and useful labels.
+- [ ] **Pending:** Keyboard-test model, thinking, queue/Steer now, activity, image, thread, favorite/bulk-delete, annotation, and message controls with visible focus and useful labels.
 - [ ] **Pending:** Test narrow/wide sidebars, light/dark themes, retry errors, and empty/loading states.
 
 ## Release gate
 
 - [ ] **Pending:** `git status` contains only intended source, tests, docs, generated bundle, and styles.
-- [ ] **Pending:** `npm run ci` passes from a clean install.
+- [x] `npm ci` and `npm run ci` pass for the 0.0.12 release candidate (47 test files / 262 tests).
 - [ ] **Pending:** The complete manual checklist above passes in `ObsidianTesting`.
 - [ ] **Pending:** Open issues are updated with actual validation results but remain open until explicitly accepted.
-- [x] Release-candidate files are aligned at `0.0.11`; no tag or GitHub release is created until final confirmation.
+- [x] Release-candidate files are aligned at `0.0.12`; no tag or GitHub release is created until final confirmation.

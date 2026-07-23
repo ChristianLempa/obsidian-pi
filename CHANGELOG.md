@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 0.0.12
+
+- Updated the transitive lint-tooling dependency set to clear the remaining npm security advisory; the release candidate now reports zero known vulnerabilities.
 - Replaced the broken archive-all action with guarded bulk chat deletion, including **delete all** and **delete all except favorites** choices, active-run protection, exact deletion counts, one atomic history update, and default preservation of local Pi sessions. (#79)
 - Fixed intermittent `No API key found for the selected model` failures by waiting for Pi model/auth discovery before each run, pinning the resolved effective model onto every chat RPC process, and discarding startup processes whose initial model configuration fails.
 - Fixed internal vault links in agent results with a captured delegated navigation fallback, made links visibly interactive, and rendered live **RESPONDING** output through the same Obsidian Markdown path as completed responses and live thinking. The thinking/response separator and spacing now appear as soon as response text starts, avoiding a late layout shift when the run finishes.
