@@ -10,6 +10,7 @@ vi.mock("obsidian", () => ({
 import {
   renderActivityMessage,
   renderMessage,
+  renderStreamingAssistantMessage,
   renderThinkingDisclosure
 } from "../src/ui/message-renderer.mjs";
 
@@ -144,6 +145,35 @@ describe("native chat polish", () => {
     expect(view.renderPlainMessageContent).toHaveBeenCalledWith(
       disclosure.children[1],
       "**Updating** the note"
+    );
+  });
+
+  it("renders the live response through the same Markdown path as the completed answer", () => {
+    const messagesEl = new FakeElement("div");
+    const renderStreamingAnswer = vi.fn();
+    const view = {
+      messagesEl,
+      streamingAssistantContent: "[Open note](Example.md)",
+      streamingThinkingContent: "",
+      thinkingDisclosureExpanded: false,
+      activityText: "Responding",
+      renderRoleLabel: vi.fn(),
+      renderThinkingDisclosure,
+      renderPlainMessageContent: vi.fn(),
+      renderStreamingAnswer,
+      setLiveThinkingExpanded: vi.fn()
+    };
+
+    renderStreamingAssistantMessage.call(view);
+
+    expect(view.streamingTextEl.cls).toBe("pi-agent-message-answer");
+    expect(renderStreamingAnswer).toHaveBeenCalledOnce();
+    expect(messageRendererSource).not.toContain("this.streamingTextEl.appendText");
+    expect(viewSource).toMatch(
+      /addEventListener\("click", \(event\) => this\.handleMessageLinkClick\(event\), true\)/
+    );
+    expect(styles).toMatch(
+      /\.pi-agent-message-content a \{\s*cursor: pointer;\s*pointer-events: auto;/
     );
   });
 

@@ -131,6 +131,7 @@ export class PiAgentPlugin extends P.Plugin {
     this.threadRunners = new Map();
     this.piCommands = [];
     this.commandCatalogLoaded = false;
+    this.commandCatalogRefreshPromise = undefined;
     this.extensionStatuses = new Map();
     this.extensionWidgets = new Map();
     this.extensionTitle = "";
@@ -164,8 +165,9 @@ export class PiAgentPlugin extends P.Plugin {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
 
-    this.refreshModelCatalog(false).catch(() => {});
-    this.refreshCommandCatalog(false);
+    this.refreshModelCatalog(false)
+      .then(() => this.refreshCommandCatalog(false))
+      .catch(() => {});
     this.refreshCurrentContextFile();
 
     this.registerEvent(
@@ -472,17 +474,23 @@ export class PiAgentPlugin extends P.Plugin {
     this.settingsTab?.display?.();
   }
   async refreshCommandCatalog(showNotice = false) {
+    if (this.commandCatalogRefreshPromise) return this.commandCatalogRefreshPromise;
     this.commandCatalog || this.rebuildServices();
-    try {
-      this.piCommands = (await this.commandCatalog?.getCommands(this.getVaultBasePath())) ?? [];
-      this.commandCatalogLoaded = true;
-      if (showNotice) new P.Notice(`Loaded ${this.piCommands.length} Pi commands.`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (showNotice) new P.Notice(message);
-      console.warn("Pi Agent: failed to refresh Pi commands", error);
-    }
-    return this.piCommands;
+    this.commandCatalogRefreshPromise = (async () => {
+      try {
+        this.piCommands = (await this.commandCatalog?.getCommands(this.getVaultBasePath())) ?? [];
+        this.commandCatalogLoaded = true;
+        if (showNotice) new P.Notice(`Loaded ${this.piCommands.length} Pi commands.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (showNotice) new P.Notice(message);
+        console.warn("Pi Agent: failed to refresh Pi commands", error);
+      }
+      return this.piCommands;
+    })().finally(() => {
+      this.commandCatalogRefreshPromise = undefined;
+    });
+    return this.commandCatalogRefreshPromise;
   }
   getPiCommands() {
     return this.piCommands;
@@ -740,6 +748,7 @@ export class PiAgentPlugin extends P.Plugin {
     )
       throw new Error("Pi services are not available.");
     let s = this.getEditorSelection();
+    await this.ensureRuntimeModelState();
     if (getCompactInstructions(e) === undefined && !this.commandCatalogLoaded)
       await this.refreshCommandCatalog(false);
     let a =
@@ -763,7 +772,6 @@ export class PiAgentPlugin extends P.Plugin {
     if (!i) throw new Error("Pi runner is not available.");
     let l = getPriorThreadHistory(o.messages, e);
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
-    await this.ensureModelCatalogLoaded();
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||

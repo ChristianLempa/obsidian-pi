@@ -4356,10 +4356,16 @@ var PiRunner = class {
   }
   async getOrCreateRpcClient(sessionReference) {
     if (this.rpcClient) {
+      const client2 = this.rpcClient;
       this.rpcSession ??= this.resolveOrCreateSession(sessionReference);
-      await this.rpcClient.start();
-      await this.configureRpcState(this.rpcClient);
-      return { client: this.rpcClient, session: this.rpcSession };
+      try {
+        await client2.start();
+        await this.configureRpcState(client2);
+        return { client: client2, session: this.rpcSession };
+      } catch (error) {
+        this.resetRpcClientAfterStartupFailure(client2);
+        throw error;
+      }
     }
     const session = this.resolveOrCreateSession(sessionReference);
     const client = new PiRpcClient({
@@ -4370,14 +4376,27 @@ var PiRunner = class {
     });
     this.rpcClient = client;
     this.rpcSession = session;
-    await client.start();
-    await this.configureRpcState(client);
-    return { client, session };
+    try {
+      await client.start();
+      await this.configureRpcState(client);
+      return { client, session };
+    } catch (error) {
+      this.resetRpcClientAfterStartupFailure(client);
+      throw error;
+    }
+  }
+  resetRpcClientAfterStartupFailure(client) {
+    client.dispose?.();
+    if (this.rpcClient === client) this.rpcClient = void 0;
+    this.rpcSession = void 0;
+    this.rpcConfigured = false;
+    this.rpcConfiguredProcess = void 0;
   }
   async configureRpcState(client) {
     if (this.rpcConfigured && this.rpcConfiguredProcess === client.child) return;
-    const model =
+    const selectedModel =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
+    const model = selectedModel || this.settings.effectiveModel;
     if (model) {
       const separator = model.indexOf("/");
       if (separator <= 0 || separator === model.length - 1) {
@@ -4692,6 +4711,16 @@ var PiRunner = class {
   }
   buildPiArgs(sessionId, mode = "rpc") {
     const args = ["--mode", mode, "--session", sessionId];
+    const selectedModel =
+      this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
+    const model = selectedModel || this.settings.effectiveModel;
+    if (model) {
+      const separator = model.indexOf("/");
+      if (separator <= 0 || separator === model.length - 1) {
+        throw new Error(`Invalid Pi model ID: ${model}. Expected provider/model.`);
+      }
+      args.push("--provider", model.slice(0, separator), "--model", model.slice(separator + 1));
+    }
     const instructions = this.contextBuilder.getSystemInstructions?.();
     if (instructions) args.push("--append-system-prompt", instructions);
     if (this.settings.includeDefaultSkills === false) args.push("--no-skills");
@@ -6857,12 +6886,14 @@ async function openVaultPath(value, newLeaf = "tab") {
 // src/ui/message-renderer.mjs
 var message_renderer_exports = {};
 __export(message_renderer_exports, {
+  handleMessageLinkClick: () => handleMessageLinkClick,
   renderActivityMessage: () => renderActivityMessage,
   renderEmptyState: () => renderEmptyState,
   renderMessage: () => renderMessage,
   renderMessages: () => renderMessages,
   renderPlainMessageContent: () => renderPlainMessageContent,
   renderRoleLabel: () => renderRoleLabel,
+  renderStreamingAnswer: () => renderStreamingAnswer,
   renderStreamingAssistantMessage: () => renderStreamingAssistantMessage,
   renderThinkingDisclosure: () => renderThinkingDisclosure,
   renderToolErrors: () => renderToolErrors,
@@ -6982,6 +7013,16 @@ function renderThinkingDisclosure(
     }
   };
 }
+function handleMessageLinkClick(event) {
+  const link = event?.target?.closest?.("a.internal-link");
+  if (!link) return false;
+  const href = link.getAttribute("data-href") || link.getAttribute("href");
+  if (!href) return false;
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  this.openVaultLink(href, event.metaKey === true || event.ctrlKey === true);
+  return true;
+}
 function renderPlainMessageContent(container, content) {
   container.empty();
   container.addClass("markdown-rendered");
@@ -6996,7 +7037,7 @@ function renderPlainMessageContent(container, content) {
   component.load();
   this.messageRenderComponents.push(component);
   this.messageRenderComponentByElement.set(container, component);
-  f3.MarkdownRenderer.render(
+  return f3.MarkdownRenderer.render(
     this.plugin.app,
     content || "",
     container,
@@ -7036,10 +7077,13 @@ function renderStreamingAssistantMessage() {
   this.liveThinkingDetailsEl = rendered.details;
   this.liveThinkingTextEl = rendered.text;
   this.liveThinkingSetExpanded = rendered.setExpanded;
-  const answer = response.createDiv({ cls: "pi-agent-message-answer" });
-  this.streamingTextEl = answer.createSpan({ cls: "pi-agent-streaming-text" });
-  this.streamingTextEl.setText(this.streamingAssistantContent);
-  answer.createSpan({ cls: "pi-agent-typing-cursor", text: "\u258C" });
+  this.streamingTextEl = response.createDiv({ cls: "pi-agent-message-answer" });
+  this.renderStreamingAnswer();
+}
+function renderStreamingAnswer() {
+  if (!this.streamingTextEl?.isConnected && this.streamingTextEl?.isConnected !== void 0) return;
+  this.renderPlainMessageContent(this.streamingTextEl, this.streamingAssistantContent);
+  this.streamingTextEl.createSpan({ cls: "pi-agent-typing-cursor", text: "\u258C" });
 }
 function renderActivityMessage() {
   if (!this.messagesEl) return;
@@ -8160,6 +8204,7 @@ var PiAgentView = class extends f4.ItemView {
         this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
       this.stickToBottom = c < 40;
     });
+    this.messagesEl.addEventListener("click", (event) => this.handleMessageLinkClick(event), true);
     let d = e.createDiv({ cls: "pi-agent-composer" });
     this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" });
     this.renderToolBadges();
@@ -9094,7 +9139,7 @@ var PiAgentView = class extends f4.ItemView {
         this.renderMessages();
         return;
       }
-      this.streamingTextEl.appendText(e);
+      this.renderStreamingAnswer();
       if (this.messagesEl && this.stickToBottom)
         this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     }
@@ -9979,6 +10024,7 @@ var PiAgentPlugin = class extends P.Plugin {
     this.threadRunners = /* @__PURE__ */ new Map();
     this.piCommands = [];
     this.commandCatalogLoaded = false;
+    this.commandCatalogRefreshPromise = void 0;
     this.extensionStatuses = /* @__PURE__ */ new Map();
     this.extensionWidgets = /* @__PURE__ */ new Map();
     this.extensionTitle = "";
@@ -10007,8 +10053,9 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!this.settings.dryRun) {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
-    this.refreshModelCatalog(false).catch(() => {});
-    this.refreshCommandCatalog(false);
+    this.refreshModelCatalog(false)
+      .then(() => this.refreshCommandCatalog(false))
+      .catch(() => {});
     this.refreshCurrentContextFile();
     this.registerEvent(
       this.app.workspace.on("file-open", (e) => {
@@ -10303,17 +10350,23 @@ var PiAgentPlugin = class extends P.Plugin {
     this.settingsTab?.display?.();
   }
   async refreshCommandCatalog(showNotice = false) {
+    if (this.commandCatalogRefreshPromise) return this.commandCatalogRefreshPromise;
     this.commandCatalog || this.rebuildServices();
-    try {
-      this.piCommands = (await this.commandCatalog?.getCommands(this.getVaultBasePath())) ?? [];
-      this.commandCatalogLoaded = true;
-      if (showNotice) new P.Notice(`Loaded ${this.piCommands.length} Pi commands.`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (showNotice) new P.Notice(message);
-      console.warn("Pi Agent: failed to refresh Pi commands", error);
-    }
-    return this.piCommands;
+    this.commandCatalogRefreshPromise = (async () => {
+      try {
+        this.piCommands = (await this.commandCatalog?.getCommands(this.getVaultBasePath())) ?? [];
+        this.commandCatalogLoaded = true;
+        if (showNotice) new P.Notice(`Loaded ${this.piCommands.length} Pi commands.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (showNotice) new P.Notice(message);
+        console.warn("Pi Agent: failed to refresh Pi commands", error);
+      }
+      return this.piCommands;
+    })().finally(() => {
+      this.commandCatalogRefreshPromise = void 0;
+    });
+    return this.commandCatalogRefreshPromise;
   }
   getPiCommands() {
     return this.piCommands;
@@ -10563,6 +10616,7 @@ var PiAgentPlugin = class extends P.Plugin {
     )
       throw new Error("Pi services are not available.");
     let s = this.getEditorSelection();
+    await this.ensureRuntimeModelState();
     if (getCompactInstructions(e) === void 0 && !this.commandCatalogLoaded)
       await this.refreshCommandCatalog(false);
     let a =
@@ -10586,7 +10640,6 @@ var PiAgentPlugin = class extends P.Plugin {
     if (!i) throw new Error("Pi runner is not available.");
     let l = getPriorThreadHistory(o.messages, e);
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
-    await this.ensureModelCatalogLoaded();
     if (t != null && t.isCanceled && t.isCanceled()) throw new Error("Pi run canceled.");
     a &&
       ((p = t == null ? void 0 : t.onEvent) == null ||

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed intermittent `No API key found for the selected model` failures by waiting for Pi model/auth discovery before each run, pinning the resolved effective model onto every chat RPC process, and discarding startup processes whose initial model configuration fails.
+- Fixed internal vault links in agent results with a captured delegated navigation fallback, made links visibly interactive, and rendered live **RESPONDING** output through the same Obsidian Markdown path as completed responses and live thinking.
 - Added a dedicated live **SKILL · name** activity state for explicit `/skill:name` commands and on-demand `SKILL.md` reads, instead of presenting skill loading as generic reading or thinking.
 - Hardened local JSON chat persistence in the plugin directory: removed the silent 40-chat retention cap, kept complete chat and thinking history in `data.json`, added checksummed current/previous recovery backups with atomic replacement, and added automatic verified import and cleanup for vault chat files created by development builds. Pi runtime JSONL sessions remain separate. (#78)
 - Tightened the native thinking disclosure introduced in 0.0.11 with a clearer answer separator, label-aligned thinking content, and reduced Markdown section spacing while preserving expandable Markdown rendering. (#77)

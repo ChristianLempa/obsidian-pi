@@ -390,8 +390,9 @@
   font-style: italic;
 }
 
-.pi-agent-streaming-text {
-  white-space: pre-wrap;
+.pi-agent-message-content a {
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .pi-agent-typing-cursor {

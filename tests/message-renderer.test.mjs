@@ -15,11 +15,12 @@ vi.mock("obsidian", () => ({
   MarkdownRenderer: { render: markdownRender }
 }));
 
+let handleMessageLinkClick;
 let renderPlainMessageContent;
 let unloadMessageRenderComponents;
 
 beforeAll(async () => {
-  ({ renderPlainMessageContent, unloadMessageRenderComponents } =
+  ({ handleMessageLinkClick, renderPlainMessageContent, unloadMessageRenderComponents } =
     await import("../src/ui/message-renderer.mjs"));
 });
 
@@ -90,6 +91,34 @@ describe("native message Markdown rendering", () => {
       "Projects/Current Note.md",
       true
     );
+  });
+
+  it("provides a delegated fallback for internal links in sidebar results", () => {
+    const openVaultLink = vi.fn();
+    const event = {
+      target: {
+        closest: vi.fn(() => ({
+          getAttribute: (name) => (name === "data-href" ? "Folder/Linked Note#Heading" : "")
+        }))
+      },
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      ctrlKey: true
+    };
+
+    expect(handleMessageLinkClick.call({ openVaultLink }, event)).toBe(true);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+    expect(openVaultLink).toHaveBeenCalledWith("Folder/Linked Note#Heading", true);
+  });
+
+  it("does not intercept external links", () => {
+    const event = {
+      target: { closest: vi.fn(() => null) },
+      preventDefault: vi.fn()
+    };
+    expect(handleMessageLinkClick.call({ openVaultLink: vi.fn() }, event)).toBe(false);
+    expect(event.preventDefault).not.toHaveBeenCalled();
   });
 
   it("unloads the Obsidian components that own native rendered-link handlers", () => {

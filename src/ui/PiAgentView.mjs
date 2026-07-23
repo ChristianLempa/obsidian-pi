@@ -231,6 +231,7 @@ export class PiAgentView extends f.ItemView {
         this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight;
       this.stickToBottom = c < 40;
     });
+    this.messagesEl.addEventListener("click", (event) => this.handleMessageLinkClick(event), true);
     let d = e.createDiv({ cls: "pi-agent-composer" });
     this.toolBadgesEl = d.createDiv({ cls: "pi-agent-tool-badges" });
     this.renderToolBadges();
@@ -1164,7 +1165,7 @@ export class PiAgentView extends f.ItemView {
         this.renderMessages();
         return;
       }
-      this.streamingTextEl.appendText(e);
+      this.renderStreamingAnswer();
       if (this.messagesEl && this.stickToBottom)
         this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     }

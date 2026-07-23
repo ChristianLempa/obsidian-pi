@@ -103,10 +103,16 @@ export class PiRunner {
 
   async getOrCreateRpcClient(sessionReference) {
     if (this.rpcClient) {
+      const client = this.rpcClient;
       this.rpcSession ??= this.resolveOrCreateSession(sessionReference);
-      await this.rpcClient.start();
-      await this.configureRpcState(this.rpcClient);
-      return { client: this.rpcClient, session: this.rpcSession };
+      try {
+        await client.start();
+        await this.configureRpcState(client);
+        return { client, session: this.rpcSession };
+      } catch (error) {
+        this.resetRpcClientAfterStartupFailure(client);
+        throw error;
+      }
     }
 
     const session = this.resolveOrCreateSession(sessionReference);
@@ -118,16 +124,30 @@ export class PiRunner {
     });
     this.rpcClient = client;
     this.rpcSession = session;
-    await client.start();
-    await this.configureRpcState(client);
-    return { client, session };
+    try {
+      await client.start();
+      await this.configureRpcState(client);
+      return { client, session };
+    } catch (error) {
+      this.resetRpcClientAfterStartupFailure(client);
+      throw error;
+    }
+  }
+
+  resetRpcClientAfterStartupFailure(client) {
+    client.dispose?.();
+    if (this.rpcClient === client) this.rpcClient = undefined;
+    this.rpcSession = undefined;
+    this.rpcConfigured = false;
+    this.rpcConfiguredProcess = undefined;
   }
 
   async configureRpcState(client) {
     if (this.rpcConfigured && this.rpcConfiguredProcess === client.child) return;
 
-    const model =
+    const selectedModel =
       this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
+    const model = selectedModel || this.settings.effectiveModel;
     if (model) {
       const separator = model.indexOf("/");
       if (separator <= 0 || separator === model.length - 1) {
@@ -472,6 +492,16 @@ export class PiRunner {
 
   buildPiArgs(sessionId, mode = "rpc") {
     const args = ["--mode", mode, "--session", sessionId];
+    const selectedModel =
+      this.settings.model === CUSTOM_MODEL_VALUE ? this.settings.customModel : this.settings.model;
+    const model = selectedModel || this.settings.effectiveModel;
+    if (model) {
+      const separator = model.indexOf("/");
+      if (separator <= 0 || separator === model.length - 1) {
+        throw new Error(`Invalid Pi model ID: ${model}. Expected provider/model.`);
+      }
+      args.push("--provider", model.slice(0, separator), "--model", model.slice(separator + 1));
+    }
     const instructions = this.contextBuilder.getSystemInstructions?.();
     if (instructions) args.push("--append-system-prompt", instructions);
     if (this.settings.includeDefaultSkills === false) args.push("--no-skills");

@@ -118,6 +118,17 @@ export function renderThinkingDisclosure(
   };
 }
 
+export function handleMessageLinkClick(event) {
+  const link = event?.target?.closest?.("a.internal-link");
+  if (!link) return false;
+  const href = link.getAttribute("data-href") || link.getAttribute("href");
+  if (!href) return false;
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  this.openVaultLink(href, event.metaKey === true || event.ctrlKey === true);
+  return true;
+}
+
 export function renderPlainMessageContent(container, content) {
   container.empty();
   container.addClass("markdown-rendered");
@@ -135,7 +146,7 @@ export function renderPlainMessageContent(container, content) {
   this.messageRenderComponents.push(component);
   this.messageRenderComponentByElement.set(container, component);
 
-  f.MarkdownRenderer.render(
+  return f.MarkdownRenderer.render(
     this.plugin.app,
     content || "",
     container,
@@ -177,10 +188,14 @@ export function renderStreamingAssistantMessage() {
   this.liveThinkingDetailsEl = rendered.details;
   this.liveThinkingTextEl = rendered.text;
   this.liveThinkingSetExpanded = rendered.setExpanded;
-  const answer = response.createDiv({ cls: "pi-agent-message-answer" });
-  this.streamingTextEl = answer.createSpan({ cls: "pi-agent-streaming-text" });
-  this.streamingTextEl.setText(this.streamingAssistantContent);
-  answer.createSpan({ cls: "pi-agent-typing-cursor", text: "\u258C" });
+  this.streamingTextEl = response.createDiv({ cls: "pi-agent-message-answer" });
+  this.renderStreamingAnswer();
+}
+
+export function renderStreamingAnswer() {
+  if (!this.streamingTextEl?.isConnected && this.streamingTextEl?.isConnected !== undefined) return;
+  this.renderPlainMessageContent(this.streamingTextEl, this.streamingAssistantContent);
+  this.streamingTextEl.createSpan({ cls: "pi-agent-typing-cursor", text: "\u258C" });
 }
 
 export function renderActivityMessage() {

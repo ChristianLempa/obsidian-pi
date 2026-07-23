@@ -42,13 +42,21 @@ describe("PiRunner", () => {
       "rpc",
       "--session",
       "session.jsonl",
+      "--provider",
+      "provider",
+      "--model",
+      "model",
       "--no-skills",
       "--skill",
       path.join("/vault", ".pi/skills")
     ]);
 
-    expect(createRunner({ sandboxMode: "chat" }).buildPiArgs("session.jsonl")).toContain(
-      "--no-tools"
+    expect(
+      createRunner({ effectiveModel: "openai-codex/gpt-5.6-sol", sandboxMode: "chat" }).buildPiArgs(
+        "session.jsonl"
+      )
+    ).toEqual(
+      expect.arrayContaining(["--provider", "openai-codex", "--model", "gpt-5.6-sol", "--no-tools"])
     );
     expect(createRunner({ sandboxMode: "review" }).buildPiArgs("session.jsonl")).toContain(
       "read,grep,find,ls"
@@ -245,6 +253,63 @@ describe("PiRunner", () => {
       { type: "prompt", payload: { message: "one" } },
       { type: "prompt", payload: { message: "two" } }
     ]);
+  });
+
+  it("pins Pi's resolved effective model before prompting", async () => {
+    const requests = [];
+    const listeners = new Set();
+    const rpcClient = {
+      start: vi.fn(async () => {}),
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      async request(type, payload) {
+        requests.push({ type, payload });
+        if (type === "prompt") {
+          for (const listener of listeners) listener({ type: "agent_settled" });
+        }
+      }
+    };
+    const runner = new PiRunner(
+      { ...DEFAULT_SETTINGS, effectiveModel: "openai-codex/gpt-5.6-sol" },
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      createTempDir(),
+      rpcClient
+    );
+
+    await runner.runPiRpc("one", undefined);
+
+    expect(requests.slice(0, 2)).toEqual([
+      {
+        type: "set_model",
+        payload: { provider: "openai-codex", modelId: "gpt-5.6-sol" }
+      },
+      { type: "prompt", payload: { message: "one" } }
+    ]);
+  });
+
+  it("disposes a Pi process whose initial model configuration fails", async () => {
+    const rpcClient = {
+      child: { pid: 1 },
+      start: vi.fn(async () => {}),
+      request: vi.fn(async () => {
+        throw new Error("Model unavailable");
+      }),
+      dispose: vi.fn()
+    };
+    const runner = new PiRunner(
+      { ...DEFAULT_SETTINGS, effectiveModel: "provider/model" },
+      { formatPrompt: (prompt) => prompt },
+      "/vault",
+      createTempDir(),
+      rpcClient
+    );
+
+    await expect(runner.getOrCreateRpcClient()).rejects.toThrow("Model unavailable");
+    expect(rpcClient.dispose).toHaveBeenCalledOnce();
+    expect(runner.rpcClient).toBeUndefined();
   });
 
   it("reapplies RPC overrides after the Pi process restarts", async () => {
