@@ -919,6 +919,12 @@
   padding-bottom: 0;
 }
 
+.pi-agent-thinking-disclosure.is-live.has-response {
+  border-bottom-color: var(--background-modifier-border-hover);
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+}
+
 .pi-agent-thinking-disclosure summary {
   align-items: center;
   cursor: pointer;

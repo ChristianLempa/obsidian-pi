@@ -6974,10 +6974,11 @@ function renderThinkingDisclosure(
   onToggle,
   live = false,
   activityLabel = "Thinking",
-  renderMarkdown
+  renderMarkdown,
+  hasResponse = false
 ) {
   const details = container.createEl("details", {
-    cls: `pi-agent-thinking-disclosure${live ? " is-live" : ""}`,
+    cls: `pi-agent-thinking-disclosure${live ? " is-live" : ""}${hasResponse ? " has-response" : ""}`,
     attr: { title: activityLabel }
   });
   let knownExpanded = expanded;
@@ -7070,7 +7071,8 @@ function renderStreamingAssistantMessage() {
     (expanded) => this.setLiveThinkingExpanded(expanded),
     true,
     this.activityText || "Responding",
-    (container, content) => this.renderPlainMessageContent(container, content)
+    (container, content) => this.renderPlainMessageContent(container, content),
+    true
   );
   this.activityDetailsEl = rendered.details;
   this.activityLabelEl = rendered.label;

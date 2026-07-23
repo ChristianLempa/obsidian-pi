@@ -166,6 +166,10 @@ describe("native chat polish", () => {
 
     renderStreamingAssistantMessage.call(view);
 
+    const disclosure = messagesEl.children[0].children.find((element) =>
+      element.cls.includes("pi-agent-message-content")
+    ).children[0];
+    expect(disclosure.cls).toContain("is-live has-response");
     expect(view.streamingTextEl.cls).toBe("pi-agent-message-answer");
     expect(renderStreamingAnswer).toHaveBeenCalledOnce();
     expect(messageRendererSource).not.toContain("this.streamingTextEl.appendText");
@@ -222,6 +226,9 @@ describe("native chat polish", () => {
     expect(styles).toMatch(/\.pi-agent-thinking-disclosure \{[\s\S]*?padding-bottom: 6px;/);
     expect(styles).toMatch(
       /\.pi-agent-thinking-disclosure\.is-live \{\s*border-bottom-color: transparent;\s*margin-bottom: -4px;\s*padding-bottom: 0;/
+    );
+    expect(styles).toMatch(
+      /\.pi-agent-thinking-disclosure\.is-live\.has-response \{\s*border-bottom-color: var\(--background-modifier-border-hover\);\s*margin-bottom: 6px;\s*padding-bottom: 6px;/
     );
     expect(styles).toMatch(/\.pi-agent-thinking-content \{[\s\S]*?padding: 0 0 0 18px;/);
     expect(styles).toMatch(
