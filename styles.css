@@ -1244,7 +1244,7 @@ textarea.pi-agent-extension-input {
 
 .pi-agent-annotations-action:focus-visible,
 .pi-agent-annotation-item-action:focus-visible,
-.pi-agent-annotation-intent:has(input:focus-visible) {
+.pi-agent-annotation-intent input:focus-visible + span {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 2px;
 }
@@ -1298,18 +1298,23 @@ textarea.pi-agent-extension-input {
   border-radius: var(--radius-s);
 }
 
-.pi-agent-annotation-processing-range,
-.pi-agent-annotation-processing-range * {
-  -webkit-text-fill-color: transparent !important;
-  caret-color: transparent !important;
-  color: transparent !important;
-  text-decoration: none !important;
-  text-decoration-color: transparent !important;
+:is(.markdown-source-view.mod-cm6 .cm-editor .cm-scroller .cm-content, .markdown-rendered)
+  .pi-agent-annotation-processing-range,
+:is(.markdown-source-view.mod-cm6 .cm-editor .cm-scroller .cm-content, .markdown-rendered)
+  .pi-agent-annotation-processing-range
+  * {
+  -webkit-text-fill-color: transparent;
+  caret-color: transparent;
+  color: transparent;
+  text-decoration: none;
 }
 
-.pi-agent-annotation-processing-range::spelling-error,
-.pi-agent-annotation-processing-range *::spelling-error {
-  text-decoration: none !important;
+:is(.markdown-source-view.mod-cm6 .cm-editor .cm-scroller .cm-content, .markdown-rendered)
+  .pi-agent-annotation-processing-range::spelling-error,
+:is(.markdown-source-view.mod-cm6 .cm-editor .cm-scroller .cm-content, .markdown-rendered)
+  .pi-agent-annotation-processing-range
+  *::spelling-error {
+  text-decoration: none;
 }
 
 .pi-agent-annotation-processing-range {
@@ -1461,15 +1466,19 @@ textarea.pi-agent-extension-input {
 }
 
 .pi-agent-annotation-intent {
+  cursor: pointer;
+  display: inline-flex;
+  position: relative;
+}
+
+.pi-agent-annotation-intent span {
   align-items: center;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
-  cursor: pointer;
   display: inline-flex;
   gap: 5px;
   padding: 5px 9px;
-  position: relative;
 }
 
 .pi-agent-annotation-intent input {
@@ -1479,7 +1488,7 @@ textarea.pi-agent-extension-input {
   width: 1px;
 }
 
-.pi-agent-annotation-intent:has(input:checked) {
+.pi-agent-annotation-intent input:checked + span {
   background: var(--interactive-accent);
   border-color: var(--interactive-accent);
   color: var(--text-on-accent);

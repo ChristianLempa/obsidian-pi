@@ -40,10 +40,16 @@ describe("annotation processing UX", () => {
     expect(styles).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pi-agent-annotation-processing-range[\s\S]*?animation: none;[\s\S]*?background-image: none;/
     );
-    expect(styles).toContain(".pi-agent-annotation-processing-range::spelling-error");
-    expect(styles).toMatch(
-      /\.pi-agent-annotation-processing-range[\s\S]*?text-decoration: none !important;/
+    const maskStyles = styles.slice(
+      styles.indexOf(":is(.markdown-source-view.mod-cm6"),
+      styles.indexOf("@keyframes pi-agent-annotation-processing-flow")
     );
+    expect(maskStyles).toContain(".cm-editor .cm-scroller .cm-content");
+    expect(maskStyles).toContain(".markdown-rendered");
+    expect(maskStyles).toContain(".pi-agent-annotation-processing-range::spelling-error");
+    expect(maskStyles).toContain("text-decoration: none;");
+    expect(maskStyles).not.toContain("!important");
+    expect(styles).not.toContain("text-decoration-color");
   });
 
   it("does not keep a post-edit reveal subsystem", () => {

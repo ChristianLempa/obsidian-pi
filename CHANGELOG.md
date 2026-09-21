@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replaced broad annotation `:has()` selectors and avoidable `!important` overrides with native sibling selectors and narrowly scoped specificity, preserving keyboard focus, selected intent, and processing-mask behavior. (#85)
+
 ## 0.0.14
 
 - Discover Pi extensions, prompt templates, skills, and their commands when the plugin starts, while keeping slash suggestions responsive and preventing stale discovery from reopening or replacing the active picker. (#80)
