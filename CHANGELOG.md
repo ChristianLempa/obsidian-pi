@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.15
+
 - Replaced broad annotation `:has()` selectors and avoidable `!important` overrides with native sibling selectors and narrowly scoped specificity, preserving keyboard focus, selected intent, and processing-mask behavior. (#85)
 
 ## 0.0.14
