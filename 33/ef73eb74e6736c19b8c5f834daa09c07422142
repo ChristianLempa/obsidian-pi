@@ -1,0 +1,14 @@
+tests/composer-run-settings.test.mjs
+  h_a76f7f9e4a30d6 58,60,62,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "33ef73eb74e6736c19b8c5f834daa09c07422142",
+  "prompts": {},
+  "humans": {
+    "h_a76f7f9e4a30d6": {
+      "author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
