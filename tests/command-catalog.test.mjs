@@ -1,8 +1,16 @@
+import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildCommandDiscoveryArgs, normalizeRpcCommands } from "../src/pi/command-catalog.mjs";
 
 describe("Pi RPC command catalog", () => {
+  it("starts extension and command discovery when the plugin loads", () => {
+    const source = fs.readFileSync("src/plugin/PiAgentPlugin.mjs", "utf8");
+    const onload = source.slice(source.indexOf("async onload()"), source.indexOf("  onunload()"));
+
+    expect(onload).toContain("void this.refreshCommandCatalog(false)");
+  });
+
   it("normalizes extension, prompt, and skill commands in Pi order", () => {
     expect(
       normalizeRpcCommands([

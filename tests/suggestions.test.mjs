@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ComposerSuggestions } from "../src/ui/suggestions.mjs";
 import { DEFAULT_SETTINGS } from "../src/plugin/settings.mjs";
 
@@ -76,6 +76,95 @@ describe("ComposerSuggestions", () => {
     expect(suggestions.getCommandSuggestions("rpc-skill")).toContainEqual(
       expect.objectContaining({ label: "/skill:rpc-skill", detail: "Skill — Discovered by Pi" })
     );
+  });
+
+  it("loads Pi commands without resetting keyboard selection", async () => {
+    const input = createInput("/");
+    const plugin = createPlugin();
+    let commands = [];
+    let resolveRefresh;
+    const refreshPromise = new Promise((resolve) => {
+      resolveRefresh = resolve;
+    });
+    plugin.commandCatalogLoaded = false;
+    plugin.getPiCommands = () => commands;
+    plugin.refreshCommandCatalog = vi.fn(() => refreshPromise);
+    const suggestions = new ComposerSuggestions(input, plugin, () => {});
+    suggestions.render = vi.fn();
+
+    suggestions.update();
+
+    expect(suggestions.suggestions).toContainEqual(expect.objectContaining({ label: "/current" }));
+    expect(plugin.refreshCommandCatalog).toHaveBeenCalledTimes(1);
+    suggestions.suggestEl = { remove() {} };
+    suggestions.handleKeydown({ key: "ArrowDown", preventDefault() {} });
+    commands = [
+      {
+        command: "/skill:discovered",
+        detail: "Discovered by Pi",
+        insertText: "/skill:discovered "
+      }
+    ];
+    plugin.commandCatalogLoaded = true;
+    resolveRefresh();
+    await refreshPromise;
+    await Promise.resolve();
+
+    expect(suggestions.suggestions).toContainEqual(
+      expect.objectContaining({ label: "/skill:discovered" })
+    );
+    expect(suggestions.suggestions[suggestions.selectedSuggestionIndex].label).toBe("/backlinks");
+    suggestions.handleKeydown({ key: "Enter", preventDefault() {} });
+    expect(input.value).toBe("/backlinks ");
+  });
+
+  it("cancels pending discovery on Escape with no visible matches", async () => {
+    const input = createInput("/missing");
+    const plugin = createPlugin();
+    let commands = [];
+    let resolveRefresh;
+    const refreshPromise = new Promise((resolve) => {
+      resolveRefresh = resolve;
+    });
+    plugin.commandCatalogLoaded = false;
+    plugin.getPiCommands = () => commands;
+    plugin.refreshCommandCatalog = () => refreshPromise;
+    const suggestions = new ComposerSuggestions(input, plugin, () => {});
+    suggestions.render = vi.fn();
+
+    suggestions.update();
+    const preventDefault = vi.fn();
+    expect(suggestions.handleKeydown({ key: "Escape", preventDefault })).toBe(true);
+    expect(preventDefault).toHaveBeenCalled();
+    commands = [
+      {
+        command: "/missing-command",
+        detail: "Discovered by Pi",
+        insertText: "/missing-command "
+      }
+    ];
+    plugin.commandCatalogLoaded = true;
+    resolveRefresh();
+    await refreshPromise;
+    await Promise.resolve();
+
+    expect(suggestions.render).not.toHaveBeenCalled();
+    expect(suggestions.suggestions).toEqual([]);
+  });
+
+  it("does not loop when slash command discovery fails", async () => {
+    const plugin = createPlugin();
+    plugin.commandCatalogLoaded = false;
+    plugin.refreshCommandCatalog = vi.fn(() => Promise.reject(new Error("unavailable")));
+    const suggestions = new ComposerSuggestions(createInput("/"), plugin, () => {});
+    suggestions.render = vi.fn();
+
+    suggestions.update();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(plugin.refreshCommandCatalog).toHaveBeenCalledTimes(1);
+    expect(suggestions.render).toHaveBeenCalledTimes(1);
   });
 
   it("applies the selected suggestion", () => {

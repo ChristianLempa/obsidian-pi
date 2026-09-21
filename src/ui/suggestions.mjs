@@ -9,7 +9,7 @@ export class ComposerSuggestions {
     this.selectedSuggestionIndex = 0;
   }
 
-  update() {
+  update(selectedInsertText) {
     const match = this.getActiveSuggestMatch();
     if (!match) {
       this.close();
@@ -18,17 +18,44 @@ export class ComposerSuggestions {
 
     this.activeSuggestRange = { start: match.start, end: match.end };
     this.suggestions = this.getSuggestions(match.trigger, match.query).slice(0, 16);
-    this.selectedSuggestionIndex = 0;
+    this.selectedSuggestionIndex = Math.max(
+      0,
+      this.suggestions.findIndex((suggestion) => suggestion.insertText === selectedInsertText)
+    );
 
-    if (this.suggestions.length === 0) {
-      this.close();
-      return;
+    if (this.suggestions.length === 0) this.close();
+    else this.render();
+
+    if (match.trigger === "/" && !this.plugin.commandCatalogLoaded) {
+      const value = this.inputEl.value;
+      const cursor = this.inputEl.selectionStart;
+      const refreshPromise = this.plugin.refreshCommandCatalog?.();
+      if (!refreshPromise) return;
+      this.commandRefresh = refreshPromise;
+      void refreshPromise
+        .then(() => {
+          const activeMatch = this.getActiveSuggestMatch();
+          if (
+            this.commandRefresh === refreshPromise &&
+            this.plugin.commandCatalogLoaded &&
+            this.inputEl.value === value &&
+            this.inputEl.selectionStart === cursor &&
+            activeMatch?.trigger === match.trigger &&
+            activeMatch.query === match.query
+          )
+            this.update(this.suggestions[this.selectedSuggestionIndex]?.insertText);
+        })
+        .catch(() => {});
     }
-
-    this.render();
   }
 
   handleKeydown(event) {
+    if (event.key === "Escape" && (this.suggestEl || this.commandRefresh)) {
+      event.preventDefault();
+      this.close();
+      return true;
+    }
+
     if (!this.suggestEl || this.suggestions.length === 0) return false;
 
     if (event.key === "ArrowDown") {
@@ -52,16 +79,11 @@ export class ComposerSuggestions {
       return true;
     }
 
-    if (event.key === "Escape") {
-      event.preventDefault();
-      this.close();
-      return true;
-    }
-
     return false;
   }
 
   close() {
+    this.commandRefresh = undefined;
     this.suggestEl?.remove();
     this.suggestEl = undefined;
     this.suggestions = [];

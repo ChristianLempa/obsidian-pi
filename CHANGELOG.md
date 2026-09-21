@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Discover Pi extensions, prompt templates, skills, and their commands when the plugin starts, while keeping slash suggestions responsive and preventing stale discovery from reopening or replacing the active picker. (#80)
+
 ## 0.0.13
 
 - Fixed model switching and Pi-default startup failures by resolving one concrete startup model, passing it to Pi exactly once, and removing the redundant RPC model change and unreliable authentication preflight.

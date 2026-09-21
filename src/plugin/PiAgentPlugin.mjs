@@ -165,9 +165,10 @@ export class PiAgentPlugin extends P.Plugin {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
 
-    // Runtime catalogs are loaded on demand by their pickers. Agent runs use
-    // Pi directly and must not depend on background discovery processes.
     this.refreshCurrentContextFile();
+    // Start Pi extensions and populate skills, prompts, and extension commands
+    // without waiting for the first slash autocomplete interaction.
+    void this.refreshCommandCatalog(false);
 
     this.registerEvent(
       this.app.workspace.on("file-open", (e) => {
@@ -471,9 +472,12 @@ export class PiAgentPlugin extends P.Plugin {
   async refreshCommandCatalog(showNotice = false) {
     if (this.commandCatalogRefreshPromise) return this.commandCatalogRefreshPromise;
     this.commandCatalog || this.rebuildServices();
-    this.commandCatalogRefreshPromise = (async () => {
+    const catalog = this.commandCatalog;
+    const refreshPromise = (async () => {
       try {
-        this.piCommands = (await this.commandCatalog?.getCommands(this.getVaultBasePath())) ?? [];
+        const commands = (await catalog?.getCommands(this.getVaultBasePath())) ?? [];
+        if (this.commandCatalog !== catalog) return this.piCommands;
+        this.piCommands = commands;
         this.commandCatalogLoaded = true;
         if (showNotice) new P.Notice(`Loaded ${this.piCommands.length} Pi commands.`);
       } catch (error) {
@@ -482,10 +486,13 @@ export class PiAgentPlugin extends P.Plugin {
         console.warn("Pi Agent: failed to refresh Pi commands", error);
       }
       return this.piCommands;
-    })().finally(() => {
-      this.commandCatalogRefreshPromise = undefined;
+    })();
+    const trackedPromise = refreshPromise.finally(() => {
+      if (this.commandCatalogRefreshPromise === trackedPromise)
+        this.commandCatalogRefreshPromise = undefined;
     });
-    return this.commandCatalogRefreshPromise;
+    this.commandCatalogRefreshPromise = trackedPromise;
+    return trackedPromise;
   }
   getPiCommands() {
     return this.piCommands;
@@ -936,6 +943,7 @@ export class PiAgentPlugin extends P.Plugin {
     this.disposeThreadRunners();
     this.piCommands = [];
     this.commandCatalogLoaded = false;
+    this.commandCatalogRefreshPromise = undefined;
     this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile());
     this.contextBuilder = new ContextBuilder(
       this.graph,
