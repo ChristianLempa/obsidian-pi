@@ -47,11 +47,12 @@ describe("PiAgentPlugin extension status visibility", () => {
     expect(plugin.renderExtensionStatuses).toHaveBeenCalledOnce();
     expect(plugin.savePluginData).toHaveBeenCalledOnce();
     expect(persistedStatusVisibility).toBe(false);
-    expect(plugin.saveSettings).not.toHaveBeenCalled();
-    expect(plugin.rebuildServices).not.toHaveBeenCalled();
-    expect(plugin.disposeThreadRunners).not.toHaveBeenCalled();
 
     finishSave();
     await saving;
+
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+    expect(plugin.rebuildServices).not.toHaveBeenCalled();
+    expect(plugin.disposeThreadRunners).not.toHaveBeenCalled();
   });
 });
