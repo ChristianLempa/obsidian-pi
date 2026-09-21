@@ -89,6 +89,30 @@ describe("Pi extension UI bridge", () => {
     expect(sanitizeExtensionText(piLensThemeOutput)).toBe("LSP Active: typescript");
   });
 
+  it("removes complete ESC and C1 terminal string controls with their payloads", () => {
+    const escape = String.fromCharCode(27);
+    const bell = String.fromCharCode(7);
+    const c1 = (code) => String.fromCharCode(code);
+    const st = `${escape}\\`;
+    const fixtures = [
+      `before${escape}P1;2|dcs payload${st}after`,
+      `before${escape}_apc payload${st}after`,
+      `before${escape}^pm payload${st}after`,
+      `before${escape}Xsos payload${st}after`,
+      `before${escape}]0;osc payload${bell}after`,
+      `before${escape}]0;osc payload${st}after`,
+      `before${c1(144)}dcs payload${c1(156)}after`,
+      `before${c1(152)}sos payload${c1(156)}after`,
+      `before${c1(157)}0;c1 osc payload${c1(156)}after`,
+      `before${c1(157)}0;c1 osc payload${bell}after`,
+      `before${c1(158)}pm payload${c1(156)}after`,
+      `before${c1(159)}apc payload${c1(156)}after`
+    ];
+
+    expect(fixtures.map(sanitizeExtensionText)).toEqual(fixtures.map(() => "beforeafter"));
+    expect(sanitizeExtensionText("beforeλ🙂after")).toBe("beforeλ🙂after");
+  });
+
   it("keeps independently updated status children stable with sanitized display keys", () => {
     const container = new FakeElement();
     const elements = new Map();

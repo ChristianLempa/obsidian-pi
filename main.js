@@ -3157,6 +3157,9 @@ var import_node_timers = require("node:timers");
 // src/pi/extension-ui.mjs
 var import_node_util = require("node:util");
 var DIALOG_METHODS = /* @__PURE__ */ new Set(["select", "confirm", "input", "editor"]);
+var TERMINAL_STRING_CONTROLS =
+  // eslint-disable-next-line no-control-regex -- Match terminal string-control delimiters.
+  /(?:(?:\u001b\]|\u009d)[\s\S]*?(?:\u0007|\u009c|\u001b\\)|(?:\u001b[PX^_]|[\u0090\u0098\u009e\u009f])[\s\S]*?(?:\u009c|\u001b\\))/g;
 var CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 var FIRE_AND_FORGET_METHODS = /* @__PURE__ */ new Set([
   "notify",
@@ -3217,10 +3220,9 @@ function isExtensionUiMethod(method) {
   return DIALOG_METHODS.has(method) || FIRE_AND_FORGET_METHODS.has(method);
 }
 function sanitizeExtensionText(value) {
-  return (0, import_node_util.stripVTControlCharacters)(String(value ?? "")).replace(
-    CONTROL_CHARACTERS,
-    ""
-  );
+  return (0, import_node_util.stripVTControlCharacters)(
+    String(value ?? "").replace(TERMINAL_STRING_CONTROLS, "")
+  ).replace(CONTROL_CHARACTERS, "");
 }
 function renderExtensionStatuses(container, elements, statuses, visible) {
   if (!container) return;

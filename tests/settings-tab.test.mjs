@@ -75,7 +75,7 @@ describe("Pi agent settings tab API compatibility", () => {
     expect(items.every((item) => typeof item.render === "function")).toBe(true);
   });
 
-  it("persists the extension status toggle without using the service-restarting save path", async () => {
+  it("delegates extension status toggle changes to the plugin", async () => {
     const tab = createTab();
     let onChange;
     const toggle = {

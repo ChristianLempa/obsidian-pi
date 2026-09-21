@@ -1,8 +1,12 @@
 import { stripVTControlCharacters } from "node:util";
 
 const DIALOG_METHODS = new Set(["select", "confirm", "input", "editor"]);
-// stripVTControlCharacters handles terminal escape sequences; this removes the
-// remaining C0/C1 controls before extension-owned text reaches a GUI surface.
+// String controls carry arbitrary payloads that Node's ANSI helper may leave behind.
+const TERMINAL_STRING_CONTROLS =
+  // eslint-disable-next-line no-control-regex -- Match terminal string-control delimiters.
+  /(?:(?:\u001b\]|\u009d)[\s\S]*?(?:\u0007|\u009c|\u001b\\)|(?:\u001b[PX^_]|[\u0090\u0098\u009e\u009f])[\s\S]*?(?:\u009c|\u001b\\))/g;
+// stripVTControlCharacters handles the remaining terminal escape sequences; this
+// removes residual C0/C1 controls before extension text reaches a GUI surface.
 // eslint-disable-next-line no-control-regex -- Remove non-printing C0/C1 characters.
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 const FIRE_AND_FORGET_METHODS = new Set([
@@ -77,7 +81,9 @@ export function isExtensionUiMethod(method) {
 }
 
 export function sanitizeExtensionText(value) {
-  return stripVTControlCharacters(String(value ?? "")).replace(CONTROL_CHARACTERS, "");
+  return stripVTControlCharacters(
+    String(value ?? "").replace(TERMINAL_STRING_CONTROLS, "")
+  ).replace(CONTROL_CHARACTERS, "");
 }
 
 export function renderExtensionStatuses(container, elements, statuses, visible) {
