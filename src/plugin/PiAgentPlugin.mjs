@@ -8,7 +8,11 @@ import { normalizeSkillFolderList } from "../context/skills.mjs";
 import { VaultGraph } from "../context/vault-graph.mjs";
 import { checkPiInstallation, warmupPiCli } from "../pi/health.mjs";
 import { PiCommandCatalog } from "../pi/command-catalog.mjs";
-import { createExtensionUiHandler } from "../pi/extension-ui.mjs";
+import {
+  createExtensionUiHandler,
+  renderExtensionStatuses,
+  sanitizeExtensionText
+} from "../pi/extension-ui.mjs";
 import { PiModelCatalog } from "../pi/model-catalog.mjs";
 import { getCompactInstructions, PiRunner } from "../pi/runner.mjs";
 import { CUSTOM_MODEL_VALUE as b, DEFAULT_SETTINGS as H, normalizeSettings } from "./settings.mjs";
@@ -133,6 +137,7 @@ export class PiAgentPlugin extends P.Plugin {
     this.commandCatalogLoaded = false;
     this.commandCatalogRefreshPromise = undefined;
     this.extensionStatuses = new Map();
+    this.extensionStatusElements = new Map();
     this.extensionWidgets = new Map();
     this.extensionTitle = "";
     this.localPromptQueue = [];
@@ -157,6 +162,8 @@ export class PiAgentPlugin extends P.Plugin {
 
     (0, P.addIcon)(I, O);
     this.extensionStatusEl = this.addStatusBarItem();
+    this.extensionStatusEl.addClass("pi-agent-extension-statuses");
+    this.renderExtensionStatuses();
     this.rebuildServices();
     this.annotationController = new MarkdownAnnotationsController(this);
     this.annotationController.start();
@@ -721,23 +728,36 @@ export class PiAgentPlugin extends P.Plugin {
   }
   setExtensionStatus(key, text) {
     const statusKey = String(key || "extension");
-    if (text === undefined || text === null || text === "")
-      this.extensionStatuses.delete(statusKey);
-    else this.extensionStatuses.set(statusKey, String(text));
-    this.extensionStatusEl?.setText([...this.extensionStatuses.values()].join(" · "));
+    const statusText = sanitizeExtensionText(text);
+    if (!statusText) this.extensionStatuses.delete(statusKey);
+    else this.extensionStatuses.set(statusKey, statusText);
+    this.renderExtensionStatuses();
+  }
+  renderExtensionStatuses() {
+    renderExtensionStatuses(
+      this.extensionStatusEl,
+      this.extensionStatusElements,
+      this.extensionStatuses,
+      this.settings.showExtensionStatus
+    );
+  }
+  async setShowExtensionStatus(value) {
+    this.settings.showExtensionStatus = value;
+    this.renderExtensionStatuses();
+    await this.savePluginData();
   }
   setExtensionWidget(key, lines, placement = "aboveEditor") {
     const widgetKey = String(key || "extension");
     if (!Array.isArray(lines)) this.extensionWidgets.delete(widgetKey);
     else
       this.extensionWidgets.set(widgetKey, {
-        lines: lines.map(String),
+        lines: lines.map(sanitizeExtensionText),
         placement: placement === "belowEditor" ? "belowEditor" : "aboveEditor"
       });
     this.refreshExtensionUiViews();
   }
   setExtensionTitle(title) {
-    this.extensionTitle = String(title || "");
+    this.extensionTitle = sanitizeExtensionText(title);
     this.refreshExtensionUiViews();
   }
   setExtensionEditorText(text) {

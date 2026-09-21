@@ -1,4 +1,10 @@
+import { stripVTControlCharacters } from "node:util";
+
 const DIALOG_METHODS = new Set(["select", "confirm", "input", "editor"]);
+// stripVTControlCharacters handles terminal escape sequences; this removes the
+// remaining C0/C1 controls before extension-owned text reaches a GUI surface.
+// eslint-disable-next-line no-control-regex -- Remove non-printing C0/C1 characters.
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 const FIRE_AND_FORGET_METHODS = new Set([
   "notify",
   "setStatus",
@@ -68,4 +74,31 @@ export function isExtensionUiDialog(method) {
 
 export function isExtensionUiMethod(method) {
   return DIALOG_METHODS.has(method) || FIRE_AND_FORGET_METHODS.has(method);
+}
+
+export function sanitizeExtensionText(value) {
+  return stripVTControlCharacters(String(value ?? "")).replace(CONTROL_CHARACTERS, "");
+}
+
+export function renderExtensionStatuses(container, elements, statuses, visible) {
+  if (!container) return;
+  container.hidden = !visible || statuses.size === 0;
+
+  for (const [key, element] of elements) {
+    if (statuses.has(key)) continue;
+    element.remove();
+    elements.delete(key);
+  }
+
+  for (const [key, text] of statuses) {
+    let element = elements.get(key);
+    if (!element) {
+      element = container.createSpan({ cls: "pi-agent-extension-status" });
+      elements.set(key, element);
+    }
+    const label = `${sanitizeExtensionText(key) || "extension"}: ${sanitizeExtensionText(text)}`;
+    if (element.textContent !== label) element.setText(label);
+    element.setAttr("title", label);
+    element.setAttr("aria-label", label);
+  }
 }

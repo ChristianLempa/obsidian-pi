@@ -34,7 +34,10 @@ const { PiAgentSettingTab } = await import("../src/plugin/settings-tab.mjs");
 function createTab() {
   return new PiAgentSettingTab(
     { vault: { configDir: ".config" } },
-    { settings: { ignoredFolders: [".git"] } }
+    {
+      settings: { ignoredFolders: [".git"], showExtensionStatus: true },
+      setShowExtensionStatus: vi.fn()
+    }
   );
 }
 
@@ -60,6 +63,7 @@ describe("Pi agent settings tab API compatibility", () => {
       "Thinking level",
       "Tool mode",
       "Desktop completion notifications",
+      "Show extension status",
       "Custom instructions",
       "Custom model slug",
       "Pi executable path",
@@ -71,13 +75,31 @@ describe("Pi agent settings tab API compatibility", () => {
     expect(items.every((item) => typeof item.render === "function")).toBe(true);
   });
 
+  it("persists the extension status toggle without using the service-restarting save path", async () => {
+    const tab = createTab();
+    let onChange;
+    const toggle = {
+      setValue: vi.fn(() => toggle),
+      onChange: vi.fn((callback) => {
+        onChange = callback;
+        return toggle;
+      })
+    };
+
+    tab.getExtensionStatusDefinition().render({ addToggle: (callback) => callback(toggle) });
+    await onChange(false);
+
+    expect(toggle.setValue).toHaveBeenCalledWith(true);
+    expect(tab.plugin.setShowExtensionStatus).toHaveBeenCalledWith(false);
+  });
+
   it("keeps legacy display rendering while routing 1.13 refreshes through update", () => {
     const tab = createTab();
     tab.renderLegacyDefinition = vi.fn();
 
     tab.display();
     expect(tab.containerEl.empty).toHaveBeenCalledOnce();
-    expect(tab.renderLegacyDefinition).toHaveBeenCalledTimes(11);
+    expect(tab.renderLegacyDefinition).toHaveBeenCalledTimes(12);
 
     tab.containerEl.empty.mockClear();
     tab.update = vi.fn();

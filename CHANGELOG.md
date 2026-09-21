@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Sanitized Pi extension status, widget, and title text; kept extension status in one bounded row with independently truncated, accessible per-extension entries; and added a persisted **Show extension status** toggle that applies without restarting RPC. (#83)
+
 ## 0.0.13
 
 - Fixed model switching and Pi-default startup failures by resolving one concrete startup model, passing it to Pi exactly once, and removing the redundant RPC model change and unreliable authentication preflight.

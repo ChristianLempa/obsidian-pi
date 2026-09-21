@@ -341,14 +341,13 @@ export class PiAgentView extends f.ItemView {
   renderExtensionWidgets() {
     this.extensionWidgetsAboveEl?.empty();
     this.extensionWidgetsBelowEl?.empty();
-    for (const [key, widget] of this.plugin.extensionWidgets ?? []) {
+    for (const widget of (this.plugin.extensionWidgets ?? new Map()).values()) {
       const target =
         widget.placement === "belowEditor"
           ? this.extensionWidgetsBelowEl
           : this.extensionWidgetsAboveEl;
       if (!target) continue;
       const widgetEl = target.createDiv({ cls: "pi-agent-extension-widget" });
-      widgetEl.setAttr("data-widget-key", key);
       for (const line of widget.lines) widgetEl.createDiv({ text: line });
     }
   }
