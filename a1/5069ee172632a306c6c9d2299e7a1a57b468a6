@@ -1,0 +1,48 @@
+tests/annotation-processing.test.mjs
+  s_6355478b819efe::t_93cd601f57432b 52
+  s_6355478b819efe::t_bdf895456b2cf4 43,45,47-51
+  s_6355478b819efe::t_5439d65c8bf04a 44
+tests/context-badges-annotation-dialog.test.mjs
+  s_6355478b819efe::t_24a3e11b2ffcfe 66,68-69
+styles.css
+  s_3b34162390acd9::t_cfa43c247b36a3 1469,1491
+  s_6355478b819efe::t_67986d1540e885 1247,1312-1313,1470-1474
+  s_b3d65b86d2af53::t_b33141c5121f57 1314-1315
+  s_6355478b819efe::t_a58a393d899fbc 1301-1309,1316-1317
+AGENTS.md
+  s_6355478b819efe::t_02847b36cd62f3 1-113
+CHANGELOG.md
+  s_6355478b819efe::t_77d7e84565effc 5-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a15069ee172632a306c6c9d2299e7a1a57b468a6",
+  "prompts": {},
+  "sessions": {
+    "s_3b34162390acd9": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fe7-9cbc-79da-8a51-6b3528297642",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    },
+    "s_6355478b819efe": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0c389-9ea0-7247-a8e9-1de2a851b486",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    },
+    "s_b3d65b86d2af53": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f6fd1-f87a-786c-a982-fac22b6a8278",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
