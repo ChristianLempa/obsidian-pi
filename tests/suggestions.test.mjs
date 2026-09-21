@@ -78,7 +78,7 @@ describe("ComposerSuggestions", () => {
     );
   });
 
-  it("loads Pi commands when slash suggestions first open", async () => {
+  it("loads Pi commands without resetting keyboard selection", async () => {
     const input = createInput("/");
     const plugin = createPlugin();
     let commands = [];
@@ -96,6 +96,8 @@ describe("ComposerSuggestions", () => {
 
     expect(suggestions.suggestions).toContainEqual(expect.objectContaining({ label: "/current" }));
     expect(plugin.refreshCommandCatalog).toHaveBeenCalledTimes(1);
+    suggestions.suggestEl = { remove() {} };
+    suggestions.handleKeydown({ key: "ArrowDown", preventDefault() {} });
     commands = [
       {
         command: "/skill:discovered",
@@ -111,29 +113,42 @@ describe("ComposerSuggestions", () => {
     expect(suggestions.suggestions).toContainEqual(
       expect.objectContaining({ label: "/skill:discovered" })
     );
-    expect(suggestions.render).toHaveBeenCalledTimes(2);
+    expect(suggestions.suggestions[suggestions.selectedSuggestionIndex].label).toBe("/backlinks");
+    suggestions.handleKeydown({ key: "Enter", preventDefault() {} });
+    expect(input.value).toBe("/backlinks ");
   });
 
-  it("does not reopen dismissed slash suggestions after discovery", async () => {
-    const input = createInput("/");
+  it("cancels pending discovery on Escape with no visible matches", async () => {
+    const input = createInput("/missing");
     const plugin = createPlugin();
+    let commands = [];
     let resolveRefresh;
     const refreshPromise = new Promise((resolve) => {
       resolveRefresh = resolve;
     });
     plugin.commandCatalogLoaded = false;
+    plugin.getPiCommands = () => commands;
     plugin.refreshCommandCatalog = () => refreshPromise;
     const suggestions = new ComposerSuggestions(input, plugin, () => {});
     suggestions.render = vi.fn();
 
     suggestions.update();
-    suggestions.close();
+    const preventDefault = vi.fn();
+    expect(suggestions.handleKeydown({ key: "Escape", preventDefault })).toBe(true);
+    expect(preventDefault).toHaveBeenCalled();
+    commands = [
+      {
+        command: "/missing-command",
+        detail: "Discovered by Pi",
+        insertText: "/missing-command "
+      }
+    ];
     plugin.commandCatalogLoaded = true;
     resolveRefresh();
     await refreshPromise;
     await Promise.resolve();
 
-    expect(suggestions.render).toHaveBeenCalledTimes(1);
+    expect(suggestions.render).not.toHaveBeenCalled();
     expect(suggestions.suggestions).toEqual([]);
   });
 

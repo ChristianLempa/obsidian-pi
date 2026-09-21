@@ -7722,7 +7722,7 @@ var ComposerSuggestions = class {
     this.suggestions = [];
     this.selectedSuggestionIndex = 0;
   }
-  update() {
+  update(selectedInsertText) {
     const match = this.getActiveSuggestMatch();
     if (!match) {
       this.close();
@@ -7730,7 +7730,10 @@ var ComposerSuggestions = class {
     }
     this.activeSuggestRange = { start: match.start, end: match.end };
     this.suggestions = this.getSuggestions(match.trigger, match.query).slice(0, 16);
-    this.selectedSuggestionIndex = 0;
+    this.selectedSuggestionIndex = Math.max(
+      0,
+      this.suggestions.findIndex((suggestion) => suggestion.insertText === selectedInsertText)
+    );
     if (this.suggestions.length === 0) this.close();
     else this.render();
     if (match.trigger === "/" && !this.plugin.commandCatalogLoaded) {
@@ -7750,12 +7753,17 @@ var ComposerSuggestions = class {
             activeMatch?.trigger === match.trigger &&
             activeMatch.query === match.query
           )
-            this.update();
+            this.update(this.suggestions[this.selectedSuggestionIndex]?.insertText);
         })
         .catch(() => {});
     }
   }
   handleKeydown(event) {
+    if (event.key === "Escape" && (this.suggestEl || this.commandRefresh)) {
+      event.preventDefault();
+      this.close();
+      return true;
+    }
     if (!this.suggestEl || this.suggestions.length === 0) return false;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -7773,11 +7781,6 @@ var ComposerSuggestions = class {
     if (event.key === "Enter" || event.key === "Tab") {
       event.preventDefault();
       this.apply(this.selectedSuggestionIndex);
-      return true;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      this.close();
       return true;
     }
     return false;
