@@ -63,7 +63,9 @@ describe("compact annotation controls", () => {
     expect(modalSource).toContain('this.contextEl.setAttr("aria-describedby", errorId)');
     expect(modalSource).toContain('this.contextEl?.setAttr("aria-invalid", "true")');
     expect(styles).toMatch(
-      /\.pi-agent-annotation-intent:has\(input:checked\)[\s\S]*?background: var\(--interactive-accent\);/
+      /\.pi-agent-annotation-intent input:checked \+ span[\s\S]*?background: var\(--interactive-accent\);/
     );
+    expect(styles).toContain(".pi-agent-annotation-intent input:focus-visible + span");
+    expect(styles).not.toContain(":has(");
   });
 });
