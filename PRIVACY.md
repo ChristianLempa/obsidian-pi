@@ -38,7 +38,7 @@ Obsidian Sync, third-party sync tools, backups, or copying the vault may sync or
 
 ## File and shell access
 
-The plugin asks Pi RPC to discover extension commands, prompt templates, and skills when slash autocomplete is first opened. Pi remains responsible for loading these resources and applying its project-trust decisions; the plugin does not independently read project prompt or skill files for command discovery or expansion. Optional absolute or vault-contained relative skill paths that you explicitly configure are passed to Pi as trusted additional skill paths.
+The plugin asks Pi RPC to discover extensions and their commands, prompt templates, and skills when the plugin starts. Pi remains responsible for loading these resources and applying its project-trust decisions; the plugin does not independently read project prompt or skill files for command discovery or expansion. Optional absolute or vault-contained relative skill paths that you explicitly configure are passed to Pi as trusted additional skill paths.
 
 Tool modes control which Pi CLI tools are enabled:
 

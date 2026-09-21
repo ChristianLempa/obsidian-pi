@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Discover Pi extension, prompt-template, and skill commands on the first slash autocomplete interaction while keeping built-in suggestions immediate and preventing stale discovery from reopening or replacing the active picker. (#80)
+- Discover Pi extensions, prompt templates, skills, and their commands when the plugin starts, while keeping slash suggestions responsive and preventing stale discovery from reopening or replacing the active picker. (#80)
 
 ## 0.0.13
 

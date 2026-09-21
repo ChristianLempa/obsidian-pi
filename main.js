@@ -10137,6 +10137,7 @@ var PiAgentPlugin = class extends P.Plugin {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
     this.refreshCurrentContextFile();
+    void this.refreshCommandCatalog(false);
     this.registerEvent(
       this.app.workspace.on("file-open", (e) => {
         this.setCurrentContextFile(e);

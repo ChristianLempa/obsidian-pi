@@ -165,9 +165,10 @@ export class PiAgentPlugin extends P.Plugin {
       warmupPiCli(this.settings.piExecutablePath, this.getPluginDirectory());
     }
 
-    // Runtime catalogs are loaded on demand by their pickers. Agent runs use
-    // Pi directly and must not depend on background discovery processes.
     this.refreshCurrentContextFile();
+    // Start Pi extensions and populate skills, prompts, and extension commands
+    // without waiting for the first slash autocomplete interaction.
+    void this.refreshCommandCatalog(false);
 
     this.registerEvent(
       this.app.workspace.on("file-open", (e) => {
