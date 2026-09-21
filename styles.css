@@ -128,9 +128,9 @@
   align-items: center;
   display: flex;
   flex: 1 1 auto;
+  flex-wrap: wrap;
   gap: 2px;
   min-width: 0;
-  overflow: hidden;
 }
 
 .pi-agent-view button.pi-agent-run-setting {
@@ -142,9 +142,10 @@
   color: var(--text-normal);
   gap: 4px;
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   height: 28px;
   justify-content: center;
+  min-width: 0;
   padding: 0 4px;
   width: auto;
 }
@@ -208,6 +209,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pi-agent-run-settings .pi-agent-control-label {
+  min-width: 0;
 }
 
 .pi-agent-messages {
@@ -524,49 +529,13 @@
 .pi-agent-composer-bar {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
 }
 
 .pi-agent-composer-bar.is-compact {
   gap: 3px;
-}
-
-.pi-agent-composer-bar.is-compact .pi-agent-run-setting {
-  gap: 0;
-  padding: 0;
-  width: 28px;
-}
-
-.pi-agent-composer-bar.is-compact .pi-agent-run-setting .pi-agent-control-label {
-  display: none;
-}
-
-.pi-agent-composer-bar.is-compact.is-expanded {
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-
-.pi-agent-composer-bar.is-compact.is-expanded .pi-agent-run-settings {
-  display: flex;
-  flex: 1 0 100%;
-  order: 10;
-}
-
-.pi-agent-composer-bar.is-compact.is-expanded .pi-agent-run-setting {
-  flex: 1 1 0;
-  gap: 4px;
-  min-width: 0;
-  padding: 0 4px;
-  width: auto;
-}
-
-.pi-agent-composer-bar.is-compact.is-expanded .pi-agent-run-setting .pi-agent-control-label {
-  display: inline;
-}
-
-.pi-agent-composer-bar.is-narrow:not(.is-expanded) .pi-agent-run-settings {
-  display: flex;
 }
 
 .pi-agent-composer-bar.is-narrow .pi-agent-send-button {

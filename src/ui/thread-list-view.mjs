@@ -21,7 +21,6 @@ export function renderThreadList() {
   this.inputEl = void 0;
   this.sendButtonEl = void 0;
   this.composerBarEl = void 0;
-  this.composerBarExpandEl = void 0;
   this.runSettings = void 0;
   this.toolBadgesEl = void 0;
   this.threadTitleEl = void 0;

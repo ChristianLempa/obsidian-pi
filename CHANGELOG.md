@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Kept the current model and thinking labels visible in compact composers, with wrapping and ellipsis for narrow sidebars. (#82)
+
 ## 0.0.13
 
 - Fixed model switching and Pi-default startup failures by resolving one concrete startup model, passing it to Pi exactly once, and removing the redundant RPC model change and unreliable authentication preflight.
