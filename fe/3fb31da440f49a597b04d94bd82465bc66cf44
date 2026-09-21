@@ -1,0 +1,23 @@
+src/ui/PiAgentView.mjs
+  h_a76f7f9e4a30d6 625-626
+CHANGELOG.md
+  h_a76f7f9e4a30d6 5-6
+styles.css
+  h_a76f7f9e4a30d6 131,145,148,214-217,532
+tests/composer-run-settings.test.mjs
+  h_a76f7f9e4a30d6 1-46,51-71
+  h_a76f7f9e4a30d6 47-50
+main.js
+  h_a76f7f9e4a30d6 8647-8648
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fe3fb31da440f49a597b04d94bd82465bc66cf44",
+  "prompts": {},
+  "humans": {
+    "h_a76f7f9e4a30d6": {
+      "author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
