@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Discover Pi extensions, prompt templates, skills, and their commands when the plugin starts, while keeping slash suggestions responsive and preventing stale discovery from reopening or replacing the active picker. (#80)
+- Kept the current model and thinking labels visible in compact composers, with wrapping and ellipsis for narrow sidebars. (#82)
 
 ## 0.0.13
 

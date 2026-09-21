@@ -43,7 +43,6 @@ export class PiAgentView extends f.ItemView {
     this.plugin = t;
     this.running = !1;
     this.canceling = !1;
-    this.composerBarExpanded = !1;
     this.activityText = "Thinking";
     this.activityKind = "thinking";
     this.activityDetail = "";
@@ -324,7 +323,6 @@ export class PiAgentView extends f.ItemView {
     this.imageInputEl = void 0;
     this.sendButtonEl = void 0;
     this.composerBarEl = void 0;
-    this.composerBarExpandEl = void 0;
     this.runSettings = void 0;
     this.toolBadgesEl = void 0;
     this.threadTitleEl = void 0;
@@ -624,22 +622,8 @@ export class PiAgentView extends f.ItemView {
   updateComposerBarMode(e) {
     let t = this.composerBarEl;
     if (!t) return;
-    let n = e < 560,
-      s = e < 390;
-    if (!n && this.composerBarExpanded) this.composerBarExpanded = !1;
-    t.toggleClass("is-compact", n);
-    t.toggleClass("is-narrow", s);
-    this.updateComposerBarExpansion();
-  }
-  updateComposerBarExpansion() {
-    let e = this.composerBarEl,
-      t = this.composerBarExpandEl;
-    if (!e || !t) return;
-    let n = this.composerBarExpanded && e.hasClass("is-compact");
-    e.toggleClass("is-expanded", n);
-    t.setAttr("aria-label", n ? "Collapse run options" : "Expand run options");
-    t.setAttr("title", n ? "Collapse run options" : "Expand run options");
-    (0, f.setIcon)(t, n ? "chevrons-right" : "chevrons-left");
+    t.toggleClass("is-compact", e < 560);
+    t.toggleClass("is-narrow", e < 390);
   }
   renderImagePicker(parent) {
     const button = parent.createEl("button", {
