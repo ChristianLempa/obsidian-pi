@@ -1,0 +1,26 @@
+CHANGELOG.md
+  h_a76f7f9e4a30d6 5-6
+main.js
+  h_a76f7f9e4a30d6 2454-2465,8269,10113,10697,10772,11080-11088
+src/context/editor-selection.mjs
+  h_a76f7f9e4a30d6 1-12
+src/plugin/PiAgentPlugin.mjs
+  h_a76f7f9e4a30d6 6,147,760,835,1144-1152
+src/ui/PiAgentView.mjs
+  h_a76f7f9e4a30d6 235
+tests/context-builder.test.mjs
+  h_a76f7f9e4a30d6 79,100-111
+tests/editor-selection.test.mjs
+  h_a76f7f9e4a30d6 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8a1cf3ec4231e7b2de5af07a7ac68da8e6bf2041",
+  "prompts": {},
+  "humans": {
+    "h_a76f7f9e4a30d6": {
+      "author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
