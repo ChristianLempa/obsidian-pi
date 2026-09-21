@@ -1,0 +1,27 @@
+CHANGELOG.md
+  s_6355478b819efe::t_50d98a2fd132fa 6
+main.js
+  s_6355478b819efe::t_fd0e8adc8afdf5 8669-8670
+src/ui/PiAgentView.mjs
+  s_6355478b819efe::t_257e11483c93f2 625-626
+styles.css
+  s_6355478b819efe::t_837d50fa3d5f8f 131,145,148,214-217,532
+tests/composer-run-settings.test.mjs
+  s_6355478b819efe::t_beadd4b68a27f9 1-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0fe8ba9cb2bd3276c18b2ca4d2d2c54becfbe648",
+  "prompts": {},
+  "sessions": {
+    "s_6355478b819efe": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0c389-9ea0-7247-a8e9-1de2a851b486",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
