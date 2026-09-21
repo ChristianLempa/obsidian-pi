@@ -1,0 +1,22 @@
+AGENTS.md
+  s_6355478b819efe::t_6118493dccb313 80-83
+  s_6355478b819efe::t_52f8cc31e63781 77-79
+  s_6355478b819efe::t_917607d555b5bb 84-86
+  s_6355478b819efe::t_6bd6cc31cc40e3 1-76,87-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a1a797eb387d0f87e2897c1c24c842c98c6e3cd6",
+  "prompts": {},
+  "sessions": {
+    "s_6355478b819efe": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0c389-9ea0-7247-a8e9-1de2a851b486",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
