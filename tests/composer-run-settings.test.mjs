@@ -55,13 +55,13 @@ describe("compact composer run settings", () => {
   });
 
   it("keeps compact labels visible while run settings can wrap, shrink, and ellipsize", () => {
-    expect(styles).toMatch(/\.pi-agent-run-settings \{[\s\S]*?flex-wrap: wrap;/);
+    expect(styles).toMatch(/\.pi-agent-run-settings \{[^}]*flex-wrap: wrap;/);
     expect(styles).toMatch(
-      /button\.pi-agent-run-setting \{[\s\S]*?flex: 0 1 auto;[\s\S]*?min-width: 0;/
+      /button\.pi-agent-run-setting \{[^}]*flex: 0 1 auto;[^}]*min-width: 0;/
     );
-    expect(styles).toMatch(/\.pi-agent-composer-bar \{[\s\S]*?flex-wrap: wrap;/);
+    expect(styles).toMatch(/\.pi-agent-composer-bar \{[^}]*flex-wrap: wrap;/);
     expect(styles).toMatch(
-      /\.pi-agent-control-label \{[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/
+      /\.pi-agent-control-label \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;/
     );
     expect(styles).not.toMatch(
       /\.pi-agent-composer-bar\.is-compact[^{]*\.pi-agent-control-label\s*\{[^}]*display:\s*none/
