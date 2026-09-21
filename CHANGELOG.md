@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Discover Pi extension, prompt-template, and skill commands on the first slash autocomplete interaction while keeping built-in suggestions immediate and preventing stale discovery from reopening or replacing the active picker. (#80)
+
 ## 0.0.13
 
 - Fixed model switching and Pi-default startup failures by resolving one concrete startup model, passing it to Pi exactly once, and removing the redundant RPC model change and unreliable authentication preflight.

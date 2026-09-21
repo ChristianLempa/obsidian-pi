@@ -20,12 +20,30 @@ export class ComposerSuggestions {
     this.suggestions = this.getSuggestions(match.trigger, match.query).slice(0, 16);
     this.selectedSuggestionIndex = 0;
 
-    if (this.suggestions.length === 0) {
-      this.close();
-      return;
-    }
+    if (this.suggestions.length === 0) this.close();
+    else this.render();
 
-    this.render();
+    if (match.trigger === "/" && !this.plugin.commandCatalogLoaded) {
+      const value = this.inputEl.value;
+      const cursor = this.inputEl.selectionStart;
+      const refreshPromise = this.plugin.refreshCommandCatalog?.();
+      if (!refreshPromise) return;
+      this.commandRefresh = refreshPromise;
+      void refreshPromise
+        .then(() => {
+          const activeMatch = this.getActiveSuggestMatch();
+          if (
+            this.commandRefresh === refreshPromise &&
+            this.plugin.commandCatalogLoaded &&
+            this.inputEl.value === value &&
+            this.inputEl.selectionStart === cursor &&
+            activeMatch?.trigger === match.trigger &&
+            activeMatch.query === match.query
+          )
+            this.update();
+        })
+        .catch(() => {});
+    }
   }
 
   handleKeydown(event) {
@@ -62,6 +80,7 @@ export class ComposerSuggestions {
   }
 
   close() {
+    this.commandRefresh = undefined;
     this.suggestEl?.remove();
     this.suggestEl = undefined;
     this.suggestions = [];

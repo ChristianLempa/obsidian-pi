@@ -62,7 +62,7 @@ Short version:
 - The plugin does not include ads, telemetry, or an auto-updater.
 - Complete chat history is stored as JSON in the plugin directory with checksummed current/previous backups; Pi runtime JSONL sessions remain separate.
 - Network access happens through the separately installed Pi CLI and depends on your Pi/model-provider configuration.
-- Pi discovers project/global extensions, prompt templates, and skills through RPC and applies its own project-trust rules. The plugin passes any explicitly configured absolute or vault-contained skill paths to Pi.
+- When `/` autocomplete is first opened, Pi discovers project/global extensions, prompt templates, and skills through RPC and applies its own project-trust rules. The plugin passes any explicitly configured absolute or vault-contained skill paths to Pi.
 - Edit and Full agent modes can modify files in your vault/project.
 - Full agent mode enables Pi's complete tool set, including extension/custom tools and shell commands.
 - Skills can contain instructions or scripts; only enable skill folders you trust.

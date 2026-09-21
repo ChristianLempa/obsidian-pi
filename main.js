@@ -7731,11 +7731,29 @@ var ComposerSuggestions = class {
     this.activeSuggestRange = { start: match.start, end: match.end };
     this.suggestions = this.getSuggestions(match.trigger, match.query).slice(0, 16);
     this.selectedSuggestionIndex = 0;
-    if (this.suggestions.length === 0) {
-      this.close();
-      return;
+    if (this.suggestions.length === 0) this.close();
+    else this.render();
+    if (match.trigger === "/" && !this.plugin.commandCatalogLoaded) {
+      const value = this.inputEl.value;
+      const cursor = this.inputEl.selectionStart;
+      const refreshPromise = this.plugin.refreshCommandCatalog?.();
+      if (!refreshPromise) return;
+      this.commandRefresh = refreshPromise;
+      void refreshPromise
+        .then(() => {
+          const activeMatch = this.getActiveSuggestMatch();
+          if (
+            this.commandRefresh === refreshPromise &&
+            this.plugin.commandCatalogLoaded &&
+            this.inputEl.value === value &&
+            this.inputEl.selectionStart === cursor &&
+            activeMatch?.trigger === match.trigger &&
+            activeMatch.query === match.query
+          )
+            this.update();
+        })
+        .catch(() => {});
     }
-    this.render();
   }
   handleKeydown(event) {
     if (!this.suggestEl || this.suggestions.length === 0) return false;
@@ -7765,6 +7783,7 @@ var ComposerSuggestions = class {
     return false;
   }
   close() {
+    this.commandRefresh = void 0;
     this.suggestEl?.remove();
     this.suggestEl = void 0;
     this.suggestions = [];
@@ -10406,9 +10425,12 @@ var PiAgentPlugin = class extends P.Plugin {
   async refreshCommandCatalog(showNotice = false) {
     if (this.commandCatalogRefreshPromise) return this.commandCatalogRefreshPromise;
     this.commandCatalog || this.rebuildServices();
-    this.commandCatalogRefreshPromise = (async () => {
+    const catalog = this.commandCatalog;
+    const refreshPromise = (async () => {
       try {
-        this.piCommands = (await this.commandCatalog?.getCommands(this.getVaultBasePath())) ?? [];
+        const commands = (await catalog?.getCommands(this.getVaultBasePath())) ?? [];
+        if (this.commandCatalog !== catalog) return this.piCommands;
+        this.piCommands = commands;
         this.commandCatalogLoaded = true;
         if (showNotice) new P.Notice(`Loaded ${this.piCommands.length} Pi commands.`);
       } catch (error) {
@@ -10417,10 +10439,13 @@ var PiAgentPlugin = class extends P.Plugin {
         console.warn("Pi Agent: failed to refresh Pi commands", error);
       }
       return this.piCommands;
-    })().finally(() => {
-      this.commandCatalogRefreshPromise = void 0;
+    })();
+    const trackedPromise = refreshPromise.finally(() => {
+      if (this.commandCatalogRefreshPromise === trackedPromise)
+        this.commandCatalogRefreshPromise = void 0;
     });
-    return this.commandCatalogRefreshPromise;
+    this.commandCatalogRefreshPromise = trackedPromise;
+    return trackedPromise;
   }
   getPiCommands() {
     return this.piCommands;
@@ -10862,6 +10887,7 @@ var PiAgentPlugin = class extends P.Plugin {
     this.disposeThreadRunners();
     this.piCommands = [];
     this.commandCatalogLoaded = false;
+    this.commandCatalogRefreshPromise = void 0;
     this.graph = new VaultGraph(this.app, this.settings, () => this.getCurrentContextFile());
     this.contextBuilder = new ContextBuilder(
       this.graph,
