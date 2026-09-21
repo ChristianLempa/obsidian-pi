@@ -1,0 +1,27 @@
+CHANGELOG.md
+  s_6355478b819efe::t_577b73f6f21cd9 5-6
+versions.json
+  s_6355478b819efe::t_954faf257e27c8 14-15
+manifest.json
+  s_6355478b819efe::t_9f1e058bc94cde 4
+package.json
+  s_6355478b819efe::t_4081e6c7e5e3ac 3
+package-lock.json
+  s_6355478b819efe::t_d1a643af2a6b07 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "401993c2327451b728cfe93d187f2d721eacce70",
+  "prompts": {},
+  "sessions": {
+    "s_6355478b819efe": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0c389-9ea0-7247-a8e9-1de2a851b486",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
