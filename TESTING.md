@@ -72,6 +72,9 @@ Use disposable files only.
 - [ ] **Pending:** In an untrusted directory, confirm project resources remain unavailable until Pi trust is explicitly granted.
 - [ ] **Pending:** Review a trusted extension before enabling it; confirm its tools follow the plugin's mode policy.
 - [ ] **Pending:** Exercise extension UI `select`, `confirm`, `input`, `editor`, `notify`, `set_editor_text`, `setStatus`, and `setWidget`, including cancel/error paths.
+- [ ] **Pending:** Load four status-reporting extensions with long ANSI-styled values; at 800px and 1400px confirm Pi Agent contributes one bounded status-bar row, each sanitized key/value truncates independently, and hover plus screen-reader labels expose the full plain text.
+- [ ] **Pending:** Send ANSI and C0/C1 controls through extension status, widget lines, widget keys, and the view title; confirm no escape debris or raw widget-key attribute reaches the DOM and widget line boundaries remain intact.
+- [ ] **Pending:** Turn **Show extension status** off, update statuses while hidden, reload Obsidian, and turn it on; confirm the preference persists, the latest values return, and the active Pi RPC process was not restarted by the toggle.
 
 ## Native file attachments
 

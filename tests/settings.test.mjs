@@ -109,13 +109,15 @@ describe("plugin settings helpers", () => {
       piExecutablePath: "/custom/bin/pi",
       includeDefaultSkills: true,
       dismissedPiSetup: true,
-      desktopNotifications: true
+      desktopNotifications: true,
+      showExtensionStatus: true
     });
     expect(settings).not.toHaveProperty("maxSearchResults");
     expect(settings).not.toHaveProperty("maxSearchFiles");
     expect(settings).not.toHaveProperty("maxFileChars");
     expect(settings).not.toHaveProperty("maxChangeSnapshotFiles");
     expect(normalizeSettings({ desktopNotifications: false }).desktopNotifications).toBe(false);
+    expect(normalizeSettings({ showExtensionStatus: false }).showExtensionStatus).toBe(false);
   });
 
   it("finds custom selected model info and exposes tool modes", () => {

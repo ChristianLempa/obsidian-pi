@@ -30,6 +30,7 @@ export class PiAgentSettingTab extends PluginSettingTab {
       this.getThinkingDefinition(),
       this.getToolModeDefinition(),
       this.getDesktopNotificationsDefinition(),
+      this.getExtensionStatusDefinition(),
       this.getCustomInstructionsDefinition(),
       {
         type: "group",
@@ -210,6 +211,19 @@ export class PiAgentSettingTab extends PluginSettingTab {
             this.plugin.settings.desktopNotifications = value;
             await this.plugin.saveSettings();
           })
+        )
+    };
+  }
+
+  getExtensionStatusDefinition() {
+    return {
+      name: "Show extension status",
+      desc: "Show status messages reported by Pi extensions in Obsidian's status bar.",
+      render: (setting) =>
+        setting.addToggle((toggle) =>
+          toggle
+            .setValue(this.plugin.settings.showExtensionStatus)
+            .onChange((value) => this.plugin.setShowExtensionStatus(value))
         )
     };
   }

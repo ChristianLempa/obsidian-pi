@@ -4,6 +4,7 @@
 
 - Discover Pi extensions, prompt templates, skills, and their commands when the plugin starts, while keeping slash suggestions responsive and preventing stale discovery from reopening or replacing the active picker. (#80)
 - Kept the current model and thinking labels visible in compact composers, with wrapping and ellipsis for narrow sidebars. (#82)
+- Sanitized Pi extension status, widget, and title text; kept extension status in one bounded row with independently truncated, accessible per-extension entries; and added a persisted **Show extension status** toggle that applies without restarting RPC. (#83)
 
 ## 0.0.13
 

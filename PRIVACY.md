@@ -26,6 +26,8 @@ The opt-in compatibility smoke command starts Pi with `--offline`, disables disc
 
 When Obsidian is unfocused and the operating system has granted notification permission, the plugin can emit a generic local completion notification. Notification text does not include prompts, note content, thinking, tool arguments, or model responses. Clicking it focuses Obsidian and opens the originating local chat.
 
+Pi extensions can provide local status, widget, and view-title text through RPC. The plugin strips terminal escape sequences and control characters before displaying that text as plain text; status and widget values stay in memory and are not added to prompts or persisted. Only the **Show extension status** preference is stored.
+
 ## Local storage
 
 The plugin stores settings, complete local chat history, annotations, and unsent local follow-up queue items as plaintext JSON under `.obsidian/plugins/pi-agent/`. Chat history is kept in `data.json` and checksummed current/previous recovery backup files; it includes captured thinking text when the configured provider exposes it. These files are not encrypted by this plugin. Annotation records include note paths, quoted/source text, optional rendered-selection text, and your annotation context.

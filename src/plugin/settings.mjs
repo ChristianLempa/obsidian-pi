@@ -26,7 +26,8 @@ export const DEFAULT_SETTINGS = {
   effectiveModel: "",
   effectiveReasoning: "",
   dismissedPiSetup: false,
-  desktopNotifications: true
+  desktopNotifications: true,
+  showExtensionStatus: true
 };
 
 export function normalizeSettings(rawSettings = {}) {
@@ -60,6 +61,7 @@ export function normalizeSettings(rawSettings = {}) {
   settings.effectiveReasoning = normalizeString(settings.effectiveReasoning);
   settings.dismissedPiSetup = settings.dismissedPiSetup === true;
   settings.desktopNotifications = settings.desktopNotifications !== false;
+  settings.showExtensionStatus = settings.showExtensionStatus !== false;
 
   return settings;
 }

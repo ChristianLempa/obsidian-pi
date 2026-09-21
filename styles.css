@@ -1155,6 +1155,29 @@
   color: var(--text-normal);
 }
 
+.pi-agent-extension-statuses {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: var(--size-4-1);
+  max-width: min(60vw, 88ch);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.pi-agent-extension-statuses[hidden] {
+  display: none;
+}
+
+.pi-agent-extension-status {
+  flex: 1 1 22ch;
+  max-width: 22ch;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pi-agent-extension-widgets:empty {
   display: none;
 }

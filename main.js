@@ -1888,7 +1888,8 @@ var DEFAULT_SETTINGS = {
   effectiveModel: "",
   effectiveReasoning: "",
   dismissedPiSetup: false,
-  desktopNotifications: true
+  desktopNotifications: true,
+  showExtensionStatus: true
 };
 function normalizeSettings(rawSettings = {}) {
   const {
@@ -1920,6 +1921,7 @@ function normalizeSettings(rawSettings = {}) {
   settings.effectiveReasoning = normalizeString(settings.effectiveReasoning);
   settings.dismissedPiSetup = settings.dismissedPiSetup === true;
   settings.desktopNotifications = settings.desktopNotifications !== false;
+  settings.showExtensionStatus = settings.showExtensionStatus !== false;
   return settings;
 }
 function getReasoningOptions(settings) {
@@ -3153,7 +3155,12 @@ var import_node_string_decoder = require("node:string_decoder");
 var import_node_timers = require("node:timers");
 
 // src/pi/extension-ui.mjs
+var import_node_util = require("node:util");
 var DIALOG_METHODS = /* @__PURE__ */ new Set(["select", "confirm", "input", "editor"]);
+var TERMINAL_STRING_CONTROLS =
+  // eslint-disable-next-line no-control-regex -- Match terminal string-control delimiters.
+  /(?:(?:\u001b\]|\u009d)[\s\S]*?(?:\u0007|\u009c|\u001b\\)|(?:\u001b[PX^_]|[\u0090\u0098\u009e\u009f])[\s\S]*?(?:\u009c|\u001b\\))/g;
+var CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 var FIRE_AND_FORGET_METHODS = /* @__PURE__ */ new Set([
   "notify",
   "setStatus",
@@ -3211,6 +3218,31 @@ function isExtensionUiDialog(method) {
 }
 function isExtensionUiMethod(method) {
   return DIALOG_METHODS.has(method) || FIRE_AND_FORGET_METHODS.has(method);
+}
+function sanitizeExtensionText(value) {
+  return (0, import_node_util.stripVTControlCharacters)(
+    String(value ?? "").replace(TERMINAL_STRING_CONTROLS, "")
+  ).replace(CONTROL_CHARACTERS, "");
+}
+function renderExtensionStatuses(container, elements, statuses, visible) {
+  if (!container) return;
+  container.hidden = !visible || statuses.size === 0;
+  for (const [key, element] of elements) {
+    if (statuses.has(key)) continue;
+    element.remove();
+    elements.delete(key);
+  }
+  for (const [key, text] of statuses) {
+    let element = elements.get(key);
+    if (!element) {
+      element = container.createSpan({ cls: "pi-agent-extension-status" });
+      elements.set(key, element);
+    }
+    const label = `${sanitizeExtensionText(key) || "extension"}: ${sanitizeExtensionText(text)}`;
+    if (element.textContent !== label) element.setText(label);
+    element.setAttr("title", label);
+    element.setAttr("aria-label", label);
+  }
 }
 
 // src/pi/rpc-client.mjs
@@ -3862,9 +3894,9 @@ function findLatestAssistantMessage(messages) {
 }
 
 // src/ui/prompt-payload.mjs
-var import_node_util = require("node:util");
-var textEncoder = new import_node_util.TextEncoder();
-var textDecoder = new import_node_util.TextDecoder("utf-8");
+var import_node_util2 = require("node:util");
+var textEncoder = new import_node_util2.TextEncoder();
+var textDecoder = new import_node_util2.TextDecoder("utf-8");
 var SUPPORTED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
 var MAX_PROMPT_IMAGE_BYTES = 20 * 1024 * 1024;
 var MAX_TEXT_ATTACHMENT_BYTES = 64 * 1024;
@@ -4110,7 +4142,7 @@ function createPromptTextAttachment(
   ) {
     try {
       decodeBytes = trim === 0 ? data : data.slice(0, -trim);
-      decoded = new import_node_util.TextDecoder("utf-8", { fatal: true }).decode(decodeBytes);
+      decoded = new import_node_util2.TextDecoder("utf-8", { fatal: true }).decode(decodeBytes);
       break;
     } catch {}
   }
@@ -5242,6 +5274,7 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
       this.getThinkingDefinition(),
       this.getToolModeDefinition(),
       this.getDesktopNotificationsDefinition(),
+      this.getExtensionStatusDefinition(),
       this.getCustomInstructionsDefinition(),
       {
         type: "group",
@@ -5418,6 +5451,18 @@ var PiAgentSettingTab = class extends import_obsidian6.PluginSettingTab {
             this.plugin.settings.desktopNotifications = value;
             await this.plugin.saveSettings();
           })
+        )
+    };
+  }
+  getExtensionStatusDefinition() {
+    return {
+      name: "Show extension status",
+      desc: "Show status messages reported by Pi extensions in Obsidian's status bar.",
+      render: (setting) =>
+        setting.addToggle((toggle) =>
+          toggle
+            .setValue(this.plugin.settings.showExtensionStatus)
+            .onChange((value) => this.plugin.setShowExtensionStatus(value))
         )
     };
   }
@@ -8382,14 +8427,13 @@ var PiAgentView = class extends f4.ItemView {
   renderExtensionWidgets() {
     this.extensionWidgetsAboveEl?.empty();
     this.extensionWidgetsBelowEl?.empty();
-    for (const [key, widget] of this.plugin.extensionWidgets ?? []) {
+    for (const widget of (this.plugin.extensionWidgets ?? /* @__PURE__ */ new Map()).values()) {
       const target =
         widget.placement === "belowEditor"
           ? this.extensionWidgetsBelowEl
           : this.extensionWidgetsAboveEl;
       if (!target) continue;
       const widgetEl = target.createDiv({ cls: "pi-agent-extension-widget" });
-      widgetEl.setAttr("data-widget-key", key);
       for (const line of widget.lines) widgetEl.createDiv({ text: line });
     }
   }
@@ -10092,6 +10136,7 @@ var PiAgentPlugin = class extends P.Plugin {
     this.commandCatalogLoaded = false;
     this.commandCatalogRefreshPromise = void 0;
     this.extensionStatuses = /* @__PURE__ */ new Map();
+    this.extensionStatusElements = /* @__PURE__ */ new Map();
     this.extensionWidgets = /* @__PURE__ */ new Map();
     this.extensionTitle = "";
     this.localPromptQueue = [];
@@ -10113,6 +10158,8 @@ var PiAgentPlugin = class extends P.Plugin {
       void requestDesktopNotificationPermission().catch(() => {});
     (0, P.addIcon)(PI_AGENT_ICON_ID, PI_AGENT_ICON_SVG);
     this.extensionStatusEl = this.addStatusBarItem();
+    this.extensionStatusEl.addClass("pi-agent-extension-statuses");
+    this.renderExtensionStatuses();
     this.rebuildServices();
     this.annotationController = new MarkdownAnnotationsController(this);
     this.annotationController.start();
@@ -10658,22 +10705,36 @@ var PiAgentPlugin = class extends P.Plugin {
   }
   setExtensionStatus(key, text) {
     const statusKey = String(key || "extension");
-    if (text === void 0 || text === null || text === "") this.extensionStatuses.delete(statusKey);
-    else this.extensionStatuses.set(statusKey, String(text));
-    this.extensionStatusEl?.setText([...this.extensionStatuses.values()].join(" \xB7 "));
+    const statusText = sanitizeExtensionText(text);
+    if (!statusText) this.extensionStatuses.delete(statusKey);
+    else this.extensionStatuses.set(statusKey, statusText);
+    this.renderExtensionStatuses();
+  }
+  renderExtensionStatuses() {
+    renderExtensionStatuses(
+      this.extensionStatusEl,
+      this.extensionStatusElements,
+      this.extensionStatuses,
+      this.settings.showExtensionStatus
+    );
+  }
+  async setShowExtensionStatus(value) {
+    this.settings.showExtensionStatus = value;
+    this.renderExtensionStatuses();
+    await this.savePluginData();
   }
   setExtensionWidget(key, lines, placement = "aboveEditor") {
     const widgetKey = String(key || "extension");
     if (!Array.isArray(lines)) this.extensionWidgets.delete(widgetKey);
     else
       this.extensionWidgets.set(widgetKey, {
-        lines: lines.map(String),
+        lines: lines.map(sanitizeExtensionText),
         placement: placement === "belowEditor" ? "belowEditor" : "aboveEditor"
       });
     this.refreshExtensionUiViews();
   }
   setExtensionTitle(title) {
-    this.extensionTitle = String(title || "");
+    this.extensionTitle = sanitizeExtensionText(title);
     this.refreshExtensionUiViews();
   }
   setExtensionEditorText(text) {

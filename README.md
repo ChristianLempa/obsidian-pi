@@ -46,6 +46,7 @@ Privacy reminder: prompts, selected text, note content, search excerpts, attachm
 - Copy responses, create notes from answers, and open cited vault notes.
 - Attach change requests or questions to Markdown selections and source-backed blocks.
 - Receive a native completion notification when an agent run finishes while Obsidian is unfocused, where desktop notification permission is available.
+- Show sanitized, bounded Pi extension status in Obsidian's status bar, or hide it with **Show extension status** in settings.
 
 ### Annotations
 
