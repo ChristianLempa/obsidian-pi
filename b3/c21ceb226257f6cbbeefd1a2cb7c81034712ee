@@ -1,0 +1,47 @@
+PRIVACY.md
+  s_6355478b819efe::t_822d918cd87f2b 29-30
+README.md
+  s_6355478b819efe::t_26efd650cf2881 49
+TESTING.md
+  s_6355478b819efe::t_b84049fcdca434 75-77
+main.js
+  s_6355478b819efe::t_b153c67ba5252f 1891-1892,1924,3158,3160-3163,3222-3246,3897-3899,4145,5277,5457-5468,8430,10139,10161-10162,10707-10723,10730,10736
+src/pi/extension-ui.mjs
+  s_6355478b819efe::t_b9813ee08ef178 1-2,4-11,82-110
+src/plugin/PiAgentPlugin.mjs
+  s_6355478b819efe::t_0add01e36bf297 11-15,140,165-166,737-753,760,766
+src/plugin/settings-tab.mjs
+  s_6355478b819efe::t_ae1fdd7a352205 33,218-230
+src/plugin/settings.mjs
+  s_6355478b819efe::t_5f6e0c4733994a 29-30,64
+src/ui/PiAgentView.mjs
+  s_6355478b819efe::t_0da88a537fbe04 342
+styles.css
+  s_6355478b819efe::t_e475f351f05397 1158-1180
+tests/extension-status-plugin.test.mjs
+  s_6355478b819efe::t_0a28c6345c1962 1-58
+tests/extension-ui.test.mjs
+  s_6355478b819efe::t_c62248f3a865cf 2-35,81-150
+tests/settings-tab.test.mjs
+  s_6355478b819efe::t_795a384fb48c17 37-40,66,78-95,102
+tests/settings.test.mjs
+  s_6355478b819efe::t_011732c0cf20e2 112-113,120
+CHANGELOG.md
+  s_6355478b819efe::t_5bd03ede881687 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b3c21ceb226257f6cbbeefd1a2cb7c81034712ee",
+  "prompts": {},
+  "sessions": {
+    "s_6355478b819efe": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0c389-9ea0-7247-a8e9-1de2a851b486",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "xcad <christian.lempa@clcreative.de>"
+    }
+  }
+}
